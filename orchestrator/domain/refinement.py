@@ -31,6 +31,15 @@ _TRACKED_METRICS = (
     "total_lines",
 )
 
+#: Default minimum relative improvement a benchmark must clear to count as
+#: "improved" (E-12). A raw `after < before` would accept noise as a win;
+#: this margin is the plan's stated default (§E-12) and is not configurable
+#: per-call because the acceptance chain is a fixed, auditable pure function
+#: (plan §3.4.1) — callers that need a different margin measure it upstream
+#: (see ``bench_runner.coefficient_of_variation``) and decide whether to
+#: propose a candidate at all, rather than relaxing the accept gate.
+_BENCHMARK_NOISE_FLOOR = 0.05
+
 
 class RefinementTier(str, Enum):
     """Staged refinement tiers (plan §3.4.4)."""
@@ -72,6 +81,8 @@ class RefinementCandidate:
     rationale: str
     diff: str
     predicted_metric: str  # which MetricSnapshot field this must improve
+    payload: str = ""  # pre-generated content (e.g. LLM-proposed new source);
+    # empty for deterministic operators that need no extra data (E-11)
 
 
 @dataclass(frozen=True)
@@ -111,14 +122,30 @@ def metric_improved(before: MetricSnapshot, after: MetricSnapshot, field: str) -
     value is strictly lower than the old one would have been — which we
     cannot know, so None in either side returns False.
 
+    A field of the form ``"benchmark_ns:<name>"`` compares the named entry
+    of the ``benchmark_ns`` dict (E-12) and additionally requires the
+    improvement to clear ``_BENCHMARK_NOISE_FLOOR`` — benchmark timings are
+    noisy, so a raw ``after < before`` would accept measurement jitter as
+    a real win. Every other tracked field requires only a strict decrease.
+
     Args:
         before: Baseline snapshot.
         after: Post-candidate snapshot.
-        field: MetricSnapshot field name (must be a tracked metric).
+        field: MetricSnapshot field name (must be a tracked metric), or
+            ``"benchmark_ns:<name>"`` for a specific benchmark.
 
     Returns:
-        True iff the metric strictly decreased.
+        True iff the metric improved (beyond the noise floor, for
+        benchmarks).
     """
+    if field.startswith("benchmark_ns:"):
+        bench_name = field.split(":", 1)[1]
+        before_bench = (before.benchmark_ns or {}).get(bench_name)
+        after_bench = (after.benchmark_ns or {}).get(bench_name)
+        if before_bench is None or after_bench is None or before_bench <= 0:
+            return False
+        return float(after_bench) < float(before_bench) * (1.0 - _BENCHMARK_NOISE_FLOOR)
+
     if field not in _TRACKED_METRICS:
         raise ValueError(f"'{field}' is not a tracked refinement metric")
     before_val = getattr(before, field, None)
@@ -128,6 +155,29 @@ def metric_improved(before: MetricSnapshot, after: MetricSnapshot, field: str) -
     if isinstance(before_val, bool) or isinstance(after_val, bool):
         return False
     return float(after_val) < float(before_val)
+
+
+def coefficient_of_variation(values: tuple[float, ...]) -> float:
+    """Relative spread (stddev / mean) — an observed noise floor (E-12).
+
+    Used by the performance operator to decide whether a benchmark's own
+    run-to-run noise is low enough to trust an "improvement" against it,
+    deriving the floor from actual measurements rather than a guess.
+
+    Args:
+        values: A metric measured across independent runs.
+
+    Returns:
+        0.0 for fewer than 2 values or a non-positive mean (nothing to
+        estimate variance from); otherwise stddev/mean.
+    """
+    if len(values) < 2:
+        return 0.0
+    mean = sum(values) / len(values)
+    if mean <= 0:
+        return 0.0
+    variance = sum((v - mean) ** 2 for v in values) / len(values)
+    return (variance**0.5) / mean
 
 
 def no_metric_regressed(
@@ -162,6 +212,7 @@ __all__ = [
     "RefinementCandidate",
     "RefinementOutcome",
     "RefinementTier",
+    "coefficient_of_variation",
     "metric_improved",
     "no_metric_regressed",
 ]

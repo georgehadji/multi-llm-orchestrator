@@ -112,6 +112,14 @@ class RefinementService:
     def _max_candidates() -> int:
         return int(os.environ.get("ORCH_REFINE_MAX_CANDIDATES", "8"))
 
+    @staticmethod
+    def _performance_enabled() -> bool:
+        """Performance is opt-in beyond ORCH_REFINE=full (plan §E-12 rollback:
+
+        "not part of the full default until benchmarked in production").
+        """
+        return os.environ.get("ORCH_REFINE_PERFORMANCE", "0").lower() in ("1", "true", "yes")
+
     # ── main entry ────────────────────────────────────────────────────────
 
     async def refine(
@@ -160,10 +168,12 @@ class RefinementService:
         model_calls = 0
 
         for operator in self._operators:
-            if operator.tier.value != "mechanical" and mode != "full":
-                # structural/performance tiers require ORCH_REFINE=structural/full
-                if operator.tier.value in ("structural", "performance") and mode != "full":
+            if operator.tier.value == "performance":
+                # Performance is opt-in beyond ORCH_REFINE=full (E-12 rollback).
+                if mode != "full" or not self._performance_enabled():
                     continue
+            elif operator.tier.value == "structural" and mode != "full":
+                continue
             if not operator.applicable(before):
                 continue
             try:
@@ -171,6 +181,13 @@ class RefinementService:
             except Exception as exc:  # never let one operator kill the pass
                 logger.warning("operator %s propose failed: %s", operator.name, exc)
                 continue
+
+            # Each returned candidate from a structural/performance operator
+            # corresponds to exactly one LLM call (propose_llm_candidate never
+            # batches); mechanical operators never touch the client, so this
+            # stays exactly 0 for the mechanical tier (asserted by tests).
+            if operator.tier.value != "mechanical":
+                model_calls += len(candidates)
 
             for candidate in candidates[: self._max_candidates()]:
                 status, verdict, changed = await self._apply_candidate(
@@ -183,7 +200,6 @@ class RefinementService:
                     receipt.rejected += 1
                     receipt.rejection_reasons.extend(verdict.rejection_reasons)
                 # "noop" (zero changed files) is neither — zero cost, zero noise.
-                model_calls += 0  # mechanical tier: zero LLM calls (asserted by tests)
 
         receipt.model_calls = model_calls
         receipt.after = before if receipt.accepted else None
@@ -319,22 +335,15 @@ class RefinementService:
         return "rejected", verdict, ()
 
     def _command_for(self, candidate: RefinementCandidate) -> RefinementCommand | None:
-        """Map a candidate to its reversible Command."""
-        command: RefinementCommand | None = None
+        """Map a candidate to its reversible Command.
+
+        Delegates to the owning operator (Open/Closed, plan §3.4.2) — the
+        service never special-cases an operator by name.
+        """
         for operator in self._operators:
-            if operator.name != candidate.operator:
-                continue
-            if operator.name == "dead_code":
-                from pathlib import Path as _Path
-
-                from .operators.dead_code import RemoveUnusedImportsCommand
-
-                command = RemoveUnusedImportsCommand([_Path(candidate.target_file)])
-            elif operator.name == "formatter":
-                from .operators.formatter import FormatCommand
-
-                command = FormatCommand()
-        return command
+            if operator.name == candidate.operator:
+                return operator.command_for(candidate)
+        return None
 
     @staticmethod
     def _file_surface(path: Path) -> dict[str, str]:

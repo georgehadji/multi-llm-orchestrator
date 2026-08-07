@@ -110,6 +110,12 @@ class FormatterOperator:
         """Formatting is deterministic and cheap; always worth a pass."""
         return True
 
+    def command_for(self, candidate: RefinementCandidate) -> FormatCommand | None:
+        """Build the Command for one of this operator's own candidates."""
+        if candidate.operator != self.name:
+            return None
+        return FormatCommand()
+
     async def propose(
         self, workspace: Workspace, snapshot: MetricSnapshot
     ) -> list[RefinementCandidate]:

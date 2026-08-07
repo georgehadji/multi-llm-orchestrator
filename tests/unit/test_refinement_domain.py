@@ -24,15 +24,15 @@ class TestMetricImproved:
     """Targeted metric strictly improves (lower is better)."""
 
     def _snap(self, **overrides) -> MetricSnapshot:
-        base = dict(
-            cyclomatic_mean=5.0,
-            cyclomatic_max=12,
-            max_nesting_depth=4,
-            longest_function_lines=60,
-            duplicated_blocks=3,
-            dead_symbols=2,
-            total_lines=500,
-        )
+        base = {
+            "cyclomatic_mean": 5.0,
+            "cyclomatic_max": 12,
+            "max_nesting_depth": 4,
+            "longest_function_lines": 60,
+            "duplicated_blocks": 3,
+            "dead_symbols": 2,
+            "total_lines": 500,
+        }
         base.update(overrides)
         return MetricSnapshot(**base)
 
@@ -93,15 +93,15 @@ class TestNoMetricRegressed:
     """No non-targeted metric may regress beyond tolerance."""
 
     def _snap(self, **overrides) -> MetricSnapshot:
-        base = dict(
-            cyclomatic_mean=5.0,
-            cyclomatic_max=12,
-            max_nesting_depth=4,
-            longest_function_lines=60,
-            duplicated_blocks=3,
-            dead_symbols=2,
-            total_lines=500,
-        )
+        base = {
+            "cyclomatic_mean": 5.0,
+            "cyclomatic_max": 12,
+            "max_nesting_depth": 4,
+            "longest_function_lines": 60,
+            "duplicated_blocks": 3,
+            "dead_symbols": 2,
+            "total_lines": 500,
+        }
         base.update(overrides)
         return MetricSnapshot(**base)
 

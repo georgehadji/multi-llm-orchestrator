@@ -978,17 +978,29 @@ class ServiceContainer:
         except Exception:
             pass
 
-        # Phase 6 (E-9/E-10): green-anchored refinement — measurement
-        # harness + mechanical tier. The service is inert unless invoked;
-        # structural/performance operators register here when implemented.
+        # Phase 6 (E-9/E-10/E-11/E-12): green-anchored refinement.
+        # Mechanical tier always registers; structural/performance operators
+        # also register but are inert unless ORCH_REFINE=full opts them in
+        # (structural) and additionally ORCH_REFINE_PERFORMANCE=1 (performance)
+        # — the service's own tier gate, not a conditional registration here.
         refinement_service = None
         try:
             from ..application.refinement.operators.dead_code import DeadCodeOperator
+            from ..application.refinement.operators.deduplicate import DeduplicateOperator
+            from ..application.refinement.operators.extract_function import (
+                ExtractFunctionOperator,
+            )
+            from ..application.refinement.operators.flatten_nesting import (
+                FlattenNestingOperator,
+            )
             from ..application.refinement.operators.formatter import FormatterOperator
+            from ..application.refinement.operators.performance import PerformanceOperator
             from ..application.refinement.service import RefinementService
+            from ..infrastructure.metrics.bench_runner import PytestBenchmarkRunner
             from ..infrastructure.metrics.collector import collect_snapshot
             from ..infrastructure.sandboxes import resolve_sandbox
             from ..infrastructure.test_runners import get_runner
+            from ..tdd_config import get_tdd_profile
 
             _ref_sandbox = resolve_sandbox()
             _ref_runner = get_runner("pytest", sandbox=_ref_sandbox)
@@ -1000,6 +1012,28 @@ class ServiceContainer:
             )
             refinement_service.register_operator(DeadCodeOperator())
             refinement_service.register_operator(FormatterOperator())
+
+            # Structural + performance tiers reuse the same LLM client already
+            # wired for the rest of the pipeline (Ports & Adapters — operators
+            # depend on the RefactorClientPort shape, not on UnifiedClient).
+            _refactor_model_id = get_tdd_profile("balanced").get_model("refactoring", "balanced")
+            _refactor_model = Model(_refactor_model_id)
+            refinement_service.register_operator(
+                ExtractFunctionOperator(client=client, model=_refactor_model)
+            )
+            refinement_service.register_operator(
+                FlattenNestingOperator(client=client, model=_refactor_model)
+            )
+            refinement_service.register_operator(
+                DeduplicateOperator(client=client, model=_refactor_model)
+            )
+            refinement_service.register_operator(
+                PerformanceOperator(
+                    client=client,
+                    model=_refactor_model,
+                    benchmark=PytestBenchmarkRunner(),
+                )
+            )
             logger.info(
                 "Phase 6: RefinementService wired with %d operator(s)",
                 len(refinement_service.operators),

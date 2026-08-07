@@ -21,15 +21,15 @@ from orchestrator.domain.refinement import (
 
 
 def _snap(**overrides) -> MetricSnapshot:
-    base = dict(
-        cyclomatic_mean=5.0,
-        cyclomatic_max=12,
-        max_nesting_depth=4,
-        longest_function_lines=60,
-        duplicated_blocks=3,
-        dead_symbols=2,
-        total_lines=500,
-    )
+    base = {
+        "cyclomatic_mean": 5.0,
+        "cyclomatic_max": 12,
+        "max_nesting_depth": 4,
+        "longest_function_lines": 60,
+        "duplicated_blocks": 3,
+        "dead_symbols": 2,
+        "total_lines": 500,
+    }
     base.update(overrides)
     return MetricSnapshot(**base)
 
@@ -46,16 +46,16 @@ def _candidate(predicted_metric: str = "cyclomatic_max", operator: str = "extrac
 
 
 def _ctx(**overrides) -> AcceptanceContext:
-    base = dict(
-        suite_passed=True,
-        before=_snap(),
-        after=_snap(cyclomatic_max=9),
-        candidate=_candidate(),
-        mutation_before=0.7,
-        mutation_after=0.7,
-        new_findings=False,
-        api_surface_changed=False,
-    )
+    base = {
+        "suite_passed": True,
+        "before": _snap(),
+        "after": _snap(cyclomatic_max=9),
+        "candidate": _candidate(),
+        "mutation_before": 0.7,
+        "mutation_after": 0.7,
+        "new_findings": False,
+        "api_surface_changed": False,
+    }
     base.update(overrides)
     return AcceptanceContext(**base)
 

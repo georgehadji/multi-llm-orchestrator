@@ -127,6 +127,12 @@ class DeadCodeOperator:
         """Dead-code pass is always worth attempting (deterministic, free)."""
         return True
 
+    def command_for(self, candidate: RefinementCandidate) -> RemoveUnusedImportsCommand | None:
+        """Build the Command for one of this operator's own candidates."""
+        if candidate.operator != self.name:
+            return None
+        return RemoveUnusedImportsCommand([Path(candidate.target_file)])
+
     async def propose(
         self, workspace: Workspace, snapshot: MetricSnapshot
     ) -> list[RefinementCandidate]:

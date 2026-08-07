@@ -8,10 +8,13 @@ inheritance — no Template Method hierarchy), mirroring the repo's
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from ....domain.refinement import MetricSnapshot, RefinementCandidate, RefinementTier
 from ....domain.testing_models import Workspace
+
+if TYPE_CHECKING:
+    from ..ledger import RefinementCommand
 
 
 @runtime_checkable
@@ -33,4 +36,12 @@ class RefinementOperator(Protocol):
         self, workspace: Workspace, snapshot: MetricSnapshot
     ) -> list[RefinementCandidate]:
         """Propose candidates ranked by predicted gain."""
+        ...
+
+    def command_for(self, candidate: RefinementCandidate) -> "RefinementCommand | None":
+        """Build the reversible Command for one of this operator's own candidates.
+
+        Keeps the service Open/Closed (plan §3.4.2): a new operator plugs
+        in without the service ever branching on its name.
+        """
         ...
