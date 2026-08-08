@@ -5,8 +5,9 @@ generators rather than reimplementing them — see each module's docstring.
 
 from __future__ import annotations
 
+from .cicd_emitter import CicdEmitter
 from .docker_emitter import DockerEmitter
 
-ALL_EMITTERS = (DockerEmitter(),)
+ALL_EMITTERS = (DockerEmitter(), CicdEmitter())
 
-__all__ = ["ALL_EMITTERS", "DockerEmitter"]
+__all__ = ["ALL_EMITTERS", "CicdEmitter", "DockerEmitter"]

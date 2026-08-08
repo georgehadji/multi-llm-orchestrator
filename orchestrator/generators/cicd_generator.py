@@ -50,6 +50,8 @@ class JobType(str, Enum):
     LINT = "lint"
     DEPLOY = "deploy"
     SECURITY_SCAN = "security_scan"
+    DEPENDENCY_AUDIT = "dependency_audit"
+    VULNERABILITY_SCAN = "vulnerability_scan"
     RELEASE = "release"
 
 
@@ -66,6 +68,9 @@ class JobConfig:
         needs: Dependencies (other jobs)
         if_condition: Conditional execution
         timeout: Timeout in minutes
+        matrix: Strategy matrix axes, e.g. {"python-version": ["3.10", "3.11"]}
+        permissions: Job-scoped permissions override (least privilege beyond
+            the workflow-level default)
     """
 
     name: str
@@ -75,6 +80,8 @@ class JobConfig:
     needs: List[str] = field(default_factory=list)
     if_condition: Optional[str] = None
     timeout: int = 60
+    matrix: Dict[str, List[str]] = field(default_factory=dict)
+    permissions: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -89,6 +96,11 @@ class PipelineConfig:
         jobs: Pipeline jobs
         environment_variables: Environment variables
         secrets: Required secrets
+        concurrency_group: In-progress runs for the same group are cancelled
+        action_pins: ``"owner/repo@ref"`` -> the ``uses:`` value to render
+            (SHA-pinned when resolvable, tag-ref with an indeterminate
+            marker comment otherwise). A ref absent from this map is
+            rendered unchanged.
     """
 
     name: str
@@ -97,6 +109,8 @@ class PipelineConfig:
     jobs: List[JobConfig] = field(default_factory=list)
     environment_variables: Dict[str, str] = field(default_factory=dict)
     secrets: List[str] = field(default_factory=list)
+    concurrency_group: Optional[str] = None
+    action_pins: Dict[str, str] = field(default_factory=dict)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -159,6 +173,13 @@ on:
 
 """
 
+        if config.concurrency_group:
+            workflow += (
+                f"concurrency:\n"
+                f"  group: {config.concurrency_group}\n"
+                f"  cancel-in-progress: true\n\n"
+            )
+
         # Add environment variables
         if config.environment_variables:
             workflow += "\nenv:\n"
@@ -169,11 +190,14 @@ on:
         workflow += "\njobs:\n"
 
         for job in config.jobs:
-            workflow += self._generate_job(job, config.secrets)
+            workflow += self._generate_job(job, config.secrets, config.action_pins)
 
         return workflow
 
-    def _generate_job(self, job: JobConfig, secrets: List[str]) -> str:
+    def _pin(self, uses: str, action_pins: Dict[str, str]) -> str:
+        return action_pins.get(uses, uses)
+
+    def _generate_job(self, job: JobConfig, secrets: List[str], action_pins: Dict[str, str]) -> str:
         """Generate job configuration."""
         job_yaml = f"  {job.name}:\n"
         job_yaml += f"    runs-on: {job.runs_on}\n"
@@ -184,15 +208,27 @@ on:
         if job.if_condition:
             job_yaml += f"    if: {job.if_condition}\n"
 
+        if job.permissions:
+            job_yaml += "    permissions:\n"
+            for scope, level in job.permissions.items():
+                job_yaml += f"      {scope}: {level}\n"
+
+        if job.matrix:
+            job_yaml += "    strategy:\n      matrix:\n"
+            for axis, values in job.matrix.items():
+                rendered = ", ".join(f'"{v}"' for v in values)
+                job_yaml += f"        {axis}: [{rendered}]\n"
+            job_yaml += "      fail-fast: false\n"
+
         job_yaml += f"    timeout-minutes: {job.timeout}\n"
 
         # Add steps
         job_yaml += "    steps:\n"
-        job_yaml += "      - uses: actions/checkout@v4\n"
+        job_yaml += f"      - uses: {self._pin('actions/checkout@v4', action_pins)}\n"
 
         for step in job.steps:
             if "uses" in step:
-                job_yaml += f"      - uses: {step['uses']}\n"
+                job_yaml += f"      - uses: {self._pin(step['uses'], action_pins)}\n"
                 if "with" in step:
                     job_yaml += "        with:\n"
                     for key, value in step["with"].items():
@@ -341,6 +377,9 @@ class CICDPipelineBuilder:
         self._env_vars: Dict[str, str] = {}
         self._secrets: List[str] = []
         self._strategy: CICDStrategy = GitHubActionsStrategy()
+        self._concurrency_group: Optional[str] = None
+        self._action_pins: Dict[str, str] = {}
+        self._cov_fail_under: Optional[int] = None
 
     def for_github_actions(self) -> "CICDPipelineBuilder":
         """Configure for GitHub Actions."""
@@ -380,6 +419,21 @@ class CICDPipelineBuilder:
         self._secrets.append(secret)
         return self
 
+    def with_concurrency_group(self, group: str) -> "CICDPipelineBuilder":
+        """Cancel superseded in-progress runs sharing this group."""
+        self._concurrency_group = group
+        return self
+
+    def with_action_pins(self, pins: Dict[str, str]) -> "CICDPipelineBuilder":
+        """``"owner/repo@ref"`` -> the ``uses:`` value to render for it."""
+        self._action_pins = pins
+        return self
+
+    def with_coverage_floor(self, fail_under: int) -> "CICDPipelineBuilder":
+        """Inherited from the target project's own ``pyproject.toml``."""
+        self._cov_fail_under = fail_under
+        return self
+
     def add_job(
         self,
         name: str,
@@ -388,6 +442,10 @@ class CICDPipelineBuilder:
         runs_on: str = "ubuntu-latest",
         needs: List[str] = None,
         timeout: int = 60,
+        matrix: Dict[str, List[str]] = None,
+        permissions: Dict[str, str] = None,
+        if_condition: str = None,
+        custom_steps: List[Dict[str, Any]] = None,
     ) -> "CICDPipelineBuilder":
         """
         Add job to pipeline.
@@ -399,11 +457,21 @@ class CICDPipelineBuilder:
             runs_on: Runner
             needs: Dependencies
             timeout: Timeout in minutes
+            matrix: Strategy matrix axes, e.g. {"python-version": [...]}
+            permissions: Job-scoped permissions override
+            if_condition: Conditional execution
+            custom_steps: Explicit steps, bypassing language/job-type
+                inference — used for jobs (docker publish, PyPI release)
+                too specific for the generic step generator.
 
         Returns:
             Self for fluent interface
         """
-        steps = self._generate_steps(name, languages, job_type)
+        steps = (
+            custom_steps
+            if custom_steps is not None
+            else self._generate_steps(name, languages, job_type)
+        )
 
         job = JobConfig(
             name=name,
@@ -412,6 +480,9 @@ class CICDPipelineBuilder:
             steps=steps,
             needs=needs or [],
             timeout=timeout,
+            matrix=matrix or {},
+            permissions=permissions or {},
+            if_condition=if_condition,
         )
 
         self._jobs.append(job)
@@ -424,6 +495,7 @@ class CICDPipelineBuilder:
         job_type: str,
     ) -> List[Dict[str, Any]]:
         """Generate job steps based on language and type."""
+        languages = languages or []
         steps = []
 
         if job_type == "build":
@@ -454,11 +526,23 @@ class CICDPipelineBuilder:
                     ]
                 )
             if "python" in languages:
+                cov_suffix = (
+                    f" --cov-fail-under={self._cov_fail_under}"
+                    if self._cov_fail_under is not None
+                    else ""
+                )
                 steps.extend(
                     [
                         {"name": "Setup Python", "run": "python --version"},
-                        {"name": "Install dependencies", "run": "pip install -r requirements.txt"},
-                        {"name": "Run tests", "run": "pytest"},
+                        {"name": "Install dependencies", "run": 'pip install -e ".[dev]"'},
+                        {
+                            "name": "Run tests with coverage",
+                            "run": (f"pytest --cov --cov-report=xml --cov-report=term{cov_suffix}"),
+                        },
+                        {
+                            "uses": "codecov/codecov-action@v3",
+                            "with": {"file": "./coverage.xml", "fail_ci_if_error": "false"},
+                        },
                     ]
                 )
 
@@ -471,6 +555,56 @@ class CICDPipelineBuilder:
                         {"name": "Run linter", "run": "npm run lint"},
                     ]
                 )
+            if "python" in languages:
+                steps.extend(
+                    [
+                        {"name": "Setup Python", "run": "python --version"},
+                        {"name": "Install dependencies", "run": 'pip install -e ".[dev]"'},
+                        {"name": "Run ruff", "run": "ruff check src/ tests/"},
+                        {"name": "Check formatting", "run": "black --check src/ tests/"},
+                        {"name": "Type check", "run": "mypy src/"},
+                    ]
+                )
+
+        elif job_type == "security_scan":
+            if "python" in languages:
+                steps.extend(
+                    [
+                        {"name": "Setup Python", "run": "python --version"},
+                        {
+                            "name": "Install Bandit",
+                            "run": 'pip install "bandit[toml]>=1.7.0"',
+                        },
+                        # No `|| true`: a security scan that cannot fail the
+                        # build is not a check (retires G-3).
+                        {"name": "Run Bandit", "run": "bandit -r src/"},
+                    ]
+                )
+
+        elif job_type == "dependency_audit":
+            if "python" in languages:
+                steps.extend(
+                    [
+                        {"name": "Setup Python", "run": "python --version"},
+                        {"name": "Install pip-audit", "run": "pip install pip-audit"},
+                        # pip-audit exits non-zero on any known vulnerability
+                        # by default — no severity filter is applied, which
+                        # is a strict superset of "fails on HIGH" (retires G-5).
+                        {"name": "Run pip-audit", "run": "pip-audit"},
+                    ]
+                )
+
+        elif job_type == "vulnerability_scan":
+            steps.append(
+                {
+                    "uses": "aquasecurity/trivy-action@0.24.0",
+                    "with": {
+                        "scan-type": "fs",
+                        "severity": "HIGH,CRITICAL",
+                        "exit-code": "1",
+                    },
+                }
+            )
 
         elif job_type == "deploy":
             steps.extend(
@@ -495,6 +629,8 @@ class CICDPipelineBuilder:
             jobs=self._jobs,
             environment_variables=self._env_vars,
             secrets=self._secrets,
+            concurrency_group=self._concurrency_group,
+            action_pins=self._action_pins,
         )
 
         return self._strategy.generate(config)
