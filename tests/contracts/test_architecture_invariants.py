@@ -194,6 +194,24 @@ def test_refinement_domain_is_stdlib_only():
 
 
 @pytest.mark.contract
+def test_readiness_domain_is_stdlib_only():
+    """Phase 7: ``domain/readiness.py`` imports stdlib only (Contract 1)."""
+    import ast as _ast
+
+    path = ORCHESTRATOR / "domain" / "readiness.py"
+    tree = _ast.parse(path.read_text(encoding="utf-8"))
+    imports: list[str] = []
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Import):
+            imports.extend(a.name for a in node.names)
+        elif isinstance(node, _ast.ImportFrom):
+            imports.append(node.module or "")
+    stdlib = {"__future__", "dataclasses", "enum", "typing"}
+    foreign = [i for i in imports if i.split(".")[0] not in stdlib]
+    assert foreign == [], f"domain/readiness.py imports non-stdlib: {foreign}"
+
+
+@pytest.mark.contract
 def test_no_module_level_singleton_registry_in_metrics():
     """Phase 6: metric collectors have no module-level singleton registry.
 

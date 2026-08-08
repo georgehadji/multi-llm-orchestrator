@@ -13,5 +13,14 @@
     "suite_timeout_s": 120,
     "mutation_sample_size": 12,
     "mutation_timeout_s": 60
+  },
+  "readiness": {
+    "required_level": {
+      "python_service": 2,
+      "fullstack": 2,
+      "web_static": 1,
+      "python_cli": 1,
+      "library": 1
+    }
   }
 }

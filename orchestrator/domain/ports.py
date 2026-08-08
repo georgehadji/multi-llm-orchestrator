@@ -25,6 +25,7 @@ from ..models import ProjectState
 
 if TYPE_CHECKING:
     from ..models import Model, TaskType
+    from .readiness import AppArchetype, RequirementOutcome
     from .testing_models import IsolationLevel, SuiteReport, TestSelection, Workspace
 
 # NOTE — project-level advisory locking was declared on CachePort and StatePort
@@ -860,3 +861,51 @@ class BenchmarkPort(Protocol):
         *,
         timeout_s: float = 300.0,
     ) -> dict[str, float]: ...
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Readiness ports (Phase 7, P-1)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class ProbeContext:
+    """Context a probe needs beyond the workspace itself.
+
+    ``sandbox`` is optional and only populated for live probes (P-3), which
+    boot the workspace inside the F-3 isolation boundary; static probes
+    (P-2) never receive one.
+    """
+
+    archetype: "AppArchetype"
+    profile: Any = None
+    sandbox: "SandboxPort | None" = None
+
+
+@runtime_checkable
+class ProbePort(Protocol):
+    """Observes a workspace (or a booted instance of it) and returns evidence.
+
+    Implementations live in infrastructure/readiness_probes/. A probe never
+    raises for an ordinary observation failure — it returns an
+    INDETERMINATE outcome with the failure captured as evidence.
+    """
+
+    requirement_id: str
+
+    async def probe(self, workspace: Workspace, ctx: ProbeContext) -> "RequirementOutcome": ...
+
+
+@runtime_checkable
+class ArtifactEmitterPort(Protocol):
+    """Writes production artifacts into a workspace. Idempotent by contract.
+
+    Implementations live in infrastructure/artifact_emitters/ and wrap the
+    existing (previously orphan) generators rather than reimplementing them.
+    """
+
+    name: str
+
+    def applies_to(self, archetype: "AppArchetype") -> bool: ...
+
+    async def emit(self, workspace: Workspace, profile: Any) -> list[str]: ...
