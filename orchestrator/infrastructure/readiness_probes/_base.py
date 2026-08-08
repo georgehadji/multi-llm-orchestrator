@@ -39,4 +39,29 @@ class StaticProbe:
             )
 
 
-__all__ = ["StaticProbe"]
+class LiveProbe:
+    """Same never-raises contract as StaticProbe, for probes that boot a
+    process or container and therefore need an async ``check``."""
+
+    requirement_id: str
+
+    async def check(self, workspace: "Workspace", ctx: "ProbeContext") -> RequirementOutcome:
+        raise NotImplementedError
+
+    async def probe(self, workspace: "Workspace", ctx: "ProbeContext") -> RequirementOutcome:
+        try:
+            return await self.check(workspace, ctx)
+        except Exception as exc:  # noqa: BLE001 - contract: a probe never raises
+            return RequirementOutcome(
+                requirement_id=self.requirement_id,
+                result=ProbeResult.INDETERMINATE,
+                evidence=(
+                    Evidence(
+                        probe=self.requirement_id,
+                        detail=f"probe raised {type(exc).__name__}: {exc}",
+                    ),
+                ),
+            )
+
+
+__all__ = ["StaticProbe", "LiveProbe"]

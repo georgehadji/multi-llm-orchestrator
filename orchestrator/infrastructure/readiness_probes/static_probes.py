@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from ...domain.readiness import Evidence, ProbeResult, RequirementOutcome
 from ._base import StaticProbe
-from ._parsing import dockerfile_from_lines, find_workflow_files, parse_toml, parse_yaml
+from ._parsing import dockerfile_from_lines, find_workflow_files, parse_toml, parse_yaml, read_text
 
 
 class PyprojectParseableProbe(StaticProbe):
@@ -142,11 +142,69 @@ class DockerfileNoMutableTagProbe(StaticProbe):
         )
 
 
+class DockerfileHealthcheckIsHttpProbe(StaticProbe):
+    """A HEALTHCHECK that never talks to the app's own port can never fail —
+    the exact assembler.py:1737 defect (``python -c "import pkg"`` as the
+    entire check). "A check that cannot fail is not a check."
+    """
+
+    requirement_id = "static.dockerfile-healthcheck-is-http"
+    _NETWORK_SIGNATURES = ("curl", "wget", "requests.", "urllib", "http.client", "nc ", "netcat")
+
+    def check(self, workspace):
+        path = workspace.root / "Dockerfile"
+        if not path.is_file():
+            return RequirementOutcome(
+                requirement_id=self.requirement_id, result=ProbeResult.NOT_APPLICABLE
+            )
+        text, err = read_text(path)
+        if err is not None:
+            return RequirementOutcome(
+                requirement_id=self.requirement_id,
+                result=ProbeResult.INDETERMINATE,
+                evidence=(Evidence(probe=self.requirement_id, detail=err, location=str(path)),),
+            )
+        lines = text.splitlines()
+        healthcheck_lines = [
+            (i, line)
+            for i, line in enumerate(lines, start=1)
+            if line.strip().upper().startswith("HEALTHCHECK")
+        ]
+        if not healthcheck_lines:
+            return RequirementOutcome(
+                requirement_id=self.requirement_id, result=ProbeResult.NOT_APPLICABLE
+            )
+        lineno, line = healthcheck_lines[-1]
+        has_network_call = any(sig in line for sig in self._NETWORK_SIGNATURES)
+        if not has_network_call:
+            return RequirementOutcome(
+                requirement_id=self.requirement_id,
+                result=ProbeResult.VIOLATED,
+                evidence=(
+                    Evidence(
+                        probe=self.requirement_id,
+                        detail=f"HEALTHCHECK never calls the app over the network: {line.strip()}",
+                        location=f"{path}:{lineno}",
+                    ),
+                ),
+            )
+        return RequirementOutcome(
+            requirement_id=self.requirement_id,
+            result=ProbeResult.SATISFIED,
+            evidence=(
+                Evidence(
+                    probe=self.requirement_id, detail=line.strip(), location=f"{path}:{lineno}"
+                ),
+            ),
+        )
+
+
 STATIC_PROBES = (
     PyprojectParseableProbe(),
     CiPermissionsReadOnlyProbe(),
     CiNoUnconditionalBypassProbe(),
     DockerfileNoMutableTagProbe(),
+    DockerfileHealthcheckIsHttpProbe(),
 )
 
 __all__ = [
@@ -154,5 +212,6 @@ __all__ = [
     "CiPermissionsReadOnlyProbe",
     "CiNoUnconditionalBypassProbe",
     "DockerfileNoMutableTagProbe",
+    "DockerfileHealthcheckIsHttpProbe",
     "STATIC_PROBES",
 ]

@@ -10,6 +10,7 @@ from orchestrator.domain.testing_models import Workspace
 from orchestrator.infrastructure.readiness_probes.static_probes import (
     CiNoUnconditionalBypassProbe,
     CiPermissionsReadOnlyProbe,
+    DockerfileHealthcheckIsHttpProbe,
     DockerfileNoMutableTagProbe,
     PyprojectParseableProbe,
 )
@@ -111,3 +112,29 @@ class TestDockerfileNoMutableTagProbe:
         (tmp_path / "Dockerfile").write_text("FROM python\n")
         outcome = await DockerfileNoMutableTagProbe().probe(_ws(tmp_path), CTX)
         assert outcome.result == ProbeResult.VIOLATED
+
+
+@pytest.mark.unit
+class TestDockerfileHealthcheckIsHttpProbe:
+    async def test_not_applicable_without_dockerfile(self, tmp_path):
+        outcome = await DockerfileHealthcheckIsHttpProbe().probe(_ws(tmp_path), CTX)
+        assert outcome.result == ProbeResult.NOT_APPLICABLE
+
+    async def test_not_applicable_without_healthcheck_directive(self, tmp_path):
+        (tmp_path / "Dockerfile").write_text('FROM python:3.12-slim\nCMD ["python", "app.py"]\n')
+        outcome = await DockerfileHealthcheckIsHttpProbe().probe(_ws(tmp_path), CTX)
+        assert outcome.result == ProbeResult.NOT_APPLICABLE
+
+    async def test_violated_when_import_only(self, tmp_path):
+        (tmp_path / "Dockerfile").write_text(
+            'FROM python:3.12-slim\nHEALTHCHECK CMD python -c "import requests" || exit 1\n'
+        )
+        outcome = await DockerfileHealthcheckIsHttpProbe().probe(_ws(tmp_path), CTX)
+        assert outcome.result == ProbeResult.VIOLATED
+
+    async def test_satisfied_when_curl(self, tmp_path):
+        (tmp_path / "Dockerfile").write_text(
+            "FROM python:3.12-slim\nHEALTHCHECK CMD curl -f http://localhost:8000/health || exit 1\n"
+        )
+        outcome = await DockerfileHealthcheckIsHttpProbe().probe(_ws(tmp_path), CTX)
+        assert outcome.result == ProbeResult.SATISFIED
