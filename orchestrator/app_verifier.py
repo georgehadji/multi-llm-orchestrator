@@ -263,7 +263,16 @@ class AppVerifier:
         return report
 
     def _generate_dockerfile(self, output_dir: Path, profile: AppProfile) -> None:
-        """Generate a minimal Dockerfile for the app."""
+        """Generate a minimal Dockerfile for the app.
+
+        Deliberately NOT the shared ``DockerEmitter`` (Phase 7 P-4 wired it
+        here, and that wiring was dropped on replant): this module is a root
+        module, so importing an infrastructure adapter directly breaks the
+        "Root modules must not import infrastructure" contract. This Dockerfile
+        is a throwaway used only to smoke-test build/run; the image that ships
+        is emitted by DockerEmitter in project_mgmt/assembler.py. Re-wire once
+        this module moves out of the root package.
+        """
         run_cmd = profile.run_command or "python main.py"
         dockerfile_content = (
             "FROM python:3.11-slim\n"

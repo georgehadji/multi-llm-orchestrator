@@ -217,6 +217,17 @@ ignore_imports =
     orchestrator.engine_core.container -> orchestrator.infrastructure.skill_store_adapter
     orchestrator.engine_core.container -> orchestrator.infrastructure.telemetry_snapshotter
     orchestrator.engine_core.container -> orchestrator.infrastructure.verification_checks
+    # Autonomous Testing Engine + Phase 6 refinement adapters, wired in the
+    # same constructor and for the same reason as the entries above.
+    orchestrator.engine_core.container -> orchestrator.infrastructure.metrics.bench_runner
+    orchestrator.engine_core.container -> orchestrator.infrastructure.metrics.collector
+    orchestrator.engine_core.container -> orchestrator.infrastructure.sandboxes
+    orchestrator.engine_core.container -> orchestrator.infrastructure.test_runners
+
+    # ── Artifact assembly: assembler.py is the composition root for generated
+    #    output — it picks the emitter that writes the shipped Dockerfile
+    #    (Phase 7 P-4), the same wiring role container.py plays for services.
+    orchestrator.project_mgmt.assembler -> orchestrator.infrastructure.artifact_emitters.docker_emitter
 
     # ── Root kernel: api_clients.py IS the provider-adapter facade
     #    (UnifiedClient); llm_client is its concrete backing.

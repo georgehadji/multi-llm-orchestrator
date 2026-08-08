@@ -26,6 +26,8 @@ Usage:
 
 from __future__ import annotations
 
+import json
+import shlex
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
@@ -409,13 +411,14 @@ class DockerfileBuilder:
         return self
 
     def cmd(self, command: str) -> "DockerfileBuilder":
-        """Set CMD."""
-        self._add_line(f'CMD ["{command}"]')
+        """Set CMD (exec form — a shell command string is split into argv,
+        never emitted as a single unresolvable JSON array element)."""
+        self._add_line(f"CMD {json.dumps(shlex.split(command))}")
         return self
 
     def entrypoint(self, command: str) -> "DockerfileBuilder":
-        """Set ENTRYPOINT."""
-        self._add_line(f'ENTRYPOINT ["{command}"]')
+        """Set ENTRYPOINT (exec form, see ``cmd``)."""
+        self._add_line(f"ENTRYPOINT {json.dumps(shlex.split(command))}")
         return self
 
     # ═══════════════════════════════════════════════════════════════
