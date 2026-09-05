@@ -135,6 +135,29 @@ tier.
 **Gate status at T5 close:** black/ruff/lint-imports/root-freeze/test-markers/mypy(core)/bandit
 all PASS. 61/61 existing resilience/circuit-breaker tests still pass, zero regressions.
 
+## T7 — Execution & filesystem surface (closed)
+
+Full detail: `docs/hunts/t7-execution/inventory.md`, `docs/hunts/t7-execution/coverage.md`.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `appbuilder/verifier.py` silently diverged from the canonical `app_verifier.py`, missing a fix (`str(req_file.resolve())` vs unresolved `str(req_file)`) for a pip-install `subprocess.run(..., cwd=output_dir)` call that would otherwise double-resolve a relative requirements-file path and fail. `AppBuilder` itself imports the canonical, fixed class directly and was unaffected — but `appbuilder/__init__.py`'s `from .builder import *` then `from .verifier import *` import order meant the *package's own public name*, `orchestrator.appbuilder.AppVerifier`, silently resolved to the buggy class instead. Fixed: converted to a shim of the canonical module, matching the same duplicate-pair remediation used every prior tier. |
+
+**Reachability caveat:** no live caller does `from orchestrator.appbuilder import AppVerifier`
+today (grepped) — the fix closes a real, exposed public-API landmine rather than an
+actively-triggered bug, consistent with how T4/T5 handled similarly dormant divergences.
+
+**Phase 0 census (not exhaustively pursued):** 54 files touch
+`subprocess.`/`eval(`/`exec(`. Only the `app_verifier.py`/`appbuilder/verifier.py` pair was
+investigated this tier (matched the by-now-established root-vs-subpackage duplicate pattern).
+52 files remain unexamined, including the two whose names most directly suggest
+security-relevant subprocess isolation: `safety/sandbox.py`, `safety/secure_execution.py`.
+`[UNK]` whether they carry their own defects.
+
+**Gate status at T7 close:** black/ruff/lint-imports/root-freeze/test-markers/mypy(core)/bandit
+all PASS. New tests 3/3 (RED→GREEN verified); zero pre-existing tests covered this area before
+this tier (confirmed via grep, not just absence of failures).
+
 ## Unrelated fix merged during this tier sequence: OpenRouter model-catalog update
 
 Per explicit user request (separate from the defect-hunt protocol), a background agent
