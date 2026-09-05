@@ -240,6 +240,12 @@ class OutputOrganizer:
 
             scan = await asyncio.to_thread(scan_output_dir, self.output_dir)
             self.report.security_report = scan.to_dict()
+            if scan.files_skipped:
+                logger.warning(
+                    "[SEC] %d file(s) could not be read and were skipped during "
+                    "the security scan — scan coverage is incomplete",
+                    scan.files_skipped,
+                )
             if scan.findings:
                 blocking = [f for f in scan.findings if f.severity in ("CRITICAL", "HIGH")]
                 logger.warning(

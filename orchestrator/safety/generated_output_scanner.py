@@ -19,9 +19,12 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Files/dirs we never scan (build artifacts, deps, vcs, lockfiles).
 _SKIP_DIRS = frozenset(
@@ -91,6 +94,7 @@ class ScanReport:
 
     findings: list[Finding] = field(default_factory=list)
     files_scanned: int = 0
+    files_skipped: int = 0
 
     @property
     def has_blocking_findings(self) -> bool:
@@ -100,6 +104,7 @@ class ScanReport:
     def to_dict(self) -> dict:
         return {
             "files_scanned": self.files_scanned,
+            "files_skipped": self.files_skipped,
             "total_findings": len(self.findings),
             "blocking": self.has_blocking_findings,
             "by_severity": {
@@ -281,7 +286,12 @@ def scan_output_dir(output_dir: Path) -> ScanReport:
     for path in _iter_scannable_files(output_dir):
         try:
             text = path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
+        except OSError as exc:
+            # Intentionally still skip-and-continue (see docstring) — but a
+            # skipped file must be countable, not indistinguishable from
+            # "scanned, found nothing" (hunt T9, same shape as hunt T8's C5).
+            logger.warning("Security scan could not read %s: %s", path, exc)
+            report.files_skipped += 1
             continue
         report.files_scanned += 1
         rel = str(path.relative_to(output_dir))

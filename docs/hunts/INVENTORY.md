@@ -238,3 +238,30 @@ regressions across 158 targeted regression tests plus the full unit+integration 
 
 **Next:** `docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md` defines T9 (safety/execution/plugin
 surface, in progress) through T16 (final catch-all), prioritized by architectural blast radius.
+
+## T9 — Safety/execution/plugin surface (closed)
+
+Full detail: `docs/hunts/t9-safety-execution/inventory.md`, `docs/hunts/t9-safety-execution/coverage.md`.
+Per `docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md`'s wave definition — first of waves T9-T16.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | Three dead `safety/` duplicates (`architecture_rules.py`, `architecture_advisor.py`, `reference_monitor.py`) each carried a broken relative import, the same shape T1 already fixed once in `code_executor.py`. `architecture_advisor.py`'s copy had also fallen behind the canonical module (missing "static" project-type data). Fixed: all three converted to re-export shims of their live root canonicals. Incidental: surfaced 8 pre-existing mypy errors in the now-reachable canonical `reference_monitor.py`/`specs.py` — real, pre-existing, out of scope here. |
+| C2 | **VERIFIED DEFECT — FIXED** | `plugins/discovery.py::load_plugin()` built the bundled-plugin import path as `orchestrator.plugin.plugins.<kind>.<name>` (singular, not even a package) instead of `orchestrator.plugins.<kind>.<name>` (matching `_bundled_plugin_path()`) — any bundled plugin would be discovered then silently fail to import. Dormant today (no bundled plugin dirs exist yet). Fixed. |
+| C3 | **VERIFIED DEFECT — FIXED** | `safety/generated_output_scanner.py::scan_output_dir()` — live (wired via `output_organizer.py`) — silently skipped unreadable files with no count/log, the fourth known instance of the "silent scan gap" shape (T6 found it in `website_validator.py`/`quality_control.py` x2; T8 fixed the live `website_validator.py` copy). Fixed: added `files_skipped` counter + warning logs, without changing the deliberately-documented "must not crash delivery" pass/fail contract. |
+| C4 | **VERIFIED DEFECT — FIXED (documentation)** | `safety/tool_guardrails.py`'s docstring falsely claimed to be "Called from engine.py._execute_task()" — verified false by repo-wide grep; the guardrail is fully dead (constructed, never read). Fixed the false claim; wiring it in is `[REQUIRES HUMAN REVIEW]`. |
+
+**Residual, surveyed but not fixed — `[REQUIRES HUMAN REVIEW]`:** `command_guard.py`'s
+unplugged shell-risk classifier (live path already has an independent `shell=False` barrier);
+the entire `orchestrator/plugin/` isolation subsystem (dead, plus a self-reported-trust bypass
+if ever wired in); `safety/guardrails.py`'s 589-line `ProductionGuardrails`/`KillSwitch` (zero
+callers, zero tests); `gateway/run.py`'s unauthenticated `handle_message()` (unreachable today —
+no real network listener exists); `AgentSafetyMonitor` (same dead-field shape as C4).
+**Cleared, resolving T7's original question:** `safety/sandbox.py`/`safety/secure_execution.py`
+are plain re-export shims with zero divergence risk — not independent implementations.
+
+**Gate status at T9 close:** black/ruff/lint-imports/root-freeze/test-markers/bandit all PASS.
+mypy: 0 new errors introduced by this tier's own edits (8 errors surfaced in
+`reference_monitor.py`/`specs.py` are pre-existing, now-reachable via C1's shim, out of scope).
+New tests 5/5 (RED→GREEN verified). Full suite: 2522 passed (+5), 2 pre-registered environmental
+failures unchanged, 21 skipped — zero regressions.

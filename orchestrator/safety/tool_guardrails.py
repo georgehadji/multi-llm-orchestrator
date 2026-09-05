@@ -10,9 +10,13 @@ Per-turn guardrail controller that detects:
 
 Adapted from Hermes Agent's ToolCallGuardrailController pattern.
 
-Integration: Called from engine.py._execute_task() BEFORE deterministic
-validators. BLOCK decisions short-circuit to a synthetic failure result;
-WARN decisions log and continue.
+Integration: NOT currently wired into engine.py or any executor (verified by
+repo-wide grep, hunt T9 — the docstring here previously and incorrectly
+claimed it already was). `ServiceCollection` constructs a
+`ToolCallGuardrailController` instance but nothing reads it back out. To
+use this: call `.check(output, task_type)` from wherever generated code is
+first produced, BEFORE deterministic validators, and short-circuit BLOCK
+decisions to a synthetic failure result; WARN decisions log and continue.
 
 Invariants:
 - reset_for_turn() is called at each iteration start
