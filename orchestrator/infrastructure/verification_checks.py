@@ -128,6 +128,16 @@ def is_python_code(artifact: str) -> bool:
         if text.startswith(("npm ", "cd ", "git ", "pip install ", "python -m ", "python3 ")):
             return False
 
+    # A line ending in a bare "=" is a truncated assignment: the model was cut
+    # off mid-statement. No prose ends a line that way, so this is safe to treat
+    # as Python even though it does not compile. Without it, `x = ` was
+    # classified "not Python" and the syntax check PASSED a truncated artifact —
+    # exactly the silent failure the check exists to catch. Deliberately narrow:
+    # matching a general `name = value` pattern would misclassify prose such as
+    # "Total = 5 items" and reject valid non-code output.
+    if re.search(r"^\s*[A-Za-z_][\w.\[\]'\"]*\s*=\s*$", text, re.M):
+        return True
+
     # Check for standard Python markers:
     python_markers = ["def ", "class ", "import ", "from ", "print(", "#"]
     if any(m in text for m in python_markers):

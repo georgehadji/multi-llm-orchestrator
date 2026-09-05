@@ -27,6 +27,21 @@ if TYPE_CHECKING:
     from ..models import Model, TaskType
     from .testing_models import IsolationLevel, SuiteReport, TestSelection, Workspace
 
+# NOTE — project-level advisory locking was declared on CachePort and StatePort
+# by d89b7ff (2026-07-28) as `acquire_project_lock` / `release_project_lock`.
+# It was removed on 2026-09-05: in five weeks nothing in the repo ever called
+# it and no adapter ever implemented it, while its presence made every
+# implementation fail `isinstance(x, CachePort/StatePort)` — these are
+# @runtime_checkable protocols, so a declared member must exist on the instance.
+# That broke ~15 conformance tests across tests/test_phase7_ports.py,
+# tests/test_ports_conformance.py, tests/contracts/ and tests/test_phase8_mvos.py.
+# CachePort's version also carried a default body of `return True`, so the first
+# caller to rely on it would have been told it held a lock it never acquired.
+# If multi-instance locking is wanted, reintroduce it WITH adapter
+# implementations and a test that exercises contention — not as a bare
+# declaration.
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CachePort
 # ─────────────────────────────────────────────────────────────────────────────
@@ -58,10 +73,6 @@ class CachePort(Protocol):
     ) -> None: ...
 
     async def close(self) -> None: ...
-    async def acquire_project_lock(self, project_id: str) -> bool:
-        return True
-
-    async def release_project_lock(self, project_id: str) -> None: ...
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -79,14 +90,6 @@ class StatePort(Protocol):
     async def save_circuit_breaker_state(self, model_name: str, failure_count: int) -> None: ...
     async def load_circuit_breaker_state(self) -> dict[str, int]: ...
     async def close(self) -> None: ...
-
-    async def acquire_project_lock(self, project_id: str) -> bool:
-        """Acquire an advisory lock for *project_id*. Returns True if acquired, False if held by another instance."""
-        ...
-
-    async def release_project_lock(self, project_id: str) -> None:
-        """Release the advisory lock for *project_id*."""
-        ...
 
 
 # ─────────────────────────────────────────────────────────────────────────────
