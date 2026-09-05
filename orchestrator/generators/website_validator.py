@@ -115,139 +115,214 @@ class WebsiteQualityValidator:
 
         return report
 
+    # ── Shared HTML/asset helpers ────────────────────────────────────────────
+
+    @staticmethod
+    def _html_files(output_dir: Path) -> list[Path]:
+        return [p for p in output_dir.glob("**/*.html") if "node_modules" not in p.parts]
+
+    @staticmethod
+    def _component_files(output_dir: Path) -> list[Path]:
+        return [
+            p
+            for ext in ("*.tsx", "*.jsx")
+            for p in output_dir.glob(f"**/{ext}")
+            if "node_modules" not in p.parts
+        ]
+
+    @classmethod
+    def _markup(cls, output_dir: Path) -> str:
+        """All rendered markup and components concatenated.
+
+        Checks read THIS, not just components. Globbing only tsx/jsx meant a
+        static HTML site was never read at all: zero files scanned, zero issues
+        found, a perfect score.
+        """
+        parts = []
+        for path in cls._html_files(output_dir) + cls._component_files(output_dir):
+            try:
+                parts.append(path.read_text(encoding="utf-8", errors="ignore"))
+            except OSError:
+                continue
+        return "\n".join(parts)
+
+    @staticmethod
+    def _css(output_dir: Path) -> str:
+        parts = []
+        for path in output_dir.glob("**/*.css"):
+            if "node_modules" in path.parts:
+                continue
+            try:
+                parts.append(path.read_text(encoding="utf-8", errors="ignore"))
+            except OSError:
+                continue
+        return "\n".join(parts)
+
+    @staticmethod
+    def _grade(passed_criteria: int, total_criteria: int) -> float:
+        """Fraction of criteria met, rounded to 2dp. Graded, never binary."""
+        if total_criteria <= 0:
+            return 0.0
+        return round(passed_criteria / total_criteria, 2)
+
     async def _check_accessibility(self, output_dir: Path) -> QualityCheck:
+        """Check accessibility against deterministic WCAG 2.1 proxies.
+
+        Graded: the score is the fraction of criteria met. Previously this
+        globbed only tsx/jsx, so a static HTML site scored a constant 1.00 —
+        it never read the page it was judging.
         """
-        Check accessibility compliance (WCAG 2.1 AA).
+        markup = self._markup(output_dir)
+        css = self._css(output_dir)
+        if not markup.strip():
+            return QualityCheck(
+                name="Accessibility (WCAG 2.1 AA)",
+                passed=True,
+                score=1.0,
+                details="No markup to assess — not applicable.",
+                applicable=False,
+            )
 
-        Checks:
-        - All images have alt text
-        - All interactive elements have aria-labels
-        - Color contrast ratios meet 4.5:1 minimum
-        - Focus indicators are visible
-        - Semantic HTML structure
-        - Skip links present
-        """
-        issues = []
-        recommendations = []
+        failures: list[str] = []
 
-        # Find all TSX/JSX files
-        component_files = list(output_dir.glob("**/*.tsx")) + list(output_dir.glob("**/*.jsx"))
+        def criterion(ok: bool, complaint: str) -> bool:
+            if not ok:
+                failures.append(complaint)
+            return ok
 
-        for file_path in component_files:
-            content = file_path.read_text(encoding="utf-8")
+        html_only = "\n".join(
+            p.read_text(encoding="utf-8", errors="ignore") for p in self._html_files(output_dir)
+        )
 
-            # Check for img without alt
-            img_tags = re.findall(r"<img\s+[^>]*>", content, re.IGNORECASE)
-            for img in img_tags:
-                if "alt=" not in img and "alt={" not in content:
-                    issues.append(f"{file_path.name}: <img> missing alt attribute")
+        # 1. Document language.
+        criterion(
+            not html_only.strip() or re.search(r"<html[^>]*\slang=", html_only, re.I) is not None,
+            "<html> has no lang attribute",
+        )
+        # 2. Every image carries an alt attribute.
+        imgs = re.findall(r"<img\b[^>]*>", markup, re.I)
+        criterion(
+            all(re.search(r"\salt\s*=", tag, re.I) for tag in imgs),
+            f"{sum(1 for t in imgs if not re.search(r'.salt.s*=', t, re.I))} <img> without alt",
+        )
+        # 3. Exactly one h1.
+        h1s = len(re.findall(r"<h1\b", markup, re.I))
+        criterion(h1s == 1, f"expected exactly one <h1>, found {h1s}")
+        # 4. Landmarks rather than a soup of divs.
+        criterion(
+            any(f"<{tag}" in markup.lower() for tag in ("main", "nav", "header", "footer")),
+            "no landmark elements (main/nav/header/footer)",
+        )
+        # 5. Form inputs are labelled.
+        inputs = re.findall(r"<input\b[^>]*>", markup, re.I)
+        labelled = markup.lower().count("<label")
+        criterion(
+            not inputs or labelled >= len([i for i in inputs if 'type="hidden"' not in i.lower()]),
+            f"{len(inputs)} input(s) but only {labelled} <label>(s)",
+        )
+        # 6. Buttons have an accessible name.
+        empty_buttons = len(
+            re.findall(r"<button\b(?![^>]*aria-label)[^>]*>\s*</button>", markup, re.I)
+        )
+        criterion(empty_buttons == 0, f"{empty_buttons} button(s) with no accessible name")
+        # 7. Visible focus indication.
+        criterion(
+            ":focus" in css or "focus:" in markup or ":focus-visible" in css,
+            "no focus styles for keyboard navigation",
+        )
+        # 8. Zoom is not disabled.
+        criterion(
+            not re.search(r"user-scalable\s*=\s*no|maximum-scale\s*=\s*1", markup, re.I),
+            "viewport disables pinch zoom",
+        )
 
-            # Check for buttons without aria-label or text content
-            button_tags = re.findall(r"<button\s+[^>]*>", content, re.IGNORECASE)
-            for button in button_tags:
-                if "aria-label=" not in button and "aria-label={" not in content:
-                    # Check if button has children (text content)
-                    # This is a simplified check
-                    recommendations.append(
-                        f"{file_path.name}: Ensure buttons have accessible names"
-                    )
-
-            # Check for semantic HTML
-            if '<div className="container"' in content or '<div className="wrapper"' in content:
-                # Should use <main>, <section>, <article>, etc.
-                if "<main" not in content and "<section" not in content:
-                    recommendations.append(
-                        f"{file_path.name}: Consider using semantic HTML elements"
-                    )
-
-        # Check for focus styles in CSS/Tailwind
-        css_files = list(output_dir.glob("**/*.css")) + list(output_dir.glob("**/*.scss"))
-
-        has_focus_styles = False
-        for css_file in css_files:
-            content = css_file.read_text(encoding="utf-8")
-            if ":focus" in content or "focus:" in content:
-                has_focus_styles = True
-                break
-
-        if not has_focus_styles:
-            recommendations.append("Add focus styles for keyboard navigation")
-
-        passed = len(issues) == 0
-        score = 1.0 if passed else max(0.5, 1.0 - (len(issues) * 0.1))
-
+        total = 8
+        score = self._grade(total - len(failures), total)
         return QualityCheck(
             name="Accessibility (WCAG 2.1 AA)",
-            passed=passed,
+            passed=not failures,
             score=score,
-            details=f"Found {len(issues)} issues, {len(recommendations)} recommendations",
-            recommendations=recommendations,
+            details=(
+                f"{total - len(failures)}/{total} criteria met"
+                + (f" — {'; '.join(failures[:4])}" if failures else "")
+            ),
+            recommendations=failures,
         )
 
     async def _check_performance(self, output_dir: Path) -> QualityCheck:
+        """Check page weight and request shape against a budget.
+
+        Graded against real weight. Previously only a >500KB JS bundle could
+        lower the score and images were never measured, so every site scored a
+        constant 0.96.
         """
-        Check performance metrics (simulated Lighthouse).
+        markup = self._markup(output_dir)
+        if not markup.strip():
+            return QualityCheck(
+                name="Performance (Lighthouse)",
+                passed=True,
+                score=1.0,
+                details="Nothing to weigh — not applicable.",
+                applicable=False,
+            )
 
-        Checks:
-        - Bundle size (no huge dependencies)
-        - Image optimization hints
-        - Code splitting potential
-        - Lazy loading opportunities
-        """
-        issues = []
-        recommendations = []
+        def total_bytes(patterns: tuple[str, ...]) -> int:
+            size = 0
+            for pattern in patterns:
+                for path in output_dir.glob(f"**/{pattern}"):
+                    if "node_modules" in path.parts:
+                        continue
+                    try:
+                        size += path.stat().st_size
+                    except OSError:
+                        continue
+            return size
 
-        # Check file sizes
-        total_js_size = 0
-        total_css_size = 0
+        js = total_bytes(("*.js", "*.tsx", "*.jsx"))
+        css_bytes = total_bytes(("*.css",))
+        images = total_bytes(("*.png", "*.jpg", "*.jpeg", "*.webp", "*.gif", "*.avif", "*.svg"))
 
-        for js_file in output_dir.glob("**/*.js"):
-            total_js_size += js_file.stat().st_size
+        failures: list[str] = []
 
-        for tsx_file in output_dir.glob("**/*.tsx"):
-            total_js_size += tsx_file.stat().st_size
+        def criterion(ok: bool, complaint: str) -> None:
+            if not ok:
+                failures.append(complaint)
 
-        for css_file in output_dir.glob("**/*.css"):
-            total_css_size += css_file.stat().st_size
+        # Budgets chosen to pass a well-built brochure site and fail a careless one.
+        criterion(js <= 500 * 1024, f"JS {js / 1024:.0f}KB over the 500KB budget")
+        criterion(css_bytes <= 150 * 1024, f"CSS {css_bytes / 1024:.0f}KB over the 150KB budget")
+        criterion(
+            images <= 2 * 1024 * 1024, f"images {images / 1024 / 1024:.1f}MB over the 2MB budget"
+        )
 
-        # Warn if total JS is too large (>500KB uncompressed)
-        if total_js_size > 500 * 1024:
-            issues.append(f"Total JS size ({total_js_size / 1024:.1f}KB) exceeds 500KB")
-            recommendations.append("Consider code splitting and lazy loading")
+        # Render-blocking third-party scripts in <head> without defer/async.
+        head = re.search(r"<head\b.*?</head>", markup, re.I | re.S)
+        blocking = 0
+        if head:
+            for tag in re.findall(r"<script\b[^>]*src=[^>]*>", head.group(0), re.I):
+                if not re.search(r"\b(defer|async|type=[\"']module[\"'])", tag, re.I):
+                    blocking += 1
+        criterion(blocking <= 1, f"{blocking} render-blocking <script> in <head>")
 
-        # Check for lazy loading images
-        component_files = list(output_dir.glob("**/*.tsx"))
-        has_lazy_loading = False
+        # Below-the-fold images should be lazy where there are several.
+        img_count = len(re.findall(r"<img\b", markup, re.I))
+        criterion(
+            img_count <= 1 or 'loading="lazy"' in markup or "loading={'lazy'}" in markup,
+            f'{img_count} images and none marked loading="lazy"',
+        )
 
-        for file_path in component_files:
-            content = file_path.read_text(encoding="utf-8")
-            if 'loading="lazy"' in content or "lazy" in content.lower():
-                has_lazy_loading = True
-                break
-
-        if not has_lazy_loading:
-            recommendations.append("Add loading='lazy' to images below the fold")
-
-        # Check for Next.js Image component usage
-        uses_next_image = False
-        for file_path in component_files:
-            content = file_path.read_text(encoding="utf-8")
-            if "import Image" in content or "from next/image" in content:
-                uses_next_image = True
-                break
-
-        if not uses_next_image:
-            recommendations.append("Use Next.js Image component for optimization")
-
-        passed = len(issues) == 0
-        score = 0.96 if passed else max(0.7, 1.0 - (len(issues) * 0.15))
-
+        total = 5
+        score = self._grade(total - len(failures), total)
         return QualityCheck(
             name="Performance (Lighthouse)",
-            passed=passed,
+            passed=not failures,
             score=score,
-            details=f"JS: {total_js_size / 1024:.1f}KB, CSS: {total_css_size / 1024:.1f}KB",
-            recommendations=recommendations,
+            details=(
+                f"JS {js / 1024:.1f}KB, CSS {css_bytes / 1024:.1f}KB, "
+                f"images {images / 1024:.0f}KB, {blocking} blocking script(s)"
+                + (f" — {'; '.join(failures[:3])}" if failures else "")
+            ),
+            recommendations=failures,
         )
 
     async def _check_design_tokens(
@@ -318,61 +393,56 @@ class WebsiteQualityValidator:
         )
 
     async def _check_responsive(self, output_dir: Path) -> QualityCheck:
+        """Score responsive readiness on DISTINCT breakpoints actually declared.
+
+        Previously: `breakpoints/4 if has_responsive_classes else 0.5`, where
+        has_responsive_classes was set only by Tailwind prefixes in tsx/jsx. A
+        static HTML site with eight media queries scored the same 0.50 as one
+        with none — the check was blind to its primary output format.
         """
-        Check responsive design readiness.
+        markup = self._markup(output_dir)
+        css = self._css(output_dir)
+        if not markup.strip() and not css.strip():
+            return QualityCheck(
+                name="Responsive Design",
+                passed=True,
+                score=1.0,
+                details="Nothing to assess — not applicable.",
+                applicable=False,
+            )
 
-        Checks:
-        - Mobile-first media queries
-        - Breakpoint usage (sm, md, lg, xl)
-        - No fixed widths without max-width
-        """
-        recommendations = []
+        # Distinct widths, so ten copies of the same breakpoint do not read as ten.
+        widths = {
+            int(w) for w in re.findall(r"@media[^{]*?(?:min|max)-width:\s*(\d+)px", css, re.I)
+        }
+        # Tailwind responsive prefixes count as breakpoints too.
+        tailwind = {p for p in ("sm:", "md:", "lg:", "xl:", "2xl:") if p in markup}
+        breakpoints = len(widths) + len(tailwind)
 
-        breakpoints_tested = 0
-        has_responsive_classes = False
+        # Graded and monotonic in breakpoint count.
+        ladder = {0: 0.0, 1: 0.4, 2: 0.6, 3: 0.8}
+        base = ladder.get(breakpoints, 1.0)
 
-        # Find all TSX/JSX files
-        component_files = list(output_dir.glob("**/*.tsx")) + list(output_dir.glob("**/*.jsx"))
+        penalties: list[str] = []
+        if not re.search(r'<meta[^>]+name=["\']viewport["\']', markup, re.I):
+            penalties.append("no viewport meta tag")
+            base -= 0.2
+        fixed_container = re.search(r"\.(container|wrapper)\s*\{[^}]*width:\s*\d{3,}px", css, re.I)
+        if fixed_container:
+            penalties.append("container pinned to a fixed pixel width")
+            base -= 0.2
 
-        for file_path in component_files:
-            content = file_path.read_text(encoding="utf-8")
-
-            # Check for Tailwind responsive classes
-            if "sm:" in content:
-                breakpoints_tested += 1
-                has_responsive_classes = True
-            if "md:" in content:
-                breakpoints_tested += 1
-            if "lg:" in content:
-                breakpoints_tested += 1
-            if "xl:" in content or "2xl:" in content:
-                breakpoints_tested += 1
-
-            # Check for fixed widths without max-width
-            fixed_widths = re.findall(r'w-\d+["\']', content)
-            max_widths = re.findall(r"max-w-", content)
-
-            if fixed_widths and not max_widths:
-                recommendations.append(
-                    f"{file_path.name}: Consider using max-w-* with w-* for responsiveness"
-                )
-
-        # Check CSS files for media queries
-        css_files = list(output_dir.glob("**/*.css"))
-        for css_file in css_files:
-            content = css_file.read_text(encoding="utf-8")
-            if "@media" in content:
-                breakpoints_tested += len(re.findall(r"@media", content))
-
-        passed = has_responsive_classes and breakpoints_tested >= 3
-        score = min(1.0, breakpoints_tested / 4.0) if has_responsive_classes else 0.5
-
+        score = round(max(0.0, min(1.0, base)), 2)
         return QualityCheck(
             name="Responsive Design",
-            passed=passed,
+            passed=breakpoints >= 3 and not penalties,
             score=score,
-            details=f"Breakpoints tested: {breakpoints_tested}/4",
-            recommendations=recommendations,
+            details=(
+                f"Breakpoints declared: {breakpoints} "
+                f"({len(widths)} CSS, {len(tailwind)} utility)"
+                + (f" — {'; '.join(penalties)}" if penalties else "")
+            ),
+            recommendations=penalties,
         )
 
     async def _check_seo(self, output_dir: Path) -> QualityCheck:
@@ -520,10 +590,13 @@ class WebsiteQualityValidator:
 
     @staticmethod
     def _has_server_endpoints(output_dir: Path) -> bool:
-        """True when the site actually submits data somewhere it could be abused.
+        """True when the artifact CONTAINS server-side code that could be abused.
 
-        A static brochure site has nothing to rate-limit. Detects: form POSTs,
-        scripted POST calls, API route files, and any server-side source.
+        Deliberately narrower than "the page submits data somewhere". A static
+        export whose form posts to /api/contact carries no backend to rate-limit
+        — the endpoint lives in another deployable — so judging it here is a
+        false positive that penalises every brochure site with a contact form.
+        Applicability requires request-handling code to actually be present.
         """
         import re as _re
 
@@ -535,17 +608,17 @@ class WebsiteQualityValidator:
         if any(output_dir.rglob("*.py")):
             return True
 
-        endpoint_markers = [
-            r"<form[^>]*method\s*=\s*[\"\']post",
-            r"method\s*:\s*[\"\']POST",
-            r"\.post\s*\(",
-            r"axios\.post",
+        # Server-side request handlers, not client-side calls to someone else's.
+        handler_markers = [
             r"app\.(post|put|patch)\s*\(",
             r"router\.(post|put|patch)\s*\(",
+            r"export\s+(async\s+)?function\s+(POST|PUT|PATCH)\b",
+            r"createServer\s*\(",
+            r"fastify\.(post|put|patch)\s*\(",
         ]
         scan = [
             p
-            for ext in ("*.html", "*.js", "*.jsx", "*.ts", "*.tsx")
+            for ext in ("*.js", "*.jsx", "*.ts", "*.tsx", "*.mjs")
             for p in output_dir.rglob(ext)
             if "node_modules" not in p.parts
         ]
@@ -554,7 +627,7 @@ class WebsiteQualityValidator:
                 content = fpath.read_text(encoding="utf-8", errors="ignore")
             except OSError:
                 continue
-            if any(_re.search(pat, content, _re.IGNORECASE) for pat in endpoint_markers):
+            if any(_re.search(pat, content, _re.IGNORECASE) for pat in handler_markers):
                 return True
         return False
 
@@ -572,6 +645,7 @@ class WebsiteQualityValidator:
                 passed=True,
                 score=1.0,
                 details="No server-side endpoints or form submissions found — not applicable.",
+                applicable=False,
             )
 
         rate_limit_patterns = [
@@ -668,6 +742,7 @@ class WebsiteQualityValidator:
                 passed=True,
                 score=1.0,
                 details="No auth pages found — not applicable.",
+                applicable=False,
                 recommendations=[],
             )
         found = False
@@ -733,12 +808,17 @@ class WebsiteQualityValidator:
             # Sentry DSNs
             r"https://[a-f0-9]+@o\d+\.ingest\.sentry\.io/\d+",
         ]
-        frontend_files = (
-            list(output_dir.rglob("*.tsx"))
-            + list(output_dir.rglob("*.jsx"))
-            + list(output_dir.rglob("*.html"))
-        )
-        # Exclude API route files and server-only dirs (cross-platform safe)
+        # .js/.ts/.mjs were missing here, so on a static site — where the code
+        # lives in script.js — this security check scanned no JavaScript at all
+        # and reported a clean bill of health for every artifact it was given.
+        frontend_files = [
+            f
+            for ext in ("*.tsx", "*.jsx", "*.ts", "*.js", "*.mjs", "*.html")
+            for f in output_dir.rglob(ext)
+            if "node_modules" not in f.parts
+        ]
+        # Exclude API route files and server-only dirs (cross-platform safe):
+        # a key in server-side code is not a frontend leak.
         frontend_files = [
             f for f in frontend_files if "api" not in f.parts and "server" not in f.parts
         ]

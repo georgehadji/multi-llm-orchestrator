@@ -40,13 +40,22 @@ def QR():
 
 @pytest.mark.unit
 class TestQualityReportAggregation:
-    def test_score_is_mean_of_check_scores(self, QC, QR):
+    def test_score_is_conservative_not_a_plain_mean(self, QC, QR):
+        """Aggregate is 0.5*mean + 0.5*min — see QualityReport._derive_score.
+
+        This asserted the plain mean (0.75) until 2026-09-05. A mean let one
+        fatal dimension hide behind good siblings: measured against a clean
+        fixture, a placeholder <title> moved the aggregate by 0.021 and six
+        megabytes of images by 0.029. The gate noticed every defect and cared
+        about none of them.
+        """
         checks = [
             QC(name="a", passed=True, score=1.0, details=""),
             QC(name="b", passed=True, score=0.5, details=""),
         ]
         report = QR(checks=checks)
-        assert report.score == pytest.approx(0.75)
+        # mean 0.75, min 0.50 -> 0.625
+        assert report.score == pytest.approx(0.625)
 
     def test_score_not_constant_zero_for_good_output(self, QC, QR):
         checks = [QC(name=n, passed=True, score=1.0, details="") for n in "abc"]
@@ -290,15 +299,23 @@ class TestApplyQualityGate:
         assert result.quality_gate_passed is False
         assert result.gate_failures, "a failing gate must say which checks failed"
 
-    def test_require_all_checks_overrides_good_mean(self):
-        """0.5 hidden behind three 1.0s must not ship when all checks are required."""
+    def test_require_all_checks_overrides_a_clearing_score(self):
+        """A failing check must block even when the aggregate clears min_quality.
+
+        The premise moved on 2026-09-05: the aggregate is now 0.5*mean + 0.5*min,
+        so a 0.5 among three 1.0s no longer clears 0.8 on its own (it scores
+        0.6875). The behaviour under test is unchanged — require_all_checks
+        still rejects a build with any failing check — so the fixture uses a
+        weak-but-failing 0.90 to keep the score above the bar.
+        """
         from orchestrator.generators.website_generator import WebsiteGenerator
 
+        # mean 0.975, min 0.90 -> conservative aggregate 0.9375, above the bar.
         result, report, Config = self._fixture(
-            [(1.0, True), (1.0, True), (1.0, True), (0.5, False)]
+            [(1.0, True), (1.0, True), (1.0, True), (0.9, False)]
         )
         cfg = Config(min_quality=0.8, require_all_checks=True)
-        assert report.score > 0.8  # mean clears the bar
+        assert report.score > 0.8, f"premise broken: score={report.score}"
         WebsiteGenerator._apply_quality_gate(result, report, cfg)
         assert result.quality_gate_passed is False
 

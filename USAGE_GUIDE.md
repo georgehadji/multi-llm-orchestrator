@@ -291,9 +291,32 @@ inspected, a failed one may not exist at all.
 
 Each build is scored across accessibility, performance, design-token
 compliance, responsive design, SEO, content quality, and (where applicable)
-rate limiting, auth flow and secret exposure. The aggregate is the mean of the
-per-check scores; `require_all_checks` additionally rejects a build when any
-single check fails, so one broken dimension cannot hide behind good siblings.
+rate limiting, auth flow and secret exposure.
+
+Two properties make the score mean something:
+
+- **Checks that do not apply are excluded, not counted as full marks.** A static
+  brochure site has no backend to rate-limit; scoring that a perfect 1.00 used
+  to inflate every result.
+- **The aggregate is `0.5 * mean + 0.5 * worst`.** A site is only as shippable
+  as its weakest dimension. Under a plain mean a single fatal defect was almost
+  invisible — a placeholder `<title>` moved the score by 0.02.
+
+`require_all_checks` additionally rejects a build when any single check fails,
+even if the aggregate clears `min_quality`.
+
+Calibration, measured on real pages:
+
+| Score | What it looks like |
+|-------|--------------------|
+| `0.97` | Clean, well-built page |
+| `0.79` | Best hand-written site in this repo |
+| `0.66` | Template fallback — placeholder copy |
+| `0.37` | No breakpoints, thin content |
+
+Failures name the specific criterion, e.g. `Accessibility 7/8 criteria met —
+expected exactly one <h1>, found 2` or `Breakpoints declared: 2 (0 CSS, 2
+utility)`.
 
 The same gate is available for single sites:
 

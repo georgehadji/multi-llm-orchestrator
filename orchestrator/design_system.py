@@ -220,12 +220,18 @@ class QualityCheck:
         score: float,
         details: str,
         recommendations: list[str] | None = None,
+        applicable: bool = True,
     ):
         self.name = name
         self.passed = passed
         self.score = score
         self.details = details
         self.recommendations = recommendations if recommendations is not None else []
+        # False when the check has nothing to judge (e.g. rate limiting on a
+        # static brochure site with no endpoints). Such a check must be excluded
+        # from the aggregate rather than contributing a free 1.0 — otherwise
+        # every score is inflated by the checks that did not apply.
+        self.applicable = applicable
 
 
 class QualityReport:
@@ -258,16 +264,47 @@ class QualityReport:
         self.__dict__.update(kwargs)
 
     @staticmethod
-    def _derive_score(checks: list) -> float:
-        """Arithmetic mean of per-check scores; 0.0 when there is nothing to judge."""
-        scores = [float(c.score) for c in checks if getattr(c, "score", None) is not None]
-        return sum(scores) / len(scores) if scores else 0.0
+    def _applicable(checks: list) -> list:
+        """Checks that had something to judge (see QualityCheck.applicable)."""
+        return [c for c in checks if bool(getattr(c, "applicable", True))]
 
-    @staticmethod
-    def _derive_passed(checks: list) -> bool:
-        """True only when every check passed; an empty report never passes."""
-        return bool(checks) and all(bool(getattr(c, "passed", False)) for c in checks)
+    # Weight given to the worst check when aggregating. 0.5 = "half average,
+    # half worst". See _derive_score.
+    WORST_WEIGHT = 0.5
+
+    @classmethod
+    def _derive_score(cls, checks: list) -> float:
+        """Conservative aggregate over APPLICABLE checks; 0.0 when nothing to judge.
+
+        Two departures from a plain mean, each fixing a measured defect:
+
+        1. Inapplicable checks are EXCLUDED rather than counted as 1.0. On a
+           static brochure site three of eight checks report "not applicable";
+           counting them pinned ~0.375 of every score at maximum no matter what
+           the generator produced.
+
+        2. The aggregate is ``0.5 * mean + 0.5 * min`` — a site is only as
+           shippable as its weakest dimension. Under a plain mean a single fatal
+           check was almost invisible: measured against a clean fixture, a
+           placeholder <title> cost 0.021 and six megabytes of images cost
+           0.029. The gate detected every defect and cared about none of them.
+           This is the same conservative-aggregation doctrine the evaluator uses
+           for self-consistency: disagreement resolves downward, not to the mean.
+        """
+        scores = [
+            float(c.score) for c in cls._applicable(checks) if getattr(c, "score", None) is not None
+        ]
+        if not scores:
+            return 0.0
+        mean = sum(scores) / len(scores)
+        return round((1.0 - cls.WORST_WEIGHT) * mean + cls.WORST_WEIGHT * min(scores), 4)
+
+    @classmethod
+    def _derive_passed(cls, checks: list) -> bool:
+        """True only when every applicable check passed; an empty report never passes."""
+        applicable = cls._applicable(checks)
+        return bool(applicable) and all(bool(getattr(c, "passed", False)) for c in applicable)
 
     def failed_checks(self) -> list:
-        """Checks that did not pass — what a quality gate should report to the caller."""
-        return [c for c in self.checks if not bool(getattr(c, "passed", False))]
+        """Applicable checks that did not pass — what a gate reports to the caller."""
+        return [c for c in self._applicable(self.checks) if not bool(getattr(c, "passed", False))]

@@ -19,10 +19,19 @@ defaults:
   framework: html            # html | react | next.js
   preset: modern             # modern | minimalist | playful | corporate | luxury | tech
   image_quality: balanced    # draft | balanced | premium
-  min_quality: 0.85          # aggregate score required to ship; 0.0 disables the gate
-  require_all_checks: true   # a single failing check rejects the build, even if
-                             # the mean clears min_quality — stops one broken
-                             # dimension (e.g. responsive) hiding behind good ones
+  min_quality: 0.80          # aggregate score required to ship; 0.0 disables the gate
+                             #
+                             # The aggregate is 0.5*mean + 0.5*worst over the
+                             # checks that APPLY, so one weak dimension really
+                             # does cost score. Calibration on real pages:
+                             #   0.97  a clean, well-built page
+                             #   0.79  best hand-written site in this repo
+                             #   0.66  template fallback (placeholder copy)
+                             #   0.37  no breakpoints + thin content
+                             # 0.80 is a demanding but reachable bar. Raise it
+                             # once your own output clears it consistently.
+  require_all_checks: true   # a single failing check rejects the build even when
+                             # the aggregate clears min_quality
 
 sites:
   - slug: gadini-barberia          # becomes the output directory and repo name
