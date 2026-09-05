@@ -117,6 +117,24 @@ different class, `A2AQueueManager`).
 **Gate status at T4 close:** black/ruff/lint-imports/root-freeze/test-markers/mypy(core)/bandit
 all PASS.
 
+## T5 — Resilience state machines (closed)
+
+Full detail: `docs/hunts/t5-resilience/inventory.md`, `docs/hunts/t5-resilience/coverage.md`.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `operations/circuit_breaker.py` silently diverged from the canonical, live `circuit_breaker.py`: missing the `probe_in_flight` enforcement (BUG-001/BUG-002 fixes) that limits a HALF_OPEN breaker to exactly one concurrent probe — verified with a real concurrent-`check()` trigger, pre-fix both callers were admitted. Because `operations/resilience.py` sources its `CircuitBreakerOpen` from this same divergent copy, a real `CircuitBreakerOpen` raised by any live breaker (all constructed from the canonical module) was not an instance of the exception class `run_with_resilience()`'s `except` clause checked for — it would not have been caught. Fixed: converted to a shim of the canonical module, resolving both issues at once. |
+
+**Cleared (innocent):** `resilience.py` and `integration_circuit_breaker.py` duplicate pairs,
+both correct non-diverged shims. `rate_limiter.py::GrokRateLimiter.acquire()`'s check-then-act
+RPM/TPM logic confirmed atomic (already carries prior `BUG-NEW-001`/`BUG-NEW-002` hardening).
+
+**Residual, not investigated:** `orchestrator/adaptive_router.py` (192 lines) — not read this
+tier.
+
+**Gate status at T5 close:** black/ruff/lint-imports/root-freeze/test-markers/mypy(core)/bandit
+all PASS. 61/61 existing resilience/circuit-breaker tests still pass, zero regressions.
+
 ## Unrelated fix merged during this tier sequence: OpenRouter model-catalog update
 
 Per explicit user request (separate from the defect-hunt protocol), a background agent
