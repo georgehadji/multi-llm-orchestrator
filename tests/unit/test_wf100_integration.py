@@ -42,14 +42,16 @@ class TestTheGeneratorMeetsItsOwnStandard:
         assert report.blockers == ()
         assert report.critical_failures() == ()
 
-    def test_the_generated_site_passes_every_automated_check_it_can(self, report):
-        # G8 is the one expected failure and it is expected on purpose: a privacy
-        # policy is a legal document about this practice, and the generator will
-        # not write a plausible fake to make a check go green.
-        assert [f.check.id for f in report.failures()] == ["G8"]
+    def test_the_only_failures_are_the_two_the_client_must_supply(self, report):
+        # Both are expected, and both on purpose. A privacy policy is a legal
+        # document about this practice; a credential is a claim about a person.
+        # The generator writes neither, because a plausible-looking fake is worse
+        # than a reported gap — so the audit reports the gap.
+        assert [f.check.id for f in report.failures()] == ["F11", "G8"]
 
-    def test_the_privacy_gap_is_reported_rather_than_papered_over(self, report):
+    def test_the_gaps_are_reported_rather_than_papered_over(self, report):
         assert "privacy policy" in report.finding("G8").detail
+        assert "qualifications" in report.finding("F11").detail
 
     def test_it_scores_well_above_half_on_verified_points_alone(self, report):
         assert report.score > 60

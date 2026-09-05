@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from orchestrator.generators.wf100.auditor import audit
-from orchestrator.generators.wf100.checks import implementation_for
+from orchestrator.generators.wf100.checks import implementation_for, implemented_ids
 from orchestrator.generators.wf100.evidence import BusinessRecord, Page, SiteEvidence
 from orchestrator.generators.wf100.report import Status
 
@@ -268,3 +268,54 @@ class TestAuditorHonesty:
         # The _headers file states an intention. It is not a served response.
         assert report.finding("G1").status is Status.OUTSTANDING
         assert report.finding("G3").status is Status.OUTSTANDING
+
+
+class TestNoCheckCrashes:
+    """No check may raise, on any input.
+
+    A crash is reported OUTSTANDING rather than FAIL — which is right, since a
+    stack trace is not evidence about the site — but it also means a broken
+    check looks like an unverified one and every test above it still passes.
+    F11 crashed on every page without a qualification in the copy, and the
+    end-to-end suite went green through it for exactly that reason. This test
+    is the one that would have said so.
+    """
+
+    @pytest.fixture(
+        params=["empty", "bare", "nothing-matches", "everything-matches"], ids=lambda p: p
+    )
+    def hostile(self, request):
+        if request.param == "empty":
+            return SiteEvidence()
+        if request.param == "bare":
+            return _ev("<html><body><p>hi</p></body></html>")
+        if request.param == "nothing-matches":
+            return _ev(
+                "<html lang='el'><body><main><h1>x</h1>"
+                "<form><input name='a'></form></main></body></html>",
+                styles="a{transition:all .2s}b{color:#111;background:#fff}",
+                scripts="const a=1",
+                assets={"index.html": 10, "a.css": 10, "hero.jpg": 999999},
+                files={"robots.txt": "User-agent: *"},
+                record=BusinessRecord(name="X", city="Y", phone="123"),
+            )
+        return _ev(
+            "<html lang='el'><head><title>A dental practice on Tsimiski street</title>"
+            "<meta name='description' content='x'></head><body><header><nav>n</nav></header>"
+            "<main><h1>Implants</h1><blockquote>Great<cite>A</cite></blockquote>"
+            "<img src='hero.webp' alt='The clinic' width='8' height='6'>"
+            "<form><label for='a'>Name</label><input id='a' required></form>"
+            "<a href='tel:+30231000'>Call</a></main><footer>f</footer></body></html>",
+            styles=":root{--ink:#111;--paper:#fff}a:focus{outline:2px solid}"
+            "@media (prefers-reduced-motion: no-preference){a{transition:all .2s}}",
+            scripts="const a=1",
+            assets={"index.html": 10, "hero.webp": 4096},
+            files={"robots.txt": "User-agent: *\nSitemap: https://x/s.xml"},
+            record=BusinessRecord(name="X", city="Tsimiski", phone="+30231000"),
+        )
+
+    @pytest.mark.parametrize("check_id", sorted(implemented_ids()))
+    def test_check_returns_a_finding_rather_than_raising(self, check_id, hostile):
+        finding = implementation_for(check_id)(hostile)
+        assert finding.check.id == check_id
+        assert finding.detail.strip()

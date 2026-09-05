@@ -1793,12 +1793,9 @@ def _f11_credentials_findable(ev: SiteEvidence) -> Finding:
         text,
         re.I,
     )
-    return _judge(
-        "F11",
-        bool(found),
-        f"professional credentials are stated in the copy ({found.group(0)!r})",
-        "no qualifications or registrations stated anywhere a visitor would look",
-    )
+    if not found:
+        return _no("F11", "no qualifications or registrations stated anywhere a visitor would look")
+    return _ok("F11", f"professional credentials are stated in the copy ({found.group(0)!r})")
 
 
 @implements("F12")

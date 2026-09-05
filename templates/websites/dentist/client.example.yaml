@@ -22,6 +22,11 @@ services:
 - title: Invisible orthodontics
   body: Clear aligners with fortnightly remote check-ins.
   price: from 1800 EUR
+# Qualifications and registration numbers go in the bios. They are left out of
+# this example on purpose: a plausible-looking credential is the one kind of
+# placeholder that is never harmless, so the generator will not invent one and
+# the WF-100 audit reports the gap instead (check F11, and H4 for whether what
+# you write is actually true).
 team:
 - name: Dr Elena Papadopoulou
   role: Implantology
