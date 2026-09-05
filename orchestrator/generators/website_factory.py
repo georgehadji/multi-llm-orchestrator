@@ -84,6 +84,12 @@ class SiteOutcome:
     success: bool = False
     quality_gate_passed: bool | None = None
     score: float = 0.0
+    # WF-100's launch decision, kept apart from `quality_gate_passed` because
+    # they answer different questions: the gate asks whether the generator
+    # produced something sound, the verdict asks whether it may go live.
+    verdict: str = ""
+    wf100_score: float = 0.0
+    wf100_ceiling: float = 0.0
     failures: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
     duration_seconds: float = 0.0
@@ -224,6 +230,24 @@ class WebsiteFactory:
             # A crashed build is never shippable, whatever the gate never said.
             outcome.quality_gate_passed = False
 
+        if outcome.success:
+            try:
+                verdict, score, ceiling, blocking = await asyncio.to_thread(_audit_site, site_dir)
+                outcome.verdict = verdict
+                outcome.wf100_score = score
+                outcome.wf100_ceiling = ceiling
+                outcome.failures.extend(blocking)
+                # WF-100 vetoes, it never blesses. A critical failure means the
+                # site cannot launch however well the build-time validator
+                # scored it; a clean audit does not retroactively pass a build
+                # the validator rejected.
+                if verdict == "no_launch":
+                    outcome.quality_gate_passed = False
+            except Exception as exc:  # noqa: BLE001 — an audit crash is not a verdict
+                logger.warning(
+                    "Site %s: WF-100 audit failed (%s); verdict left unrecorded", spec.slug, exc
+                )
+
         outcome.duration_seconds = time.time() - started
 
         if self._git_delivery:
@@ -238,24 +262,56 @@ class WebsiteFactory:
     def _write_report(path: Path, outcomes: list[SiteOutcome], elapsed: float) -> None:
         shippable = sum(1 for o in outcomes if o.quality_gate_passed is True)
         rejected = sum(1 for o in outcomes if o.quality_gate_passed is False)
+        launch_ready = sum(1 for o in outcomes if o.verdict == "launch")
         payload = {
             "sites": [asdict(o) for o in outcomes],
             "total": len(outcomes),
             "shippable": shippable,
             "rejected": rejected,
             "unjudged": len(outcomes) - shippable - rejected,
+            "launch_ready": launch_ready,
             "total_cost_usd": round(sum(o.cost_usd for o in outcomes), 6),
             "duration_seconds": round(elapsed, 3),
         }
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         logger.info(
-            "Factory report: %d site(s), %d shippable, %d rejected, $%.4f -> %s",
+            "Factory report: %d site(s), %d WF-100 launch-ready, %d rejected, $%.4f -> %s",
             payload["total"],
-            shippable,
+            launch_ready,
             rejected,
             payload["total_cost_usd"],
             path,
         )
+
+
+def _audit_site(site_dir: Path) -> tuple[str, float, float, list[str]]:
+    """Hold one built site to WF-100. Returns (verdict, score, ceiling, blocking lines).
+
+    A site with no readable HTML — an unbuilt Next.js project, say — comes back
+    ``not_audited``: the standard was never applied, which is not the same as
+    applying it and failing. That distinction is the whole point of the
+    auditor's evidence model, and it has to survive the trip into the batch
+    report, or "we did not look" reads as "we looked and it was fine".
+    """
+    from .wf100.auditor import audit
+    from .wf100.evidence import SiteEvidence
+    from .wf100.standard import Evidence
+
+    evidence = SiteEvidence.from_directory(str(site_dir))
+    # No markup, no website. Asked the other way round — "did any check score?"
+    # — a directory holding only `page.tsx` earns points from the asset-only
+    # checks and comes back PENDING, which is a verdict on a site that was
+    # never there.
+    if Evidence.MARKUP not in evidence.available:
+        return "not_audited", 0.0, 0.0, []
+
+    report = audit(evidence)
+
+    blocking = [f"WF-100 {b.code}: {b.detail}" for b in report.blockers]
+    blocking += [
+        f"WF-100 {f.check.id} ({f.check.title}): {f.detail}" for f in report.critical_failures()
+    ]
+    return report.verdict.value, report.score, report.ceiling, blocking
 
 
 def _run_git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:

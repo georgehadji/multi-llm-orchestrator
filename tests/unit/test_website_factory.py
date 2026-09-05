@@ -117,7 +117,10 @@ class TestBatchRun:
         factory = factory_mod.WebsiteFactory(build_site=build, git_delivery=False)
         outcomes = await factory.run(specs, output_root=tmp_path)
         assert [o.slug for o in outcomes] == ["s0", "s1", "s2"]
-        assert all(o.quality_gate_passed for o in outcomes)
+        # Every site is audited. These stub pages have no viewport, so WF-100
+        # vetoes them — the validator's "yes" does not survive a critical failure.
+        assert all(o.verdict == "no_launch" for o in outcomes)
+        assert all(o.quality_gate_passed is False for o in outcomes)
 
     @pytest.mark.asyncio
     async def test_one_failing_site_does_not_abort_the_batch(self, factory_mod, tmp_path):
@@ -303,5 +306,117 @@ class TestWebsiteBatchCommand:
         rows = [
             SiteOutcome(slug=f"s{i}", output_dir="", success=s, quality_gate_passed=g)
             for i, (s, g) in enumerate(outcomes)
+        ]
+        assert exit_code_for(rows) == expected
+
+
+@pytest.mark.unit
+class TestWF100Gate:
+    """The batch's launch decision is WF-100's, not the validator's alone.
+
+    The validator answers "did the generator produce something sound?"; WF-100
+    answers "may this go live?". They are different questions, so both are
+    reported — but a WF-100 blocker vetoes, because a site with a critical
+    failure is not shippable however well it scored on anything else.
+    """
+
+    @pytest.mark.asyncio
+    async def test_audit_runs_and_records_its_verdict(self, factory_mod, tmp_path):
+        specs = [factory_mod.SiteSpec(slug="s", description="d")]
+
+        async def build(spec, output_dir):
+            (output_dir / "index.html").write_text(
+                '<html lang="en"><head><title>A dental practice in Kalamaria</title>'
+                '<meta name="viewport" content="width=device-width, initial-scale=1">'
+                '</head><body><main><a href="tel:+302310000000">Call us</a></main>'
+                "</body></html>",
+                encoding="utf-8",
+            )
+            return _fake_result()
+
+        factory = factory_mod.WebsiteFactory(build_site=build, git_delivery=False)
+        outcomes = await factory.run(specs, output_root=tmp_path)
+        assert outcomes[0].verdict in {"launch", "pending", "no_launch"}
+        assert outcomes[0].wf100_score > 0
+        assert outcomes[0].wf100_ceiling >= outcomes[0].wf100_score
+
+    @pytest.mark.asyncio
+    async def test_a_blocker_vetoes_a_passing_validator_gate(self, factory_mod, tmp_path):
+        """No viewport is a critical failure — the validator saying yes cannot override it."""
+        specs = [factory_mod.SiteSpec(slug="s", description="d")]
+
+        async def build(spec, output_dir):
+            (output_dir / "index.html").write_text("<html></html>", encoding="utf-8")
+            return _fake_result(gate=True, score=0.95)
+
+        factory = factory_mod.WebsiteFactory(build_site=build, git_delivery=False)
+        outcomes = await factory.run(specs, output_root=tmp_path)
+        assert outcomes[0].verdict == "no_launch"
+        assert outcomes[0].quality_gate_passed is False
+        assert any("WF-100" in f for f in outcomes[0].failures), outcomes[0].failures
+
+    @pytest.mark.asyncio
+    async def test_nothing_to_audit_is_reported_as_such_never_as_a_pass(
+        self, factory_mod, tmp_path
+    ):
+        """An unbuilt framework project has no HTML. That is unaudited, not failed."""
+        specs = [factory_mod.SiteSpec(slug="s", description="d")]
+
+        async def build(spec, output_dir):
+            (output_dir / "page.tsx").write_text("export default () => null", encoding="utf-8")
+            return _fake_result()
+
+        factory = factory_mod.WebsiteFactory(build_site=build, git_delivery=False)
+        outcomes = await factory.run(specs, output_root=tmp_path)
+        assert outcomes[0].verdict == "not_audited"
+        assert outcomes[0].wf100_score == 0.0
+
+    @pytest.mark.asyncio
+    async def test_a_crashing_audit_does_not_take_the_site_with_it(
+        self, factory_mod, tmp_path, monkeypatch
+    ):
+        specs = [factory_mod.SiteSpec(slug="s", description="d")]
+
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("auditor exploded")
+
+        monkeypatch.setattr(factory_mod, "_audit_site", boom)
+
+        async def build(spec, output_dir):
+            (output_dir / "index.html").write_text("<html></html>", encoding="utf-8")
+            return _fake_result()
+
+        factory = factory_mod.WebsiteFactory(build_site=build, git_delivery=False)
+        outcomes = await factory.run(specs, output_root=tmp_path)
+        assert outcomes[0].success is True
+        assert outcomes[0].verdict == ""
+
+    @pytest.mark.asyncio
+    async def test_verdict_reaches_the_batch_report(self, factory_mod, tmp_path):
+        specs = [factory_mod.SiteSpec(slug="s", description="d")]
+
+        async def build(spec, output_dir):
+            (output_dir / "index.html").write_text("<html></html>", encoding="utf-8")
+            return _fake_result()
+
+        factory = factory_mod.WebsiteFactory(build_site=build, git_delivery=False)
+        await factory.run(specs, output_root=tmp_path)
+        data = json.loads((tmp_path / "factory-report.json").read_text(encoding="utf-8"))
+        assert data["sites"][0]["verdict"] == "no_launch"
+        assert data["launch_ready"] == 0
+
+    @pytest.mark.parametrize(
+        "verdict,expected",
+        [("launch", 0), ("", 0), ("not_audited", 2), ("pending", 2), ("no_launch", 2)],
+    )
+    def test_exit_code_reflects_the_launch_verdict(self, verdict, expected):
+        """Only a launch-ready batch exits 0. Pending is not shippable either."""
+        from orchestrator.commands.website_batch import exit_code_for
+        from orchestrator.generators.website_factory import SiteOutcome
+
+        rows = [
+            SiteOutcome(
+                slug="s", output_dir="", success=True, quality_gate_passed=True, verdict=verdict
+            )
         ]
         assert exit_code_for(rows) == expected
