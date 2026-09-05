@@ -1,0 +1,24 @@
+name: dentist
+description: Mobile-first dental clinic site — modular sections, one file per block
+# Order is the page order. Drop a section by deleting its name; add one by
+# dropping a new file in sections/ and listing it here.
+sections: [header, hero, services, about, team, testimonials, contact, footer]
+required: [brand_name, city, phone, email, address]
+defaults:
+  lang: en
+  tagline: Careful, modern dentistry
+  hero_body: >-
+    Unhurried appointments, clear pricing and treatment explained before it starts.
+  cta_label: Book an appointment
+  services_heading: Treatments
+  about_heading: About the practice
+  about_body: >-
+    A small team that would rather spend longer with fewer patients. Every plan is
+    explained, costed and agreed before any work begins.
+  team_heading: Who you will see
+  testimonials_heading: What patients say
+  contact_heading: Visit us
+  hours: "Mon-Fri 09:00-19:00 · Sat 09:00-14:00"
+  services: []
+  team: []
+  testimonials: []

@@ -1,0 +1,202 @@
+/* ---------------------------------------------------------------------------
+   Mobile-first. Base styles ARE the phone layout; every media query is
+   min-width and only adds capability as the viewport grows. There is not a
+   single max-width query in this sheet — that is the point.
+
+   Palette and scale are custom properties, so a client override is one :root
+   block appended by apply_template(), not a fork of this file.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --ink: #16241f;
+  --ink-soft: #4b5f58;
+  --paper: #fbfaf7;
+  --surface: #ffffff;
+  --accent: #0f5d4a;
+  --accent-ink: #ffffff;
+  --line: #e2e0d8;
+
+  --step-0: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
+  --step-1: clamp(1.25rem, 1.16rem + 0.45vw, 1.5rem);
+  --step-2: clamp(1.5rem, 1.32rem + 0.9vw, 2rem);
+  --step-3: clamp(1.9rem, 1.5rem + 2vw, 3rem);
+
+  --gap: 1.25rem;
+  --wrap: 72rem;
+  --radius: 12px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: var(--step-0)/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1, h2, h3 { line-height: 1.15; margin: 0 0 .5em; text-wrap: balance; }
+h1 { font-size: var(--step-3); }
+h2 { font-size: var(--step-2); }
+h3 { font-size: var(--step-1); }
+p { margin: 0 0 1em; }
+img { max-width: 100%; height: auto; display: block; }
+
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wrap { width: min(100% - 2rem, var(--wrap)); margin-inline: auto; }
+section { padding-block: clamp(2.5rem, 8vw, 5rem); }
+
+.skip-link {
+  position: absolute; left: -9999px;
+  background: var(--accent); color: var(--accent-ink); padding: .75rem 1rem;
+}
+.skip-link:focus { left: 1rem; top: 1rem; z-index: 10; }
+
+/* Header: stacked on phones, inline once there is room. */
+.site-header { background: var(--surface); border-bottom: 1px solid var(--line); }
+.header-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding-block: .9rem; }
+.brand { font-weight: 700; text-decoration: none; color: var(--ink); font-size: var(--step-1); }
+.nav { display: flex; flex-wrap: wrap; gap: 1rem; width: 100%; order: 3; }
+.nav a { text-decoration: none; }
+.nav a:hover { text-decoration: underline; }
+
+.btn {
+  display: inline-block; background: var(--accent); color: var(--accent-ink);
+  padding: .8rem 1.4rem; border-radius: var(--radius); text-decoration: none;
+  border: 0; font: inherit; cursor: pointer; min-height: 44px; /* touch target */
+}
+.btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.btn-sm { padding: .5rem 1rem; margin-left: auto; }
+
+.eyebrow { text-transform: uppercase; letter-spacing: .08em; font-size: .8rem; color: var(--ink-soft); margin: 0 0 .5rem; }
+.lede { font-size: var(--step-1); color: var(--ink-soft); max-width: 55ch; }
+.actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+.prose { max-width: 65ch; }
+
+.grid { display: grid; gap: var(--gap); padding: 0; margin: 0; list-style: none; }
+.card, .person, .quotes > li {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 1.25rem;
+}
+.price { font-weight: 600; margin: 0; }
+.role { color: var(--ink-soft); margin: 0 0 .5rem; }
+blockquote { margin: 0 0 .5rem; }
+.cite { color: var(--ink-soft); margin: 0; }
+
+.contact-grid { display: grid; gap: 2rem; }
+.address, .hours { color: var(--ink-soft); }
+.booking label { display: block; font-weight: 600; margin-bottom: .35rem; }
+.booking input, .booking textarea {
+  width: 100%; padding: .7rem; font: inherit;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+}
+
+.site-footer { background: var(--surface); border-top: 1px solid var(--line); padding-block: 2rem; color: var(--ink-soft); }
+
+/* --- 30em: two-up cards once a phone is landscape / small tablet ---------- */
+@media (min-width: 30em) {
+  .cards, .people, .quotes { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* --- 48em: header goes inline, nav rejoins the bar ------------------------ */
+@media (min-width: 48em) {
+  .nav { width: auto; order: 0; margin-left: 1.5rem; }
+  .btn-sm { margin-left: auto; }
+  .contact-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+}
+
+/* --- 64em: three-up cards, roomier rhythm -------------------------------- */
+@media (min-width: 64em) {
+  .cards, .people, .quotes { grid-template-columns: repeat(3, 1fr); }
+  :root { --gap: 1.75rem; }
+}
+
+/* --- 80em: cap the measure so lines stay readable on wide screens --------- */
+@media (min-width: 80em) {
+  :root { --wrap: 76rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   Micro-interactions and 2D/3D effects.
+
+   All CSS: no library, no external script, nothing for a CSP to allow. Every
+   effect is a compositor-friendly transform/opacity change, so none of it
+   triggers layout. The whole block is disabled under prefers-reduced-motion —
+   motion is an enhancement, never the thing carrying meaning.
+   --------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* Buttons: lift and settle. The active state is faster than the hover so a
+     press feels like a press rather than a delay. */
+  .btn {
+    transition: transform .18s cubic-bezier(.2, .8, .3, 1),
+                box-shadow .18s ease,
+                background-color .18s ease;
+    will-change: transform;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px -8px var(--accent); }
+  .btn:active { transform: translateY(0); transition-duration: .06s; }
+
+  /* Links: underline grows from the start rather than appearing. */
+  .nav a, .prose a {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0% 2px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size .25s ease;
+    text-decoration: none;
+  }
+  .nav a:hover, .nav a:focus-visible,
+  .prose a:hover, .prose a:focus-visible { background-size: 100% 2px; }
+
+  /* 3D: the card grid is a perspective scene; each card tilts toward the
+     viewer on hover. preserve-3d keeps children in the same space so the
+     heading lifts with the card instead of sliding across it. */
+  .cards, .people { perspective: 1000px; }
+  .card, .person {
+    transform-style: preserve-3d;
+    transition: transform .3s cubic-bezier(.2, .8, .3, 1), box-shadow .3s ease;
+  }
+  .card:hover, .card:focus-within,
+  .person:hover, .person:focus-within {
+    transform: translateZ(14px) rotateX(2.5deg) rotateY(-2.5deg);
+    box-shadow: 0 18px 40px -24px var(--ink);
+  }
+  .card h3, .person h3 { transform: translateZ(20px); }
+
+  /* 2D: a slow sheen across the hero. Pure transform, so it composites. */
+  .hero { position: relative; overflow: hidden; isolation: isolate; }
+  .hero::after {
+    content: "";
+    position: absolute; inset: -50% -10%;
+    z-index: -1;
+    background: radial-gradient(closest-side, var(--accent-soft), transparent 70%);
+    opacity: .55;
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+  @keyframes drift {
+    from { transform: translate3d(-6%, -4%, 0) scale(1); }
+    to   { transform: translate3d(6%, 4%, 0) scale(1.12); }
+  }
+
+  /* Scroll reveal. Sections start slightly low and transparent; script.js adds
+     .is-visible as they enter. Without JS they are simply visible — the
+     no-JS state is the readable one, not the hidden one. */
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
+  .reveal.is-visible { opacity: 1; transform: none; }
+}
+
+/* No-JS and reduced-motion safety net: never leave content hidden. */
+.no-js .reveal, .reveal.is-visible { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; } }

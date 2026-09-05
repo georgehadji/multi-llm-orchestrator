@@ -1,0 +1,46 @@
+# Copy this per client, edit, then:
+#   python -m orchestrator website-template apply templates/websites/dentist \
+#       --client this-file.yaml --output outputs/<slug>
+#
+# `accent` is the ONLY colour you supply — the rest of the palette is derived
+# by colour theory and checked against WCAG contrast before it ships.
+brand_name: Thessaloniki Dental
+city: Thessaloniki
+phone: +30 2310 000000
+email: hello@example.gr
+address: Tsimiski 42
+tagline: Careful, modern dentistry
+hero_body: Unhurried appointments, clear pricing, and every treatment explained before
+  it starts.
+services:
+- title: Implants
+  body: Single-tooth and full-arch restoration, planned from a 3D scan.
+  price: from 900 EUR
+- title: Cosmetic dentistry
+  body: Veneers, bonding and whitening matched to your existing teeth.
+  price: from 250 EUR
+- title: Invisible orthodontics
+  body: Clear aligners with fortnightly remote check-ins.
+  price: from 1800 EUR
+team:
+- name: Dr Elena Papadopoulou
+  role: Implantology
+  bio: Fifteen years placing implants, and a preference for doing less rather than
+    more.
+- name: Dr Nikos Georgiou
+  role: Orthodontics
+  bio: Aligner cases from mild crowding to full-arch correction.
+testimonials:
+- quote: They talked me out of a treatment I did not need. That is why I go back.
+  author: Maria K.
+- quote: Clear pricing before anything started, and it did not change afterwards.
+  author: Dimitris P.
+postal_code: 546 23
+country: GR
+latitude: 40.6329
+longitude: 22.9419
+site_url: https://thessaloniki-dental.example.gr
+accent: '#0f5d4a'
+scheme: analogous
+price_range: EUR EUR
+og_locale: el_GR

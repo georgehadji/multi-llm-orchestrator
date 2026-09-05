@@ -411,9 +411,14 @@ class WebsiteQualityValidator:
                 applicable=False,
             )
 
-        # Distinct widths, so ten copies of the same breakpoint do not read as ten.
+        # Distinct breakpoints, so ten copies of the same one do not read as ten.
+        # Units matter: em/rem breakpoints are common in mobile-first sheets and
+        # a px-only regex scored them as zero.
         widths = {
-            int(w) for w in re.findall(r"@media[^{]*?(?:min|max)-width:\s*(\d+)px", css, re.I)
+            (value, unit.lower())
+            for value, unit in re.findall(
+                r"@media[^{]*?(?:min|max)-width:\s*([\d.]+)(px|em|rem)", css, re.I
+            )
         }
         # Tailwind responsive prefixes count as breakpoints too.
         tailwind = {p for p in ("sm:", "md:", "lg:", "xl:", "2xl:") if p in markup}
@@ -424,6 +429,21 @@ class WebsiteQualityValidator:
         base = ladder.get(breakpoints, 1.0)
 
         penalties: list[str] = []
+
+        # Mobile-first: base styles are the phone layout and `min-width` queries
+        # add capability upward. A `max-width`-dominant sheet is desktop-first —
+        # responsive, but built the wrong way round, so a phone parses the wide
+        # layout and then overrides it. A handful of max-width rules is normal
+        # in a mobile-first sheet, so this triggers only when they DOMINATE.
+        min_q = len(re.findall(r"@media[^{]*?min-width", css, re.I))
+        max_q = len(re.findall(r"@media[^{]*?max-width", css, re.I))
+        if max_q and max_q > min_q:
+            penalties.append(
+                f"desktop-first CSS: {max_q} max-width vs {min_q} min-width queries — "
+                f"write mobile-first (base styles for phones, min-width to scale up)"
+            )
+            base -= 0.3
+
         if not re.search(r'<meta[^>]+name=["\']viewport["\']', markup, re.I):
             penalties.append("no viewport meta tag")
             base -= 0.2

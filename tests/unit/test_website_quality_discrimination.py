@@ -480,3 +480,59 @@ class TestSecretExposureIsATrueNegative:
     async def test_clean_site_passes(self, validator, good_dir):
         check = await validator._check_secret_exposure(good_dir)
         assert check.passed is True
+
+
+# ── Mobile-first ─────────────────────────────────────────────────────────────
+#
+# "Responsive" and "mobile-first" are not the same claim. A desktop-first sheet
+# is responsive — it has breakpoints — but its BASE styles target a wide screen
+# and every `max-width` query walks them back down. On a phone the browser
+# parses the desktop layout first and then overrides it.
+#
+# The generator emitted zero `min-width` queries before this change, so every
+# site it produced was desktop-first by construction.
+
+
+def _css_with(queries: str) -> str:
+    return "body{margin:0}\na:focus-visible{outline:2px solid}\n" + queries
+
+
+_MOBILE_FIRST_CSS = "".join(
+    f"@media (min-width: {w}) {{ .g {{ gap: 1rem; }} }}\n" for w in ("30em", "48em", "64em", "80em")
+)
+_DESKTOP_FIRST_CSS = "".join(
+    f"@media (max-width: {w}) {{ .g {{ display: block; }} }}\n"
+    for w in ("80em", "64em", "48em", "30em")
+)
+
+
+@pytest.mark.unit
+class TestMobileFirstIsEnforced:
+    async def test_mobile_first_sheet_scores_higher_than_desktop_first(self, validator, tmp_path):
+        mf = _inject(tmp_path, "mf", css=_css_with(_MOBILE_FIRST_CSS))
+        df = _inject(tmp_path, "df", css=_css_with(_DESKTOP_FIRST_CSS))
+        mf_score = (await validator._check_responsive(mf)).score
+        df_score = (await validator._check_responsive(df)).score
+        assert mf_score > df_score, (
+            f"a desktop-first sheet must not score the same as a mobile-first one: "
+            f"mobile-first={mf_score} desktop-first={df_score}"
+        )
+
+    async def test_desktop_first_is_named_in_the_details(self, validator, tmp_path):
+        df = _inject(tmp_path, "df2", css=_css_with(_DESKTOP_FIRST_CSS))
+        check = await validator._check_responsive(df)
+        assert (
+            "mobile" in check.details.lower()
+        ), f"the failure must say what is wrong, got: {check.details}"
+
+    async def test_mobile_first_sheet_is_not_penalised(self, validator, tmp_path):
+        mf = _inject(tmp_path, "mf2", css=_css_with(_MOBILE_FIRST_CSS))
+        check = await validator._check_responsive(mf)
+        assert check.score >= 0.85 and check.passed, f"{check.score}: {check.details}"
+
+    async def test_a_few_max_width_queries_are_tolerated(self, validator, tmp_path):
+        """Mobile-first sheets legitimately use the occasional max-width."""
+        mixed = _css_with(_MOBILE_FIRST_CSS + "@media (max-width: 30em){.h{display:none}}\n")
+        site = _inject(tmp_path, "mixed", css=mixed)
+        check = await validator._check_responsive(site)
+        assert check.passed, f"a mostly-min-width sheet must pass: {check.details}"

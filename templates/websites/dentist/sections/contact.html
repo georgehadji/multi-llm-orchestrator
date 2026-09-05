@@ -1,0 +1,28 @@
+<section class="contact" id="contact">
+  <div class="wrap contact-grid">
+    <div>
+      <h2>$contact_heading</h2>
+      <p class="address">$address<br>$city</p>
+      <p class="hours">$hours</p>
+      <p>
+        <a href="tel:$phone">$phone</a><br>
+        <a href="mailto:$email">$email</a>
+      </p>
+    </div>
+    <form class="booking" method="post" action="/api/contact">
+      <p>
+        <label for="name">Your name</label>
+        <input id="name" name="name" autocomplete="name" required>
+      </p>
+      <p>
+        <label for="email-field">Email</label>
+        <input id="email-field" name="email" type="email" autocomplete="email" required>
+      </p>
+      <p>
+        <label for="message">What do you need?</label>
+        <textarea id="message" name="message" rows="4"></textarea>
+      </p>
+      <p><button class="btn" type="submit">$cta_label</button></p>
+    </form>
+  </div>
+</section>
