@@ -165,6 +165,13 @@ class WebsiteConfig:
     # ── Hero video background ──
     hero_video: bool = False  # Generate an MP4 hero background (image used as poster)
     hero_video_model: str = ""  # OpenRouter video model ID; empty = per-tier auto-select
+    # ── Quality gate ──
+    # Minimum aggregate quality score for the build to be considered shippable.
+    # 0.0 disables the gate (score is still computed and reported).
+    min_quality: float = 0.0
+    # When True, a single failed check fails the gate even if the mean clears
+    # min_quality — stops one broken dimension hiding behind good siblings.
+    require_all_checks: bool = False
 
 
 @dataclass
@@ -213,6 +220,13 @@ class WebsiteBuildResult:
     total_cost: float = 0.0
     total_time_seconds: float = 0.0
     format_report: dict | None = None  # black/ruff/prettier formatting outcome
+    # Quality-gate verdict, deliberately SEPARATE from `success`.
+    #   success              -> "the generation pipeline ran to completion"
+    #   quality_gate_passed  -> "the output is good enough to ship"
+    # None means "not judged" (validator unavailable); it must never read as a pass.
+    quality_gate_passed: bool | None = None
+    gate_failures: list[str] = field(default_factory=list)
+    min_quality: float = 0.0  # threshold the gate was evaluated against
 
 
 class ContentResearcher:
@@ -1215,6 +1229,7 @@ class WebsiteGenerator:
                 validator = WebsiteQualityValidator()
                 quality_report = await validator.validate(output_dir)
                 result.quality_report = quality_report
+                self._apply_quality_gate(result, quality_report, config)
             except ImportError:
                 logger.warning(
                     "WebsiteQualityValidator not available — skipping quality validation"
@@ -1269,6 +1284,43 @@ class WebsiteGenerator:
                 logger.warning(f"Fallback write also failed: {fallback_err}")
 
         return result
+
+    @staticmethod
+    def _apply_quality_gate(result, quality_report, config) -> None:
+        """Turn the quality report into a machine-readable ship / don't-ship verdict.
+
+        Kept separate from `result.success` on purpose: `success` means the
+        pipeline ran, `quality_gate_passed` means the output is good enough to
+        ship. Conflating them is what let broken sites print "[OK]".
+        """
+        min_quality = float(getattr(config, "min_quality", 0.0) or 0.0)
+        result.min_quality = min_quality
+
+        failures: list[str] = []
+        for check in quality_report.failed_checks():
+            name = getattr(check, "name", "unnamed check")
+            details = getattr(check, "details", "")
+            score = getattr(check, "score", 0.0)
+            failures.append(f"{name} (score {score:.2f}){': ' + details if details else ''}")
+        result.gate_failures = failures
+
+        if min_quality <= 0.0 and not getattr(config, "require_all_checks", False):
+            # Gate disabled — report the score, withhold a verdict.
+            result.quality_gate_passed = None
+            return
+
+        passed = quality_report.score >= min_quality
+        if getattr(config, "require_all_checks", False) and failures:
+            passed = False
+        result.quality_gate_passed = passed
+
+        if not passed:
+            logger.warning(
+                "Quality gate FAILED: score %.2f < %.2f (%d failing check(s))",
+                quality_report.score,
+                min_quality,
+                len(failures),
+            )
 
     def _create_section_tasks(
         self,
@@ -3486,9 +3538,14 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         font_body = getattr(
             getattr(getattr(ds, "typography", ds), "font_body", None), "value", None
         ) or getattr(getattr(ds, "typography", ds), "font_sans", "Inter")
+        from string import Template
+
         from .templates.contact_form import CONTACT_FORM_TEMPLATE
 
-        return CONTACT_FORM_TEMPLATE.format(
+        # string.Template, not str.format: these templates are TSX source containing
+        # literal JS braces (`import { useState } from 'react'`), which str.format
+        # parses as replacement fields and rejects with KeyError(' useState ').
+        return Template(CONTACT_FORM_TEMPLATE).substitute(
             headline=headline,
             primary=primary,
             surface_alt=surface_alt,
@@ -3504,6 +3561,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         font_body = getattr(
             getattr(getattr(ds, "typography", ds), "font_body", None), "value", None
         ) or getattr(getattr(ds, "typography", ds), "font_sans", "Inter")
+        from string import Template
+
         from .templates.auth_page import AUTH_TEMPLATE
 
         is_register = any(kw in name.lower() for kw in ("register", "signup"))
@@ -3527,7 +3586,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             verify_note = ""
             switch_message = 'Don\'t have an account? <a href="/register" className="underline" style={{ color: primary }}>Sign up</a>'
 
-        return AUTH_TEMPLATE.format(
+        # See _build_contact_form: literal JS braces make str.format unusable here.
+        return Template(AUTH_TEMPLATE).substitute(
             component_name=name,
             page_type="Registration" if is_register else "Login",
             headline=headline,

@@ -63,6 +63,22 @@ def register(subparsers) -> None:
         "--3d", dest="use_3d", action="store_true", default=False, help="3D FX shorthand"
     )
     wp.add_argument("--source-url", default="", help="Live URL to clone via Playwright")
+    wp.add_argument(
+        "--min-quality",
+        type=float,
+        default=0.0,
+        help=(
+            "Minimum aggregate quality score (0.0-1.0) for the build to be shippable. "
+            "0.0 (default) reports the score without gating. Below the threshold the "
+            "command exits 2."
+        ),
+    )
+    wp.add_argument(
+        "--require-all-checks",
+        action="store_true",
+        default=False,
+        help="Fail the gate if ANY quality check fails, even when the mean clears --min-quality",
+    )
     wp.set_defaults(func=execute)
 
 
@@ -98,6 +114,8 @@ def execute(args) -> None:
         dependencies=["react", "react-dom"] + extra_deps,
         image_quality=getattr(args, "image_quality", "balanced"),
         source_url=args.source_url if hasattr(args, "source_url") else "",
+        min_quality=getattr(args, "min_quality", 0.0),
+        require_all_checks=getattr(args, "require_all_checks", False),
     )
     from ._path_utils import resolve_allowed_path
 
@@ -132,13 +150,50 @@ def execute(args) -> None:
 
     result = asyncio.run(_run())
 
-    if result.success:
+    _report(result, output_dir)
+
+
+def _report(result, output_dir: Path) -> None:
+    """Print the outcome and exit non-zero when the build is not shippable.
+
+    Exit codes are what makes this usable in a factory pipeline:
+      0 - generated, and the quality gate passed (or was not enabled)
+      1 - generation failed; only a fallback page (if any) was written
+      2 - generated, but the quality gate REJECTED the output
+    """
+    import sys
+
+    if not result.success:
+        if (output_dir / "package.json").exists():
+            print(f"!  Fallback: cd {output_dir} && npm install && npm run dev")
+        elif (output_dir / "index.html").exists():
+            print(f"!  Fallback HTML: {(output_dir / 'index.html').stat().st_size} bytes")
+        else:
+            print(f"[FAIL] {result.errors}")
+        sys.exit(1)
+
+    report = result.quality_report
+    score_txt = f"  Quality: {report.score:.2f}" if report is not None else "  Quality: n/a"
+    print(
+        f"[OK] Website: {output_dir.resolve()}  "
+        f"Components: {result.components_generated}  "
+        f"Cost: ${result.total_cost:.4f}{score_txt}"
+    )
+
+    # Always surface failing checks, even when the gate is disabled — the whole
+    # point is that a broken site can no longer look identical to a good one.
+    if result.gate_failures:
+        print(f"   {len(result.gate_failures)} check(s) not passing:")
+        for failure in result.gate_failures:
+            print(f"     - {failure}")
+
+    if result.quality_gate_passed is False:
         print(
-            f"[OK] Website: {output_dir.resolve()}  Components: {result.components_generated}  Cost: ${result.total_cost:.4f}"
+            f"[GATE FAILED] score {report.score:.2f} < required {result.min_quality:.2f}"
+            if report is not None
+            else "[GATE FAILED]"
         )
-    elif (output_dir / "package.json").exists():
-        print(f"!  Fallback: cd {output_dir} && npm install && npm run dev")
-    elif (output_dir / "index.html").exists():
-        print(f"!  Fallback HTML: {(output_dir / 'index.html').stat().st_size} bytes")
-    else:
-        print(f"[FAIL] {result.errors}")
+        sys.exit(2)
+
+    if result.quality_gate_passed is True:
+        print(f"[GATE PASSED] score {report.score:.2f} >= {result.min_quality:.2f}")

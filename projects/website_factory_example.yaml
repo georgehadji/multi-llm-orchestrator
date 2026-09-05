@@ -1,0 +1,57 @@
+# Website factory manifest — build many gated sites in one run.
+#
+#   python -m orchestrator website-batch projects/website_factory_example.yaml \
+#       --output-root outputs/factory --concurrency 3
+#
+# Each site is generated, scored by the quality gate, and delivered as its own
+# git repository under --output-root. A batch report (factory-report.json) is
+# written alongside the sites.
+#
+# Exit codes (worst outcome wins), so this is safe to run unattended:
+#   0  every site shippable (or the gate was not enabled)
+#   2  at least one site was REJECTED by the quality gate
+#   1  at least one site failed to build at all
+#
+# JSON manifests work identically and need no PyYAML.
+
+# Applied to every site below; any per-site key overrides it.
+defaults:
+  framework: html            # html | react | next.js
+  preset: modern             # modern | minimalist | playful | corporate | luxury | tech
+  image_quality: balanced    # draft | balanced | premium
+  min_quality: 0.85          # aggregate score required to ship; 0.0 disables the gate
+  require_all_checks: true   # a single failing check rejects the build, even if
+                             # the mean clears min_quality — stops one broken
+                             # dimension (e.g. responsive) hiding behind good ones
+
+sites:
+  - slug: gadini-barberia          # becomes the output directory and repo name
+    description: >-
+      Premium Italian barber shop in Thessaloniki offering bespoke haircuts,
+      traditional hot towel shaves and beard grooming.
+    company_name: Gadini Barberia
+    industry: barbershop
+    page_type: landing
+    sections: [hero, services, gallery, about, contact, footer]
+
+  - slug: thessaloniki-dental
+    description: >-
+      Modern dental clinic in Thessaloniki specialising in implantology,
+      cosmetic dentistry and invisible orthodontics.
+    company_name: Thessaloniki Dental
+    industry: dentistry
+    page_type: landing
+    preset: luxury
+    sections: [hero, services, technology, about, testimonials, contact, footer]
+
+  - slug: aegean-law
+    description: >-
+      Boutique maritime law practice advising shipping operators on charter
+      disputes, vessel finance and regulatory compliance.
+    company_name: Aegean Maritime Law
+    industry: legal
+    page_type: landing
+    preset: corporate
+    min_quality: 0.9               # per-site override: stricter than the default
+    sections: [hero, practice_areas, team, about, contact, footer]
+    # git_remote: git@github.com:you/aegean-law.git   # optional; added as 'origin'

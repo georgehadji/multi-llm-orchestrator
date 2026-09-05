@@ -245,6 +245,87 @@ asyncio.run(check())
 
 ---
 
+## Website Factory (batch site generation)
+
+`website-batch` builds many sites from one manifest, scores each against the
+quality gate, and delivers each as its own git repository.
+
+```bash
+python -m orchestrator website-batch projects/website_factory_example.yaml \
+    --output-root outputs/factory --concurrency 3
+```
+
+Manifest (`defaults` merge into every site; per-site keys win):
+
+```yaml
+defaults:
+  framework: html            # html | react | next.js
+  preset: modern             # modern | minimalist | playful | corporate | luxury | tech
+  min_quality: 0.85          # aggregate score required to ship; 0.0 disables the gate
+  require_all_checks: true   # one failing check rejects the build
+
+sites:
+  - slug: gadini-barberia    # becomes the output directory and repo name
+    description: Premium Italian barber shop in Thessaloniki
+    company_name: Gadini Barberia
+    industry: barbershop
+    sections: [hero, services, gallery, about, contact, footer]
+```
+
+JSON manifests work identically and need no PyYAML.
+
+### Exit codes
+
+Worst outcome wins, so a batch is safe to run unattended in CI:
+
+| Code | Meaning |
+|------|---------|
+| `0`  | every site shippable (or the gate was not enabled) |
+| `2`  | at least one site was **rejected** by the quality gate |
+| `1`  | at least one site **failed to build** |
+
+A build failure outranks a rejection: a rejected site exists and can be
+inspected, a failed one may not exist at all.
+
+### The quality gate
+
+Each build is scored across accessibility, performance, design-token
+compliance, responsive design, SEO, content quality, and (where applicable)
+rate limiting, auth flow and secret exposure. The aggregate is the mean of the
+per-check scores; `require_all_checks` additionally rejects a build when any
+single check fails, so one broken dimension cannot hide behind good siblings.
+
+The same gate is available for single sites:
+
+```bash
+python -m orchestrator website -d "A dental clinic in Thessaloniki" \
+    --min-quality 0.85 --require-all-checks
+```
+
+Failing checks are always printed, even when the gate is disabled
+(`--min-quality 0.0`, the default), so a weak build never looks like a good one.
+
+### Output
+
+Under `--output-root` you get one directory per site plus
+`factory-report.json`:
+
+```json
+{
+  "total": 3, "shippable": 2, "rejected": 1, "unjudged": 0,
+  "total_cost_usd": 1.42,
+  "sites": [
+    {"slug": "gadini-barberia", "success": true, "quality_gate_passed": true,
+     "score": 0.91, "committed": true, "commit_sha": "65b8a45..."}
+  ]
+}
+```
+
+Rejected builds are committed too — the artifact is the evidence you diff
+against on the next attempt.
+
+---
+
 ## Python API Examples
 
 ### Example 1: Basic Usage
