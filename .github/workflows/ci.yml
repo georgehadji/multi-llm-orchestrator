@@ -65,10 +65,21 @@ jobs:
       - name: Run mypy (core layers)
         # Check domain and application layers strictly — these must stay clean.
         # Infrastructure and engine layers still have known issues; warn only.
+        #
+        # --follow-imports=silent is what makes "warn only" true. Without it
+        # mypy REPORTS errors from every module it reaches transitively, so this
+        # job emitted 1432 errors across 182 files and the core-layer signal was
+        # invisible (it had been red since 2026-07-11). "silent" still fully
+        # ANALYSES imported modules — it only suppresses reporting errors found
+        # in files outside the ones named here. Type checking of the core layers
+        # is therefore unchanged in strictness; two real runtime bugs were found
+        # by exactly this invocation. Do not weaken it to "skip", which would
+        # degrade imports to Any and genuinely reduce coverage.
         run: |
           mypy orchestrator/domain/ orchestrator/application/ \
                orchestrator/engine_core/container.py \
-               --ignore-missing-imports --no-strict-optional --python-version=3.12
+               --ignore-missing-imports --no-strict-optional --python-version=3.12 \
+               --follow-imports=silent
       - name: Run mypy (full codebase — informational)
         run: mypy orchestrator/ --ignore-missing-imports --no-strict-optional
         continue-on-error: true

@@ -76,7 +76,12 @@ _TEST_PATTERNS: dict[str, tuple[str, ...]] = {
 class ValidationResult:
     """Result of RED-gate validation."""
 
-    passed: bool
+    # Defaults to False (fail-closed). `passed` is only computed at the end of
+    # validate(); every early-return path (empty suite, syntax error, no test
+    # functions) returns before that point, so an un-set value must read as
+    # "did not pass". Without a default, ValidationResult() could not be
+    # constructed at all and validate() raised TypeError on every call.
+    passed: bool = False
     test_count: int = 0
     assertion_count: int = 0
     errors: list[str] = field(default_factory=list)
@@ -97,7 +102,11 @@ class SuiteValidator:
     Thread-safe (no mutable shared state).
     """
 
-    MIN_ASSERTION_DENSITY: float = 0.5
+    # 1.0 = "at least one assertion per test", which is what this module's
+    # docstring states the rule is. It was 0.5, so a suite with one assertion
+    # per TWO tests silently cleared the floor. Only affects `warnings`;
+    # `passed` is decided by `errors` alone, so raising it cannot fail a suite.
+    MIN_ASSERTION_DENSITY: float = 1.0
     """Minimum assertions per test function (floor)."""
     MIN_TEST_COUNT: int = 1
     """Minimum number of test functions."""

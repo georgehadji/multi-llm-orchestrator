@@ -5,7 +5,11 @@ Tests for SuiteValidator (E-2 RED-gate and assertion floor).
 
 from __future__ import annotations
 
+import pytest
+
 from orchestrator.application.testing.suite_validator import SuiteValidator
+
+pytestmark = pytest.mark.unit
 
 
 class TestSuiteValidator:

@@ -92,7 +92,6 @@ dashboard = "orchestrator.cli_dashboard:main"
 
 [project.entry-points."orchestrator.pipeline.stages"]
 constitution_gate = "orchestrator.engine_core.stages.constitution_gate:ConstitutionGate"
-context_enricher = "orchestrator.engine_core.stages.context_enricher:ContextEnricherStage"
 generate = "orchestrator.engine_core.stages.generate:GenerateStage"
 critique = "orchestrator.engine_core.stages.critique:CritiqueStage"
 design_critique = "orchestrator.engine_core.stages.design_critique:DesignCritiqueStage"
@@ -100,8 +99,7 @@ evaluate = "orchestrator.engine_core.stages.evaluate:EvaluateStage"
 validate = "orchestrator.engine_core.stages.validate:ValidateStage"
 persuasion_defense = "orchestrator.engine_core.stages.persuasion_defense:PersuasionDefenseStage"
 preflight = "orchestrator.engine_core.stages.preflight:PreflightStage"
-self_consistency = "orchestrator.engine_core.stages.self_consistency:SelfConsistencyStage"
-map_elites = "orchestrator.engine_core.stages.map_elites:MapElitesStage"
+self_consistency = "orchestrator.engine_core.stages.self_consistency:EnhancedSelfConsistencyStage"
 
 [project.urls]
 Homepage = "https://github.com/gchatz22/multi-llm-orchestrator"
@@ -323,6 +321,8 @@ markers = [
     "asyncio: marks tests that use asyncio",
     "edge_case: marks edge case and boundary tests",
     "smoke: marks tests as smoke/sanity tests",
+    "regression: marks regression tests guarding a previously-fixed defect",
+    "wbs1: marks WBS-1 verification-gate regression tests",
     "contract: marks architecture contract tests",
 ]
 filterwarnings = [

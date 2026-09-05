@@ -21,10 +21,8 @@ import sys
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ORCHESTRATOR_DIR = os.path.join(PROJECT_ROOT, "orchestrator")
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# >>>GENERATED-BASELINE-BEGIN<<<
 # BASELINE — auto-generated with --update.  DO NOT edit manually.
-# ═══════════════════════════════════════════════════════════════════════════════
-
 BASELINE: set[str] = {
     "__main__.py",
     "ab_testing.py",
@@ -53,11 +51,14 @@ BASELINE: set[str] = {
     "assembler.py",
     "assumption_gate.py",
     "async_event_store.py",
+    "async_file_io.py",
     "audit.py",
     "autonomous_debugger.py",
     "benchmark_suite.py",
     "bm25_search.py",
     "brain.py",
+    "breakpoints.py",
+    "browser_testing.py",
     "budget.py",
     "cache.py",
     "cache_optimizer.py",
@@ -72,7 +73,11 @@ BASELINE: set[str] = {
     "cli_nash.py",
     "cli_website.py",
     "code_executor.py",
+    "code_post_processor.py",
+    "code_validator.py",
+    "codebase_analyzer.py",
     "codebase_context.py",
+    "codebase_profile.py",
     "codebase_reader.py",
     "codebase_writer.py",
     "command_center.py",
@@ -94,23 +99,30 @@ BASELINE: set[str] = {
     "context_sources.py",
     "context_truncator.py",
     "control_plane.py",
+    "copy_generator.py",
     "cost.py",
     "cost_analytics.py",
+    "cost_tracker.py",
     "cross_project_learning.py",
     "dashboard.py",
     "dashboard_bridge.py",
     "data_sources.py",
     "database_generator.py",
+    "dependency_scanner.py",
     "deployment_feedback.py",
+    "deployment_service.py",
     "design_system.py",
     "design_to_code.py",
     "dev_server.py",
     "diagnostics.py",
     "diff_generator.py",
     "docker_generator.py",
+    "drift.py",
     "engine.py",
+    "engine_flags.py",
     "engine_slimming.py",
     "enhancer.py",
+    "error_handling.py",
     "events_resilient.py",
     "exceptions.py",
     "export_manager.py",
@@ -121,13 +133,18 @@ BASELINE: set[str] = {
     "fullstack_generator.py",
     "gateway.py",
     "git_hooks.py",
+    "git_service.py",
     "git_sync.py",
     "github_sync.py",
     "gradual_rollout.py",
+    "guardrails.py",
     "hierarchy.py",
     "hitl_workflow.py",
+    "hybrid_search_pipeline.py",
     "image_generator.py",
+    "image_optimizer.py",
     "indesign_plugin_rules.py",
+    "input_validation.py",
     "integration_circuit_breaker.py",
     "ios_hig_prompts.py",
     "issue_tracking.py",
@@ -137,13 +154,16 @@ BASELINE: set[str] = {
     "learning_aggregator.py",
     "log_config.py",
     "logging.py",
+    "logging_generator.py",
     "mcp_server.py",
     "memory_bank.py",
     "memory_tier.py",
     "meta_config.py",
     "meta_integration.py",
     "meta_monitoring.py",
+    "meta_orchestrator.py",
     "meta_performance.py",
+    "meta_v2_integration.py",
     "metrics.py",
     "model_registry.py",
     "model_routing.py",
@@ -152,19 +172,30 @@ BASELINE: set[str] = {
     "models_skill.py",
     "monitoring.py",
     "multi_platform_generator.py",
+    "multi_tenant_gateway.py",
+    "nash_auto_tuning.py",
+    "nash_events.py",
+    "nash_stable_orchestrator.py",
     "native_features.py",
     "nexus_cli.py",
+    "opengraph_generator.py",
+    "openrouter_ab_testing.py",
     "optimization.py",
     "orchestration_agent.py",
     "output_organizer.py",
     "output_writer.py",
     "pareto_frontier.py",
     "performance.py",
+    "persona.py",
+    "persona_modes.py",
     "phase_aware_models.py",
     "plan_review_data.py",
     "plan_reviewer.py",
     "plan_then_build.py",
     "planner.py",
+    "plugin_isolation.py",
+    "plugin_isolation_secure.py",
+    "plugins.py",
     "policy.py",
     "policy_dsl.py",
     "policy_engine.py",
@@ -178,6 +209,10 @@ BASELINE: set[str] = {
     "progressive_output.py",
     "project_analyzer.py",
     "project_assembler.py",
+    "project_context.py",
+    "project_copier.py",
+    "project_file.py",
+    "project_manager.py",
     "projections.py",
     "prompt_builder.py",
     "prompt_compressor.py",
@@ -192,11 +227,15 @@ BASELINE: set[str] = {
     "remediation.py",
     "reranker.py",
     "resilience.py",
+    "responsive_layouts.py",
     "retry_utils.py",
     "router_integration.py",
+    "sandbox.py",
     "secrets_generator.py",
     "secrets_manager.py",
     "secure_cache.py",
+    "secure_execution.py",
+    "security_templates.py",
     "security_validator.py",
     "semantic_cache.py",
     "session_lifecycle.py",
@@ -224,6 +263,8 @@ BASELINE: set[str] = {
     "test_first_generator.py",
     "test_fixer.py",
     "test_instructor_tenacity.py",
+    "test_validator.py",
+    "testing_templates.py",
     "token_budget.py",
     "token_optimizer.py",
     "tracing.py",
@@ -236,8 +277,11 @@ BASELINE: set[str] = {
     "web_assembler.py",
     "website_generator.py",
     "website_validator.py",
+    "wordpress_plugin_rules.py",
+    "workspace.py",
     "xai_search.py",
 }
+# >>>GENERATED-BASELINE-END<<<
 
 
 def _current_modules() -> set[str]:
@@ -250,36 +294,44 @@ def _current_modules() -> set[str]:
 
 
 def _update_baseline() -> None:
-    """Regenerate the BASELINE set in this file from current filesystem state."""
-    modules = sorted(_current_modules())
-    start_marker = "# ═══════════════════════ BASELINE"
-    end_marker = "# ═══════════════════════ END BASELINE"
+    """Regenerate the BASELINE set in this file from current filesystem state.
 
-    new_block = (
-        f"{start_marker} — auto-generated with --update.  DO NOT edit manually.\n"
-        f"# ═══════════════════════════════════════════════════════════════════════════════\n"
-        f"\n"
-        f"BASELINE: set[str] = {{\n"
-    )
+    The sentinels are ASSEMBLED at runtime rather than written as literals. The
+    previous implementation searched for marker strings that appeared verbatim
+    in its own source, so content.find() matched the marker *assignment* inside
+    this function instead of the baseline block, and the script rewrote itself
+    from the middle — producing a SyntaxError and a truncated baseline. That is
+    why the committed baseline held 211 entries while 257 root modules already
+    existed at the very commit that generated it.
+    """
+    # Assembled, not literal: a literal here would be found by find() below.
+    begin = ">>>GENERATED-BASELINE" + "-BEGIN<<<"
+    end = ">>>GENERATED-BASELINE" + "-END<<<"
+
+    modules = sorted(_current_modules())
+    new_block = f"# {begin}\n# BASELINE — auto-generated with --update.  DO NOT edit manually.\n"
+    new_block += "BASELINE: set[str] = {\n"
     for m in modules:
         new_block += f'    "{m}",\n'
-    new_block += f"}}\n"
-    new_block += f"\n{end_marker}\n"
+    new_block += "}\n"
+    new_block += f"# {end}\n"
 
-    with open(__file__, "r", encoding="utf-8") as f:
+    with open(__file__, encoding="utf-8") as f:
         content = f.read()
 
-    old_start = content.find(start_marker)
-    old_end = content.find(end_marker)
-    if old_start == -1 or old_end == -1:
-        print("ERROR: Cannot find baseline markers in script", file=sys.stderr)
+    if content.count(f"# {begin}") != 1 or content.count(f"# {end}") != 1:
+        print(
+            "ERROR: baseline sentinels must appear exactly once each",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
-    old_end = content.index("\n", old_end) + 1  # include EOL after end marker
-    new_content = content[:old_start] + new_block + content[old_end:]
+    start = content.index(f"# {begin}")
+    stop = content.index(f"# {end}")
+    stop = content.index("\n", stop) + 1
 
     with open(__file__, "w", encoding="utf-8") as f:
-        f.write(new_content)
+        f.write(content[:start] + new_block + content[stop:])
 
     print(f"Baseline updated: {len(modules)} root modules")
 
