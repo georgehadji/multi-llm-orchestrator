@@ -323,6 +323,8 @@ markers = [
     "asyncio: marks tests that use asyncio",
     "edge_case: marks edge case and boundary tests",
     "smoke: marks tests as smoke/sanity tests",
+    "regression: marks regression tests guarding a previously-fixed defect",
+    "wbs1: marks WBS-1 verification-gate regression tests",
     "contract: marks architecture contract tests",
 ]
 filterwarnings = [
