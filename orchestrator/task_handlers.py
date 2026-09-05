@@ -122,7 +122,7 @@ def registered_types() -> list[TaskType]:
 # Built-in Handlers
 # ═══════════════════════════════════════════════════════════════════════════════
 
-from .api_clients import UnifiedClient
+from .api_clients import APIResponse, UnifiedClient
 from .budget import Budget
 from .prompt_builder import SystemPrompt
 
@@ -146,9 +146,14 @@ class _BaseHandler:
         temperature: float = 0.3,
         timeout: int = 120,
         **kwargs,
-    ) -> str:
-        """Single LLM call with standard error handling."""
-        response = await client.call(
+    ) -> APIResponse:
+        """Single LLM call with standard error handling.
+
+        T1-C4: returns the full APIResponse (was: response.text only), so
+        callers can see the real cost_usd/input_tokens/output_tokens instead
+        of discarding them at the source.
+        """
+        return await client.call(
             model or self._get_model(None),  # type: ignore
             prompt,
             system=system,
@@ -157,7 +162,14 @@ class _BaseHandler:
             timeout=timeout,
             **kwargs,
         )
-        return response.text
+
+    @staticmethod
+    async def _charge(budget: Any, cost_usd: float, phase: str) -> None:
+        """Charge a real Budget if one was given; no-op for None or any other
+        object (T1-C3: callers may still pass a BudgetEnforcer or None here)."""
+        charge_fn = getattr(budget, "charge", None)
+        if charge_fn is not None:
+            await charge_fn(cost_usd, phase)
 
 
 @register(TaskType.CODE_GEN)
@@ -182,7 +194,7 @@ class CodeGenerationHandler(_BaseHandler):
         if dep_context:
             prompt = f"{prompt}\n\n--- CONTEXT FROM PRIOR TASKS ---\n{dep_context}"
 
-        text = await self._call_llm(
+        response = await self._call_llm(
             client,
             prompt,
             system=system,
@@ -191,11 +203,12 @@ class CodeGenerationHandler(_BaseHandler):
             temperature=0.0,
             timeout=120,
         )
+        await self._charge(budget, response.cost_usd, "generation")
 
         # Clean code output
         from .engine_core.utilities import _clean_code_output
 
-        output = _clean_code_output(text, task.type)
+        output = _clean_code_output(response.text, task.type)
 
         return TaskResult(
             task_id=task.id,
@@ -203,9 +216,9 @@ class CodeGenerationHandler(_BaseHandler):
             score=0.0,  # To be set by evaluator
             model_used=model,
             reviewer_model=None,
-            tokens_used={"input": 0, "output": 0},
+            tokens_used={"input": response.input_tokens, "output": response.output_tokens},
             iterations=1,
-            cost_usd=0.0,
+            cost_usd=response.cost_usd,
             status=(
                 TaskResult.TaskStatus.PENDING.value
                 if hasattr(TaskResult, "TaskStatus")
@@ -245,7 +258,7 @@ class CodeReviewHandler(_BaseHandler):
                 f"{dep_context}"
             )
 
-        text = await self._call_llm(
+        response = await self._call_llm(
             client,
             prompt,
             system=system,
@@ -254,16 +267,17 @@ class CodeReviewHandler(_BaseHandler):
             temperature=0.2,
             timeout=180,
         )
+        await self._charge(budget, response.cost_usd, "cross_review")
 
         return TaskResult(
             task_id=task.id,
-            output=text,
+            output=response.text,
             score=0.0,
             model_used=model,
             reviewer_model=None,
-            tokens_used={"input": 0, "output": 0},
+            tokens_used={"input": response.input_tokens, "output": response.output_tokens},
             iterations=1,
-            cost_usd=0.0,
+            cost_usd=response.cost_usd,
             status=(
                 TaskResult.TaskStatus.PENDING.value
                 if hasattr(TaskResult, "TaskStatus")
@@ -293,7 +307,7 @@ class EvaluationHandler(_BaseHandler):
         model = self._get_model(task)
         prompt = task.prompt
 
-        text = await self._call_llm(
+        response = await self._call_llm(
             client,
             prompt,
             system="You are a precise evaluator. Score exactly, return only JSON.",
@@ -302,16 +316,17 @@ class EvaluationHandler(_BaseHandler):
             temperature=0.1,
             timeout=60,
         )
+        await self._charge(budget, response.cost_usd, "evaluation")
 
         return TaskResult(
             task_id=task.id,
-            output=text,
+            output=response.text,
             score=0.0,
             model_used=model,
             reviewer_model=None,
-            tokens_used={"input": 0, "output": 0},
+            tokens_used={"input": response.input_tokens, "output": response.output_tokens},
             iterations=1,
-            cost_usd=0.0,
+            cost_usd=response.cost_usd,
             status=(
                 TaskResult.TaskStatus.PENDING.value
                 if hasattr(TaskResult, "TaskStatus")
@@ -345,7 +360,7 @@ class ReasoningHandler(_BaseHandler):
         if dep_context:
             prompt = f"{prompt}\n\n--- CONTEXT ---\n{dep_context}"
 
-        text = await self._call_llm(
+        response = await self._call_llm(
             client,
             prompt,
             system="You are a reasoning expert. Think step by step.",
@@ -354,16 +369,17 @@ class ReasoningHandler(_BaseHandler):
             temperature=0.3,
             timeout=240,
         )
+        await self._charge(budget, response.cost_usd, "generation")
 
         return TaskResult(
             task_id=task.id,
-            output=text,
+            output=response.text,
             score=0.0,
             model_used=model,
             reviewer_model=None,
-            tokens_used={"input": 0, "output": 0},
+            tokens_used={"input": response.input_tokens, "output": response.output_tokens},
             iterations=1,
-            cost_usd=0.0,
+            cost_usd=response.cost_usd,
             status=(
                 TaskResult.TaskStatus.PENDING.value
                 if hasattr(TaskResult, "TaskStatus")
