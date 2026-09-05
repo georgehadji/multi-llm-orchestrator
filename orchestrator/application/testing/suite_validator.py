@@ -102,7 +102,11 @@ class SuiteValidator:
     Thread-safe (no mutable shared state).
     """
 
-    MIN_ASSERTION_DENSITY: float = 0.5
+    # 1.0 = "at least one assertion per test", which is what this module's
+    # docstring states the rule is. It was 0.5, so a suite with one assertion
+    # per TWO tests silently cleared the floor. Only affects `warnings`;
+    # `passed` is decided by `errors` alone, so raising it cannot fail a suite.
+    MIN_ASSERTION_DENSITY: float = 1.0
     """Minimum assertions per test function (floor)."""
     MIN_TEST_COUNT: int = 1
     """Minimum number of test functions."""

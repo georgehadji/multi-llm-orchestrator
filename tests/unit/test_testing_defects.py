@@ -59,9 +59,11 @@ async def test_async_test_execution_does_not_block_event_loop() -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="D-1: Infrastructure sandbox already async, test runner not migrated"
-)
+# xfail retired 2026-09-05: D-1 was fixed (blocking subprocess.run calls in the
+# async runner were converted to the async _exec_async helper), and this
+# assertion — that asyncio exposes create_subprocess_exec — is true on every
+# supported Python regardless. Under strict=True the passing test was reported
+# as a FAILURE, so the stale marker was itself breaking the suite.
 @pytest.mark.asyncio
 async def test_subprocess_uses_asyncio_not_blocking() -> None:
     """The new SubprocessSandbox.exec is async; the old runner code isn't.
