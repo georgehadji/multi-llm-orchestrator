@@ -182,7 +182,7 @@ python start_dashboard.py
 - **Test markers:** `unit`, `integration`, `slow`, `requires_api`, `e2e`, `load`, `stress`, `benchmark`
 - **Coverage:** Configured in `pyproject.toml`; `fail_under = 0` (temporarily relaxed)
 - **Pytest config:** See `[tool.pytest.ini_options]` in `pyproject.toml`
-- **Stress tests:** Pre-existing failures in `tests/stress_test.py` (S2, S6, S7) — documented, not blocking
+- **Stress tests:** No pytest-based stress suite is committed. `projects/stress_test/*.yaml` are 8 manually-run stress scenarios (`python -m orchestrator --file <yaml>`); see `projects/stress_test/README.md`. The `load`/`stress` markers below are registered for that future work and currently unused.
 
 ```bash
 pytest -m unit            # Only unit tests
@@ -196,7 +196,7 @@ pytest -m integration     # Only integration tests
 
 - **Resume detection:** Uses file mod time heuristic; could be more robust.
 - **Policy system:** Enforcement mode selection (HARD/SOFT/MONITOR) not fully integrated.
-- **Stress tests:** Pre-existing failures in `tests/stress_test.py` (S2, S6, S7) — documented, not blocking.
+- **Stress tests:** `tests/stress_test.py` was documented here but never committed (see `projects/stress_test/README.md`). No automated stress suite currently runs in CI; `projects/stress_test/*.yaml` are manual scenarios.
 
 ---
 
