@@ -150,9 +150,14 @@ def _discover_stages() -> list[type] | None:
 
 # Fallback entry points when pip install -e . hasn't been re-run after
 # adding/modifying entry points in pyproject.toml.
+# Only classes implementing the stage interface (`async def process(ctx)`) belong
+# here — TaskPipeline awaits stage.process(ctx). TaskContextEnricher (a helper:
+# build_prefix / enrich_with_visual_context) and MAPElitesPipeline (a BasePipeline:
+# execute(task, context)) were listed here despite being neither, and broke every
+# task once stage discovery started working. Guarded by
+# tests/unit/test_container_stage_discovery.py.
 _FALLBACK_ENTRY_POINTS: list[str] = [
     "orchestrator.engine_core.stages.constitution_gate:ConstitutionGate",
-    "orchestrator.engine_core.stages.context_enricher:TaskContextEnricher",
     "orchestrator.engine_core.stages.generate:GenerateStage",
     "orchestrator.engine_core.stages.critique:CritiqueStage",
     "orchestrator.engine_core.stages.design_critique:DesignCritiqueStage",
@@ -161,7 +166,6 @@ _FALLBACK_ENTRY_POINTS: list[str] = [
     "orchestrator.engine_core.stages.persuasion_defense:PersuasionDefenseStage",
     "orchestrator.engine_core.stages.preflight:PreflightStage",
     "orchestrator.engine_core.stages.self_consistency:EnhancedSelfConsistencyStage",
-    "orchestrator.engine_core.stages.map_elites:MAPElitesPipeline",
 ]
 
 

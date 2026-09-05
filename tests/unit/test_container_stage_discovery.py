@@ -117,3 +117,28 @@ def test_every_discovered_stage_can_actually_be_built():
             broken.append(f"{stage_cls.__name__}: build_kwargs omits {sorted(missing)}")
 
     assert not broken, "stage(s) cannot be constructed by _build_stage:\n  " + "\n  ".join(broken)
+
+
+@pytest.mark.unit
+def test_every_discovered_stage_implements_the_stage_interface():
+    """TaskPipeline calls `await stage.process(ctx)` — every stage must have it.
+
+    _FALLBACK_ENTRY_POINTS listed TaskContextEnricher (a helper exposing
+    build_prefix / enrich_with_visual_context) and MAPElitesPipeline (a
+    BasePipeline exposing execute(task, context)). Neither is a pipeline stage
+    and neither defines `process`, so both were assembled into the pipeline and
+    then failed at runtime with
+
+        pipeline stage TaskContextEnricher failed: object has no attribute 'process'
+
+    which failed the task. Neither appears in the curated hardcoded stage list
+    used when discovery returns nothing — that list is the reference for what a
+    stage actually is.
+    """
+    from orchestrator.engine_core.container import _discover_stages
+
+    missing = [c.__name__ for c in _discover_stages() if not hasattr(c, "process")]
+    assert not missing, (
+        f"discovered 'stage(s)' without a process() method: {missing}. "
+        f"TaskPipeline awaits stage.process(ctx), so these break every task."
+    )
