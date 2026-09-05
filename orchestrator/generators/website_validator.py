@@ -843,6 +843,7 @@ class WebsiteQualityValidator:
             f for f in frontend_files if "api" not in f.parts and "server" not in f.parts
         ]
         leaks = []
+        unscanned = []
         for fpath in frontend_files[:50]:
             try:
                 c = fpath.read_text(encoding="utf-8", errors="ignore")
@@ -851,23 +852,46 @@ class WebsiteQualityValidator:
                         match_text = m.group(0)
                         masked = match_text[:12] + "***" if len(match_text) > 12 else match_text
                         leaks.append(f"{fpath.relative_to(output_dir)}: {masked}")
-            except Exception:
-                continue
+            except Exception as exc:
+                logger.warning("Secret-exposure scan could not read %s: %s", fpath, exc)
+                unscanned.append(str(fpath.relative_to(output_dir)))
 
-        passed = len(leaks) == 0
+        # A file that couldn't be scanned must never look the same as a file
+        # that was scanned and found clean — hunt T8, C5.
+        passed = not leaks and not unscanned
         return QualityCheck(
             name="Secret Exposure",
             passed=passed,
-            score=0.0 if leaks else 1.0,
+            score=0.0 if (leaks or unscanned) else 1.0,
             details=(
                 "No secrets found in frontend code"
                 if passed
-                else (
-                    f"Potential secret exposure in {len(leaks)} location(s). "
-                    "API keys must never appear in client-side code."
+                else " ".join(
+                    filter(
+                        None,
+                        [
+                            (
+                                f"Potential secret exposure in {len(leaks)} location(s). "
+                                "API keys must never appear in client-side code."
+                                if leaks
+                                else ""
+                            ),
+                            (
+                                f"{len(unscanned)} file(s) could not be read and were "
+                                "skipped, so this scan is incomplete."
+                                if unscanned
+                                else ""
+                            ),
+                        ],
+                    )
                 )
             ),
-            recommendations=leaks[:5] if not passed else [],
+            recommendations=(leaks[:5] if leaks else [])
+            + (
+                [f"Re-run after fixing unreadable file(s): {', '.join(unscanned[:5])}"]
+                if unscanned
+                else []
+            ),
         )
 
 

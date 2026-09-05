@@ -83,16 +83,11 @@ class AdaptiveRouter:
         Reads mutable state without acquiring the lock — this is safe in
         CPython asyncio because dict.get() is a single C call that does not
         release the GIL, and this method contains no ``await`` points that
-        could yield control mid-read.  When the lock IS held by a concurrent
-        writer, the method returns True (optimistic), avoiding blocking in
-        list comprehensions.
+        could yield control mid-read. Previously returned True unconditionally
+        whenever a concurrent writer held the lock, ignoring already-committed
+        DISABLED/DEGRADED state (hunt T8, C7) — removed rather than reordered,
+        since the state reads below need no lock in the first place.
         """
-        # Optimistic: if lock is held, a writer is in progress — assume available
-        try:
-            if self._lock.locked():
-                return True
-        except AttributeError:
-            pass
         if model in self._disabled:
             return False
         since = self._degraded_since.get(model)

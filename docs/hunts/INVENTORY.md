@@ -211,3 +211,30 @@ updated `orchestrator/models.py`. Reviewed and merged onto this branch:
   overestimate, not a risk, but not accurate either).
 - Full suite: 2500 passed (+3 for the new pricing-sync test), 2 pre-registered environmental
   failures unchanged, 21 skipped — zero regressions. black/ruff/mypy(core) all pass.
+
+## T8 — Remainder, coverage-ordered (closed, explicitly PARTIAL)
+
+Full detail: `docs/hunts/t8-remainder/inventory.md`, `docs/hunts/t8-remainder/coverage.md`.
+Per §8, a remainder tier never "completes" — see `docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md`
+for the data-backed accounting of what's still genuinely unexamined (841 of 892 backend files).
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `generators/secrets_manager.py`'s `SecretsFilter` was fully built but never attached to any real logger — `log_config.py::configure_logging()` only ever attached `CorrelationIdFilter`. Fixed: attaches `SecretsFilter()` too. `configure_logging()` itself still has zero live callers (separate, flagged architecture question). |
+| C2 | **CLEARED (innocent)** | `gateway.py`/`multi_tenant_gateway.py` key comparisons — wrong threat model (hash-then-dict-lookup, not vulnerable `==`); also dead code. `gateway.py` is additionally permanently shadowed by the sibling `gateway/` package (hygiene landmine, recorded not fixed). |
+| C3 | **SPLIT** | `safety/secure_execution.py` — CLEARED, no defect. `safety/sandbox.py` — dead code, bypassable denylist + unenforced resource limits, `[REQUIRES HUMAN REVIEW]` (building real enforcement into dead code is scope creep, not a bug fix). |
+| C4 | **VERIFIED DEFECT — FIXED** | `plugin/plugin_isolation_secure.py`'s seccomp network-syscall-blocking loop silently swallowed every rule-install failure with no log. Fixed: logs a warning. Incidental: the whole `orchestrator/plugin/` package couldn't even be imported (`Plugin` referenced from the wrong sibling module) — fixed, since C4 was untestable without it. |
+| C5 | **VERIFIED DEFECT — FIXED** | `generators/website_validator.py`'s secret scanner silently skipped unreadable files and reported a clean scan — live, gates the real `orchestrator website --min-quality`/`--require-all-checks` CLI flags. Fixed: logs the failure, unreadable files now make the check fail rather than silently pass. |
+| C6 | **VERIFIED DEFECT — FIXED** | `operations/diagnostics.py`'s environment check required `OPENAI_API_KEY`/`GOOGLE_API_KEY`/`ANTHROPIC_API_KEY`/`MINIMAX_API_KEY` — none of which `infrastructure/llm_client.py`'s live `UnifiedClient` ever reads (it reads `OPENROUTER_API_KEY`/`DEEPSEEK_API_KEY`/`XAI_API_KEY`). Fixed the check. **Not fixed:** `CLAUDE.md` and `.env.example` document the same wrong keys project-wide — `[REQUIRES HUMAN REVIEW]`, ambiguous whether this reflects an intentional OpenRouter migration or a real regression. |
+| C7 | **VERIFIED DEFECT — FIXED** | `adaptive_router.py::AdaptiveRouter.is_available()` returned `True` unconditionally for every model whenever any concurrent writer held the lock, ignoring already-committed DISABLED/DEGRADED state. Currently fully dead (`container.py` hardcodes `adaptive_router=None`). Fixed by deleting the optimistic fast path (the state reads need no lock per the method's own docstring). |
+| C8 | **CLEARED (innocent)** | `services/scorers.py`, `rate_limiter.py::fetch_current_spend` — both confirmed fully dead by exhaustive grep; fail-safe-low design is defensible if ever wired in. |
+
+**Gate status at T8 close:** black/ruff/lint-imports/root-freeze/test-markers/bandit all PASS.
+mypy: 0 new errors from this tier's 3 core-path files (isolated diff confirmed), 1607
+pre-existing errors elsewhere (container.py/meta_integration.py/meta/) untouched and unrelated.
+New tests 5/5 (RED→GREEN verified, including the incidental C4 import-fix RED state). Full
+suite: 2517 passed, 2 pre-registered environmental failures unchanged, 21 skipped — zero
+regressions across 158 targeted regression tests plus the full unit+integration run.
+
+**Next:** `docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md` defines T9 (safety/execution/plugin
+surface, in progress) through T16 (final catch-all), prioritized by architectural blast radius.

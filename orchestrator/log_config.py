@@ -187,6 +187,11 @@ def configure_logging(
         format: Output format ('json' for production, 'text' for development)
         log_file: Optional file path to write logs to
     """
+    # Mask secrets (API keys, tokens, passwords) in every log record before
+    # it reaches a handler — built in generators/secrets_manager.py but,
+    # until now, never actually attached to a real logger (hunt T8, C1).
+    from .generators.secrets_manager import SecretsFilter
+
     # Get the root orchestrator logger
     root_logger = logging.getLogger("orchestrator")
     root_logger.setLevel(getattr(logging, level.upper(), logging.INFO))
@@ -204,6 +209,7 @@ def configure_logging(
     else:
         console_handler.setFormatter(TextFormatter())
     console_handler.addFilter(CorrelationIdFilter())
+    console_handler.addFilter(SecretsFilter())
     handlers.append(console_handler)
 
     # File handler if specified
@@ -211,6 +217,7 @@ def configure_logging(
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setFormatter(JSONFormatter())  # Always JSON in files
         file_handler.addFilter(CorrelationIdFilter())
+        file_handler.addFilter(SecretsFilter())
         handlers.append(file_handler)
 
     # Add handlers to root logger
