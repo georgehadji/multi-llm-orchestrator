@@ -1,144 +1,189 @@
 """
-Regression tests for ServiceContainer stage discovery.
+Regression tests for ServiceContainer pipeline-stage discovery.
 
-The bug: inside ServiceContainer.build (a @classmethod, so `cls` is
-ServiceContainer), the pipeline was assembled with
+Four defects, each hidden behind the previous one:
 
-    stages = [cls._build_stage(cls, ...) for cls in discovered]
+1. `stages = [cls._build_stage(cls, ...) for cls in discovered]` — inside a
+   @classmethod, `cls` is ServiceContainer (which owns the _build_stage
+   staticmethod), but the comprehension's `for cls in discovered` SHADOWED it,
+   so the lookup landed on a stage class:
+       AttributeError: type object 'ConstitutionGate' has no attribute '_build_stage'
 
-The comprehension's `for cls in discovered` SHADOWS the classmethod's `cls`,
-so `cls._build_stage` was looked up on a discovered stage class rather than on
-ServiceContainer. `_build_stage` is a @staticmethod of ServiceContainer, so
-every build raised:
+2. DesignCritiqueStage.build_kwargs returned {} while its __init__ requires
+   `client`, so the build then raised TypeError.
 
-    AttributeError: type object 'ConstitutionGate' has no attribute '_build_stage'
+3. TaskContextEnricher (a helper) and MAPElitesPipeline (a BasePipeline) were
+   listed as stages but define no `process()`, which TaskPipeline awaits — so
+   every task failed once discovery worked.
 
-_discover_stages() returns 11 stages via the hardcoded fallback list, so this
-branch is always taken — ServiceContainer.build() could not construct at all.
-mypy reported it as `container.py:780: "type" has no attribute "_build_stage"`,
-but the Type Check job also reported 1422 errors from unrelated layers, so the
-signal was invisible.
+4. Three entries in pyproject.toml's `orchestrator.pipeline.stages` group named
+   classes that do not exist (ContextEnricherStage, SelfConsistencyStage,
+   MapElitesStage). Where the package is installed with entry points registered
+   — i.e. CI — the first ep.load() raised, _discover_stages()'s bare
+   `except Exception` swallowed it at debug level, and discovery returned None
+   on EVERY run. Entry-point discovery had never once worked in CI.
+
+Defect 4 is why these tests must not depend on `_discover_stages()` returning
+stages: whether it uses the entry-point group or the hardcoded fallback is an
+environment detail. They validate BOTH declared sources directly instead.
 """
 
 from __future__ import annotations
+
+import importlib
+import inspect
+import sys
+from pathlib import Path
 
 import pytest
 
 pytestmark = pytest.mark.unit
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
-@pytest.mark.unit
-def test_discovered_stages_do_not_expose_build_stage():
-    """Pins the precondition: the shadowed lookup could never have worked."""
-    from orchestrator.engine_core.container import _discover_stages
-
-    discovered = _discover_stages()
-    assert discovered, "expected the fallback entry-point list to yield stages"
-    assert not hasattr(discovered[0], "_build_stage"), (
-        "a stage class must not define _build_stage; if it does, this test's "
-        "premise (and the fix) needs revisiting"
-    )
-
-
-@pytest.mark.unit
-def test_build_stage_is_a_staticmethod_of_the_container():
-    from orchestrator.engine_core.container import ServiceContainer
-
-    assert hasattr(ServiceContainer, "_build_stage")
-    assert isinstance(
-        ServiceContainer.__dict__["_build_stage"], staticmethod
-    ), "_build_stage is expected to be a @staticmethod taking the stage class"
+_SENTINEL_DEPS = {
+    "client": object(),
+    "budget": object(),
+    "selector": object(),
+    "vs_sampler": object(),
+    "lsp_validator": object(),
+    "evaluator": object(),
+    "ara": object(),
+    "ara_strategy": object(),
+    "validator": object(),
+}
 
 
-@pytest.mark.unit
-def test_container_builds_with_discovered_stages(monkeypatch):
-    """ServiceContainer.build() must actually construct."""
+def _load(target: str) -> type:
+    """Import a ``module.path:ClassName`` target."""
+    module_path, _, class_name = target.partition(":")
+    return getattr(importlib.import_module(module_path), class_name)
+
+
+def _declared_entry_point_targets() -> dict[str, str]:
+    if sys.version_info < (3, 11):  # pragma: no cover
+        pytest.skip("tomllib requires Python 3.11+")
+    import tomllib
+
+    with (_REPO_ROOT / "pyproject.toml").open("rb") as handle:
+        config = tomllib.load(handle)
+    return config["project"]["entry-points"]["orchestrator.pipeline.stages"]
+
+
+def _fallback_targets() -> list[str]:
+    from orchestrator.engine_core.container import _FALLBACK_ENTRY_POINTS
+
+    return list(_FALLBACK_ENTRY_POINTS)
+
+
+def _all_declared_targets() -> list[str]:
+    return sorted({*_declared_entry_point_targets().values(), *_fallback_targets()})
+
+
+@pytest.fixture(autouse=True)
+def _dummy_key(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test-dummy")
-    from orchestrator.budget import Budget
-    from orchestrator.engine_core.container import ServiceContainer
-
-    container = ServiceContainer.build(budget=Budget(max_usd=1.0))
-    assert container is not None
 
 
 @pytest.mark.unit
-def test_built_pipeline_has_stages(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test-dummy")
-    from orchestrator.budget import Budget
-    from orchestrator.engine_core.container import ServiceContainer
+class TestStageDeclarations:
+    def test_every_declared_entry_point_imports(self):
+        """Defect 4: three entry points named classes that do not exist."""
+        broken = []
+        for name, target in _declared_entry_point_targets().items():
+            try:
+                _load(target)
+            except Exception as exc:  # noqa: BLE001 — report all, not the first
+                broken.append(f"{name} -> {target}: {type(exc).__name__}: {exc}")
+        assert not broken, "unimportable entry point(s):\n  " + "\n  ".join(broken)
 
-    container = ServiceContainer.build(budget=Budget(max_usd=1.0))
-    pipeline = getattr(container, "pipeline", None)
-    if pipeline is None:  # pipeline is optional wiring in some configurations
-        pytest.skip("container exposes no pipeline attribute in this configuration")
-    # TaskPipeline keeps its stage list private.
-    stages = getattr(pipeline, "stages", None) or getattr(pipeline, "_stages", None)
-    assert stages, "a built pipeline must carry stages"
+    def test_every_fallback_entry_imports(self):
+        broken = []
+        for target in _fallback_targets():
+            try:
+                _load(target)
+            except Exception as exc:  # noqa: BLE001
+                broken.append(f"{target}: {type(exc).__name__}: {exc}")
+        assert not broken, "unimportable fallback entr(y/ies):\n  " + "\n  ".join(broken)
+
+    def test_entry_points_and_fallback_list_agree(self):
+        """The two sources must not drift; the environment picks between them."""
+        declared = set(_declared_entry_point_targets().values())
+        fallback = set(_fallback_targets())
+        assert declared == fallback, (
+            f"only in pyproject entry points: {sorted(declared - fallback)}; "
+            f"only in _FALLBACK_ENTRY_POINTS: {sorted(fallback - declared)}"
+        )
+
+    def test_every_declared_stage_implements_process(self):
+        """Defect 3: TaskPipeline awaits stage.process(ctx)."""
+        missing = [t for t in _all_declared_targets() if not hasattr(_load(t), "process")]
+        assert not missing, (
+            f"declared stage(s) without process(): {missing}. "
+            f"TaskPipeline awaits stage.process(ctx), so these break every task."
+        )
+
+    def test_every_declared_stage_can_be_constructed_by_build_stage(self):
+        """Defect 2: build_kwargs must supply every required __init__ argument."""
+        broken = []
+        for target in _all_declared_targets():
+            stage_cls = _load(target)
+            builder = getattr(stage_cls, "build_kwargs", None)
+            kwargs = builder(**_SENTINEL_DEPS) if builder is not None else {}
+            params = list(inspect.signature(stage_cls.__init__).parameters.values())[1:]
+            required = {
+                p.name
+                for p in params
+                if p.default is inspect.Parameter.empty
+                and p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
+            }
+            if required - set(kwargs):
+                broken.append(
+                    f"{stage_cls.__name__}: build_kwargs omits {sorted(required - set(kwargs))}"
+                )
+        assert not broken, "stage(s) _build_stage cannot construct:\n  " + "\n  ".join(broken)
 
 
 @pytest.mark.unit
-def test_every_discovered_stage_can_actually_be_built():
-    """Each stage's build_kwargs must supply every required __init__ argument.
+class TestBuildStageWiring:
+    def test_build_stage_is_a_staticmethod_of_the_container(self):
+        """Defect 1: it belongs to ServiceContainer, not to a stage class."""
+        from orchestrator.engine_core.container import ServiceContainer
 
-    DesignCritiqueStage returned `{}` while its __init__ required `client`, so
-    repairing the `cls` shadowing above simply moved the failure from
-    AttributeError to TypeError. This invariant catches that class of mismatch
-    directly, without needing a full container build.
-    """
-    import inspect
+        assert isinstance(ServiceContainer.__dict__["_build_stage"], staticmethod)
 
-    from orchestrator.engine_core.container import _discover_stages
+    def test_no_declared_stage_defines_build_stage(self):
+        """If one did, the old shadowed `cls._build_stage` lookup could 'work'."""
+        offenders = [t for t in _all_declared_targets() if hasattr(_load(t), "_build_stage")]
+        assert not offenders, f"stage(s) unexpectedly defining _build_stage: {offenders}"
 
-    sentinel_deps = {
-        "client": object(),
-        "budget": object(),
-        "selector": object(),
-        "vs_sampler": object(),
-        "lsp_validator": object(),
-        "evaluator": object(),
-        "ara": object(),
-        "ara_strategy": object(),
-        "validator": object(),
-    }
+    def test_discover_stages_returns_usable_stages_or_none(self):
+        """None is a legitimate 'discovery unavailable' signal the caller handles."""
+        from orchestrator.engine_core.container import _discover_stages
 
-    broken: list[str] = []
-    for stage_cls in _discover_stages():
-        builder = getattr(stage_cls, "build_kwargs", None)
-        kwargs = builder(**sentinel_deps) if builder is not None else {}
-        params = list(inspect.signature(stage_cls.__init__).parameters.values())[1:]
-        required = {
-            p.name
-            for p in params
-            if p.default is inspect.Parameter.empty
-            and p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
-        }
-        missing = required - set(kwargs)
-        if missing:
-            broken.append(f"{stage_cls.__name__}: build_kwargs omits {sorted(missing)}")
-
-    assert not broken, "stage(s) cannot be constructed by _build_stage:\n  " + "\n  ".join(broken)
+        discovered = _discover_stages()
+        if discovered is None:
+            pytest.skip("entry-point discovery unavailable in this environment")
+        assert discovered, "discovery returned an empty list rather than None"
+        assert all(hasattr(c, "process") for c in discovered)
 
 
 @pytest.mark.unit
-def test_every_discovered_stage_implements_the_stage_interface():
-    """TaskPipeline calls `await stage.process(ctx)` — every stage must have it.
+class TestContainerBuilds:
+    def test_container_builds(self):
+        from orchestrator.budget import Budget
+        from orchestrator.engine_core.container import ServiceContainer
 
-    _FALLBACK_ENTRY_POINTS listed TaskContextEnricher (a helper exposing
-    build_prefix / enrich_with_visual_context) and MAPElitesPipeline (a
-    BasePipeline exposing execute(task, context)). Neither is a pipeline stage
-    and neither defines `process`, so both were assembled into the pipeline and
-    then failed at runtime with
+        assert ServiceContainer.build(budget=Budget(max_usd=1.0)) is not None
 
-        pipeline stage TaskContextEnricher failed: object has no attribute 'process'
+    def test_built_pipeline_has_stages(self):
+        from orchestrator.budget import Budget
+        from orchestrator.engine_core.container import ServiceContainer
 
-    which failed the task. Neither appears in the curated hardcoded stage list
-    used when discovery returns nothing — that list is the reference for what a
-    stage actually is.
-    """
-    from orchestrator.engine_core.container import _discover_stages
-
-    missing = [c.__name__ for c in _discover_stages() if not hasattr(c, "process")]
-    assert not missing, (
-        f"discovered 'stage(s)' without a process() method: {missing}. "
-        f"TaskPipeline awaits stage.process(ctx), so these break every task."
-    )
+        container = ServiceContainer.build(budget=Budget(max_usd=1.0))
+        pipeline = getattr(container, "pipeline", None)
+        if pipeline is None:
+            pytest.skip("container exposes no pipeline attribute in this configuration")
+        # TaskPipeline keeps its stage list private.
+        stages = getattr(pipeline, "stages", None) or getattr(pipeline, "_stages", None)
+        assert stages, "a built pipeline must carry stages"
