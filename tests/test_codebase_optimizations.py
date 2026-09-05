@@ -32,6 +32,9 @@ from orchestrator.models import Task, TaskType
 # ═══════════════════════════════════════════════════
 
 
+pytestmark = pytest.mark.unit
+
+
 class TestContextSlicingStrategy:
     """Verify each concrete strategy selects correct files by task type."""
 
