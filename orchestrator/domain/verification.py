@@ -146,7 +146,7 @@ class DeterministicResult:
     status_summary: str = "(no checks)"
     version: int = 1
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary including version marker."""
         return {
             "version": self.version,
@@ -159,7 +159,7 @@ class DeterministicResult:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "DeterministicResult":
+    def from_dict(cls, data: dict[str, Any]) -> "DeterministicResult":
         """Deserialize from dictionary with version validation."""
         version = data.get("version", 1)
         if version != 1:

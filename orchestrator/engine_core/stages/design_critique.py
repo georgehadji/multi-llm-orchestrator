@@ -30,7 +30,10 @@ class DesignCritiqueStage:
 
     @classmethod
     def build_kwargs(cls, **deps):
-        return {}
+        # Must supply every required __init__ argument. Returning {} made
+        # ServiceContainer.build() raise TypeError once stage discovery was
+        # repaired: __init__ requires `client`.
+        return {"client": deps["client"]}
 
     def __init__(
         self,

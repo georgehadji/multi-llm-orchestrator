@@ -18,7 +18,8 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from .architect import Architect
@@ -125,7 +126,10 @@ def _discover_stages() -> list[type] | None:
     try:
         from importlib.metadata import entry_points
 
-        eps = entry_points(group="orchestrator.pipeline.stages")
+        # Sequence[Any]: this holds EntryPoint objects from importlib.metadata
+        # OR plain "module:Class" strings from the fallback list, and the loop
+        # below dispatches on which it got.
+        eps: "Sequence[Any]" = entry_points(group="orchestrator.pipeline.stages")
         if not eps:
             # Fall back to direct import when metadata isn't available
             # (e.g. package not reinstalled after entry-point change)
@@ -167,7 +171,7 @@ def _load_fallback(path: str) -> type:
     import importlib
 
     mod = importlib.import_module(module_path)
-    return getattr(mod, class_name)
+    return cast("type", getattr(mod, class_name))
 
 
 def _wire_acr_backend(planner: Any, flags: Any) -> None:
@@ -776,9 +780,13 @@ class ServiceContainer:
         # Pipeline with all stages — discover via entry points, fall back to hardcoded
         discovered = _discover_stages()
         if discovered:
-            stages = [
+            # `stage_cls`, not `cls`: this is a @classmethod, so `cls` is
+            # ServiceContainer (which owns the _build_stage staticmethod).
+            # Naming the loop variable `cls` shadowed it, so the lookup landed
+            # on a stage class and every build raised AttributeError.
+            stages: list[Any] = [
                 cls._build_stage(
-                    cls,
+                    stage_cls,
                     client,
                     budget,
                     selector,
@@ -789,10 +797,10 @@ class ServiceContainer:
                     ara_strategy,
                     validator,
                 )
-                for cls in discovered
+                for stage_cls in discovered
             ]
         else:
-            stages: list[Any] = [
+            stages = [
                 GenerateStage(client=client, budget=budget, selector=selector, vs_sampler=vs_sampler),  # type: ignore[arg-type]
                 CritiqueStage(client=client, lsp_validator=lsp_validator, vs_sampler=vs_sampler),  # type: ignore[arg-type]
                 EvaluateStage(evaluator=evaluator),
@@ -947,8 +955,10 @@ class ServiceContainer:
         return cls(
             budget=budget,
             client=client,
-            cache=cache,
-            state_mgr=state_manager,
+            # Both are built above as concrete adapters (DiskCache / StateManager)
+            # that satisfy their port protocols; the locals are typed Any|None.
+            cache=cast("CachePort", cache),
+            state_mgr=cast("StatePort", state_manager),
             task_guard=task_guard,
             results_lock=results_lock,
             selector=selector,

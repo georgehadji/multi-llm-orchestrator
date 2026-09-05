@@ -76,7 +76,12 @@ _TEST_PATTERNS: dict[str, tuple[str, ...]] = {
 class ValidationResult:
     """Result of RED-gate validation."""
 
-    passed: bool
+    # Defaults to False (fail-closed). `passed` is only computed at the end of
+    # validate(); every early-return path (empty suite, syntax error, no test
+    # functions) returns before that point, so an un-set value must read as
+    # "did not pass". Without a default, ValidationResult() could not be
+    # constructed at all and validate() raised TypeError on every call.
+    passed: bool = False
     test_count: int = 0
     assertion_count: int = 0
     errors: list[str] = field(default_factory=list)
