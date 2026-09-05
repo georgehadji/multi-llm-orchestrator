@@ -282,7 +282,10 @@ class BudgetHierarchy:
         for key, raw in rows:
             try:
                 val = json.loads(raw)
-            except Exception:
+            except Exception as exc:
+                logger.warning(
+                    "BudgetHierarchy: skipping unparseable spend record key=%s: %s", key, exc
+                )
                 continue
             if key == "org_spent":
                 self._org_spent = float(val)

@@ -133,11 +133,11 @@ class VerbalizedSampler:
 
         # Track cost against budget when available
         if self._budget is not None and resp is not None:
+            cost = getattr(resp, "cost_usd", 0.0)
             try:
-                cost = getattr(resp, "cost_usd", 0.0)
                 await self._budget.charge(cost, "verbalized_sampling")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("VerbalizedSampler failed to charge budget (cost=%s): %s", cost, exc)
 
         if not resp or not resp.text:
             logger.warning("VerbalizedSampler got empty response")

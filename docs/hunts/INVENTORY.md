@@ -135,6 +135,34 @@ tier.
 **Gate status at T5 close:** black/ruff/lint-imports/root-freeze/test-markers/mypy(core)/bandit
 all PASS. 61/61 existing resilience/circuit-breaker tests still pass, zero regressions.
 
+## T6 — Error-path sweep (broad-except info loss) (closed)
+
+Full detail: `docs/hunts/t6-error-paths/inventory.md`, `docs/hunts/t6-error-paths/coverage.md`.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `application/verbalized_sampling.py::VerbalizedSampler.sample()` charged a caller-supplied budget for a real, already-incurred LLM cost inside a bare `except Exception: pass` — a charge failure left zero trace anywhere. Fixed: logs a warning naming the cost and the exception. |
+| C2 | **VERIFIED DEFECT — FIXED** | `costing/tracker.py::CostTracker._load()` silently reset cumulative cost history to empty on any read/parse failure of its persisted JSON, indistinguishable from "no history yet." Fixed: added logging (module had none), warns naming the file and exception. |
+| C3 | **VERIFIED DEFECT — FIXED** | `cost.py::BudgetHierarchy._load_from_db()` silently dropped any per-team/per-job spend row that failed to parse, with no log naming which key — could let a near-limit team/job appear to have full budget again after a restart. Fixed: warns naming the specific key. |
+
+**Residual, triaged but not fixed (15 candidates from an 18-candidate ranked survey — see
+inventory.md for full detail):** highest-severity is `application/evaluator.py`'s
+self-consistency loop injecting a fabricated 0.5 score into aggregation on a judge-call failure
+(logged, but the fake score is indistinguishable from real) — `[REQUIRES HUMAN REVIEW]`, a
+scoring-semantics decision, not a log-line fix. Also flagged: a hardcoded-secret scanner
+(`generators/website_validator.py`, duplicated in `quality_control.py` x2) silently skips
+unreadable files and reports a false-clean scan result; `plugin/plugin_isolation_secure.py`'s
+network-syscall sandbox rule installation swallows failures with no log (security-relevant,
+reachability not independently re-verified); several lower-severity success-shaped fallbacks
+(`services/scorers.py`, `rate_limiter.py::fetch_current_spend`). Confirmed genuinely clean:
+`budget.py`, `application/budget_enforcer.py`, `generators/secrets_manager.py` (zero broad-except
+sites at all); `circuit_breaker.py`, `operations/resilience.py`, `project_runner.py`'s checked
+sites (correctly isolating); `infrastructure/state.py`'s `pass`-only sites (cleanup-before-raise).
+
+**Gate status at T6 close:** black/ruff/lint-imports/root-freeze/test-markers/mypy(core)/bandit
+all PASS. New tests 3/3 (RED→GREEN verified). 155/155 existing cost/budget/verbalized-sampling
+tests still pass, zero regressions.
+
 ## T7 — Execution & filesystem surface (closed)
 
 Full detail: `docs/hunts/t7-execution/inventory.md`, `docs/hunts/t7-execution/coverage.md`.
