@@ -444,6 +444,8 @@ class WebsiteQualityValidator:
         """
         issues = []
 
+        # Kept deliberately tight: a false positive blocks a good build, so only
+        # unambiguous placeholders belong here.
         placeholder_patterns = [
             r"lorem\s+ipsum",
             r"TODO[:\s]",
@@ -451,13 +453,36 @@ class WebsiteQualityValidator:
             r"placeholder\s+content",
             r"your\s+content\s+here",
             r"insert\s+.*\s+here",
+            r"untitled\s+project",
+            r"your\s+company\s+name",
+            r"company\s+name\s+here",
+            r"@example\.com",
+        ]
+        # A title that is empty or generic ships straight into search results and
+        # browser tabs — highest-signal placeholder there is.
+        generic_title_patterns = [
+            r"^document$",
+            r"^home$",
+            r"^index$",
+            r"^new\s+page$",
+            r"^my\s+site$",
         ]
 
-        # Find all TSX/JSX files
-        component_files = list(output_dir.glob("**/*.tsx")) + list(output_dir.glob("**/*.jsx"))
+        # Scan rendered markup, not just components. Globbing only tsx/jsx meant a
+        # static HTML site was never read at all: zero files scanned, zero issues
+        # found, perfect score. HTML is the primary deliverable for framework=html.
+        content_files = [
+            p
+            for ext in ("*.tsx", "*.jsx", "*.html", "*.ts", "*.js")
+            for p in output_dir.glob(f"**/{ext}")
+            if "node_modules" not in p.parts
+        ]
 
-        for file_path in component_files:
-            content = file_path.read_text(encoding="utf-8").lower()
+        for file_path in content_files:
+            try:
+                content = file_path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
 
             for pattern in placeholder_patterns:
                 matches = re.findall(pattern, content, re.IGNORECASE)
@@ -465,6 +490,18 @@ class WebsiteQualityValidator:
                     issues.append(
                         f"{file_path.name}: Found placeholder content ({len(matches)} matches)"
                     )
+
+        for html_file in [p for p in output_dir.glob("**/*.html") if "node_modules" not in p.parts]:
+            try:
+                markup = html_file.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            title_match = re.search(r"<title[^>]*>(.*?)</title>", markup, re.IGNORECASE | re.DOTALL)
+            title = title_match.group(1).strip() if title_match else ""
+            if not title:
+                issues.append(f"{html_file.name}: missing or empty <title>")
+            elif any(re.search(pat, title, re.IGNORECASE) for pat in generic_title_patterns):
+                issues.append(f"{html_file.name}: generic placeholder <title> ({title!r})")
 
         passed = len(issues) == 0
         score = 1.0 if passed else max(0.5, 1.0 - (len(issues) * 0.15))
@@ -481,9 +518,61 @@ class WebsiteQualityValidator:
 
     # ── Security Checks ──────────────────────────────────────────────────────
 
+    @staticmethod
+    def _has_server_endpoints(output_dir: Path) -> bool:
+        """True when the site actually submits data somewhere it could be abused.
+
+        A static brochure site has nothing to rate-limit. Detects: form POSTs,
+        scripted POST calls, API route files, and any server-side source.
+        """
+        import re as _re
+
+        for api_dir in ("pages/api", "app/api", "api", "functions", "netlify/functions"):
+            candidate = output_dir / api_dir
+            if candidate.is_dir() and any(candidate.rglob("*")):
+                return True
+
+        if any(output_dir.rglob("*.py")):
+            return True
+
+        endpoint_markers = [
+            r"<form[^>]*method\s*=\s*[\"\']post",
+            r"method\s*:\s*[\"\']POST",
+            r"\.post\s*\(",
+            r"axios\.post",
+            r"app\.(post|put|patch)\s*\(",
+            r"router\.(post|put|patch)\s*\(",
+        ]
+        scan = [
+            p
+            for ext in ("*.html", "*.js", "*.jsx", "*.ts", "*.tsx")
+            for p in output_dir.rglob(ext)
+            if "node_modules" not in p.parts
+        ]
+        for fpath in scan[:100]:
+            try:
+                content = fpath.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            if any(_re.search(pat, content, _re.IGNORECASE) for pat in endpoint_markers):
+                return True
+        return False
+
     async def _check_rate_limiting(self, output_dir: Path) -> QualityCheck:
         """Verify contact/auth endpoints include IP-based rate limiting."""
         import re
+
+        # Applicability guard. Without it this check fails EVERY static site
+        # forever, which flattens the aggregate score into a constant and
+        # destroys its ability to discriminate good output from bad. Mirrors the
+        # "not applicable" behaviour _check_auth_flow already uses.
+        if not self._has_server_endpoints(output_dir):
+            return QualityCheck(
+                name="Rate Limiting",
+                passed=True,
+                score=1.0,
+                details="No server-side endpoints or form submissions found — not applicable.",
+            )
 
         rate_limit_patterns = [
             r"rate.limit",

@@ -165,6 +165,13 @@ class WebsiteConfig:
     # ── Hero video background ──
     hero_video: bool = False  # Generate an MP4 hero background (image used as poster)
     hero_video_model: str = ""  # OpenRouter video model ID; empty = per-tier auto-select
+    # ── Quality gate ──
+    # Minimum aggregate quality score for the build to be considered shippable.
+    # 0.0 disables the gate (score is still computed and reported).
+    min_quality: float = 0.0
+    # When True, a single failed check fails the gate even if the mean clears
+    # min_quality — stops one broken dimension hiding behind good siblings.
+    require_all_checks: bool = False
 
 
 @dataclass
@@ -213,6 +220,13 @@ class WebsiteBuildResult:
     total_cost: float = 0.0
     total_time_seconds: float = 0.0
     format_report: dict | None = None  # black/ruff/prettier formatting outcome
+    # Quality-gate verdict, deliberately SEPARATE from `success`.
+    #   success              -> "the generation pipeline ran to completion"
+    #   quality_gate_passed  -> "the output is good enough to ship"
+    # None means "not judged" (validator unavailable); it must never read as a pass.
+    quality_gate_passed: bool | None = None
+    gate_failures: list[str] = field(default_factory=list)
+    min_quality: float = 0.0  # threshold the gate was evaluated against
 
 
 class ContentResearcher:
@@ -1215,6 +1229,7 @@ class WebsiteGenerator:
                 validator = WebsiteQualityValidator()
                 quality_report = await validator.validate(output_dir)
                 result.quality_report = quality_report
+                self._apply_quality_gate(result, quality_report, config)
             except ImportError:
                 logger.warning(
                     "WebsiteQualityValidator not available — skipping quality validation"
@@ -1269,6 +1284,43 @@ class WebsiteGenerator:
                 logger.warning(f"Fallback write also failed: {fallback_err}")
 
         return result
+
+    @staticmethod
+    def _apply_quality_gate(result, quality_report, config) -> None:
+        """Turn the quality report into a machine-readable ship / don't-ship verdict.
+
+        Kept separate from `result.success` on purpose: `success` means the
+        pipeline ran, `quality_gate_passed` means the output is good enough to
+        ship. Conflating them is what let broken sites print "[OK]".
+        """
+        min_quality = float(getattr(config, "min_quality", 0.0) or 0.0)
+        result.min_quality = min_quality
+
+        failures: list[str] = []
+        for check in quality_report.failed_checks():
+            name = getattr(check, "name", "unnamed check")
+            details = getattr(check, "details", "")
+            score = getattr(check, "score", 0.0)
+            failures.append(f"{name} (score {score:.2f}){': ' + details if details else ''}")
+        result.gate_failures = failures
+
+        if min_quality <= 0.0 and not getattr(config, "require_all_checks", False):
+            # Gate disabled — report the score, withhold a verdict.
+            result.quality_gate_passed = None
+            return
+
+        passed = quality_report.score >= min_quality
+        if getattr(config, "require_all_checks", False) and failures:
+            passed = False
+        result.quality_gate_passed = passed
+
+        if not passed:
+            logger.warning(
+                "Quality gate FAILED: score %.2f < %.2f (%d failing check(s))",
+                quality_report.score,
+                min_quality,
+                len(failures),
+            )
 
     def _create_section_tasks(
         self,

@@ -431,6 +431,8 @@ class WebsiteQualityValidator:
         """
         issues = []
 
+        # Kept deliberately tight: a false positive blocks a good build, so only
+        # unambiguous placeholders belong here.
         placeholder_patterns = [
             r"lorem\s+ipsum",
             r"TODO[:\s]",
@@ -438,13 +440,36 @@ class WebsiteQualityValidator:
             r"placeholder\s+content",
             r"your\s+content\s+here",
             r"insert\s+.*\s+here",
+            r"untitled\s+project",
+            r"your\s+company\s+name",
+            r"company\s+name\s+here",
+            r"@example\.com",
+        ]
+        # A title that is empty or generic ships straight into search results and
+        # browser tabs — highest-signal placeholder there is.
+        generic_title_patterns = [
+            r"^document$",
+            r"^home$",
+            r"^index$",
+            r"^new\s+page$",
+            r"^my\s+site$",
         ]
 
-        # Find all TSX/JSX files
-        component_files = list(output_dir.glob("**/*.tsx")) + list(output_dir.glob("**/*.jsx"))
+        # Scan rendered markup, not just components. Globbing only tsx/jsx meant a
+        # static HTML site was never read at all: zero files scanned, zero issues
+        # found, perfect score. HTML is the primary deliverable for framework=html.
+        content_files = [
+            p
+            for ext in ("*.tsx", "*.jsx", "*.html", "*.ts", "*.js")
+            for p in output_dir.glob(f"**/{ext}")
+            if "node_modules" not in p.parts
+        ]
 
-        for file_path in component_files:
-            content = file_path.read_text(encoding="utf-8").lower()
+        for file_path in content_files:
+            try:
+                content = file_path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
 
             for pattern in placeholder_patterns:
                 matches = re.findall(pattern, content, re.IGNORECASE)
@@ -452,6 +477,18 @@ class WebsiteQualityValidator:
                     issues.append(
                         f"{file_path.name}: Found placeholder content ({len(matches)} matches)"
                     )
+
+        for html_file in [p for p in output_dir.glob("**/*.html") if "node_modules" not in p.parts]:
+            try:
+                markup = html_file.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            title_match = re.search(r"<title[^>]*>(.*?)</title>", markup, re.IGNORECASE | re.DOTALL)
+            title = title_match.group(1).strip() if title_match else ""
+            if not title:
+                issues.append(f"{html_file.name}: missing or empty <title>")
+            elif any(re.search(pat, title, re.IGNORECASE) for pat in generic_title_patterns):
+                issues.append(f"{html_file.name}: generic placeholder <title> ({title!r})")
 
         passed = len(issues) == 0
         score = 1.0 if passed else max(0.5, 1.0 - (len(issues) * 0.15))

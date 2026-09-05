@@ -237,11 +237,37 @@ class QualityReport:
 
     def __init__(self, **kwargs):
         self.checks: list = kwargs.pop("checks", [])
-        self.score: float = kwargs.pop("score", 0.0)
+        # `score`/`passed` are DERIVED from `checks` unless a caller supplies them
+        # explicitly. Deriving here (rather than in each validator) keeps a single
+        # aggregation rule: both shipped validator copies built this report without
+        # passing either field, so the aggregate silently defaulted to 0.0/False no
+        # matter how the individual checks scored.
+        self.score: float = (
+            kwargs.pop("score") if "score" in kwargs else self._derive_score(self.checks)
+        )
         self.lighthouse_score: float = kwargs.pop("lighthouse_score", 0)
         self.wcag_level: str = kwargs.pop("wcag_level", "A")
         self.responsive_breakpoints_tested: int = kwargs.pop("responsive_breakpoints_tested", 0)
         self.issues: list = kwargs.pop("issues", [])
         self.warnings: list = kwargs.pop("warnings", [])
-        self.passed: bool = kwargs.pop("passed", False)
+        # Conservative: every check must pass. A mean score hides a single fatal
+        # dimension (e.g. responsive=0.5 => mobile is broken) behind good siblings.
+        self.passed: bool = (
+            kwargs.pop("passed") if "passed" in kwargs else self._derive_passed(self.checks)
+        )
         self.__dict__.update(kwargs)
+
+    @staticmethod
+    def _derive_score(checks: list) -> float:
+        """Arithmetic mean of per-check scores; 0.0 when there is nothing to judge."""
+        scores = [float(c.score) for c in checks if getattr(c, "score", None) is not None]
+        return sum(scores) / len(scores) if scores else 0.0
+
+    @staticmethod
+    def _derive_passed(checks: list) -> bool:
+        """True only when every check passed; an empty report never passes."""
+        return bool(checks) and all(bool(getattr(c, "passed", False)) for c in checks)
+
+    def failed_checks(self) -> list:
+        """Checks that did not pass — what a quality gate should report to the caller."""
+        return [c for c in self.checks if not bool(getattr(c, "passed", False))]
