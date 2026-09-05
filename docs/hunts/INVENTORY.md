@@ -99,6 +99,46 @@ redundant shims to `infrastructure/state.py`), `orchestrator.async_event_store` 
 **Gate status at T3 close:** black/ruff/lint-imports/root-freeze/test-markers/mypy(core)/bandit
 all PASS.
 
-**Next tier:** T4 (concurrency & resource lifecycle) — `engine.py`, `engine_core/`, the 205
-async-primitive sites. Its Phase 0 delta must re-verify the shared census against the tree T2+T3
-leave behind, per §4 Step 1.
+## T4 — Concurrency & resource lifecycle (closed)
+
+Full detail: `docs/hunts/t4-concurrency/inventory.md`, `docs/hunts/t4-concurrency/coverage.md`.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `PipelineRunner.execute_all()`'s `run_one()` let a failed task's exception propagate to `asyncio.gather(return_exceptions=True)`, which only logged it — `results[tid]` was never set, so `ProjectState.results` silently had no record the task was ever attempted. Fixed: catches the exception, records a `FAILED` `TaskResult` via the same `_build_failure_result()` convention already used in `task_executor.py`. |
+
+**Cleared (innocent):** 5 fire-and-forget `asyncio.create_task()` sites checked for the
+GC-mid-flight leak pattern, all already using the correct held-reference pattern.
+
+**Residual, not fixed (dead code):** `A2ACoordinator.distribute_task()` has a genuine task-leak
+shape on early exception/cancellation, but has zero live callers (`A2AManager` aliases a
+different class, `A2AQueueManager`).
+
+**Gate status at T4 close:** black/ruff/lint-imports/root-freeze/test-markers/mypy(core)/bandit
+all PASS.
+
+## Unrelated fix merged during this tier sequence: OpenRouter model-catalog update
+
+Per explicit user request (separate from the defect-hunt protocol), a background agent
+researched OpenRouter's current model catalog/pricing/reasoning-tokens/web-search docs and
+updated `orchestrator/models.py`. Reviewed and merged onto this branch:
+- **A genuine enum-aliasing corruption bug, verified independently**: `Model.QWEN_3_6_FLASH`
+  was assigned the same string value as `Model.GPT_4O_MINI` (`"openai/gpt-4o-mini"`), making it
+  a Python enum *alias* (`Model.QWEN_3_6_FLASH is Model.GPT_4O_MINI` was `True`). Because
+  `COST_TABLE`/`CONTEXT_WINDOWS` are dict literals, the later `QWEN_3_6_FLASH` entry silently
+  overwrote `GPT_4O_MINI`'s real pricing (`$0.12/$0.50` instead of the correct `$0.15/$0.60`)
+  and context window (`32768` instead of `131072`) — corrupting a model used as a fallback
+  target in ~7 places. Fixed by giving `QWEN_3_6_FLASH` its own correct id/pricing.
+- 43 stale `COST_TABLE` prices corrected, cross-checked against `openrouter_models.json`
+  (a git-tracked catalogue snapshot already in this repo, committed 2026-08-01) — a new test,
+  `tests/unit/test_cost_table_pricing_sync.py`, passes against it (3/3).
+- Confirmed, not fixed here (each is a real gap, out of scope for a pricing-data pass):
+  `orchestrator/config/costs.json` is dead code for pricing purposes (`COST_TABLE` is a
+  hardcoded dict literal that shadows the JSON-loader path entirely — verified the two never
+  produce the same object or content); the `PhasePolicy`/`ReasoningEffort` reasoning-token
+  request machinery is fully built but has zero callers into `llm_client.py`; prompt-cache
+  discount pricing (`input_cache_read`/`input_cache_write`) isn't reflected anywhere in cost
+  estimation, meaning successful caching is invisible to budget accounting (safe-direction
+  overestimate, not a risk, but not accurate either).
+- Full suite: 2500 passed (+3 for the new pricing-sync test), 2 pre-registered environmental
+  failures unchanged, 21 skipped — zero regressions. black/ruff/mypy(core) all pass.
