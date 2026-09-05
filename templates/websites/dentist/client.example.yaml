@@ -35,6 +35,27 @@ testimonials:
   author: Maria K.
 - quote: Clear pricing before anything started, and it did not change afterwards.
   author: Dimitris P.
+faq:
+- question: How much does an implant cost?
+  answer: Single implants start at 900 EUR including the crown. You get a written
+    quote after the scan, and it does not change once work begins.
+- question: Does it hurt?
+  answer: Placement is done under local anaesthetic and most people describe it as
+    pressure rather than pain. We talk through sedation options beforehand.
+- question: How long does treatment take?
+  answer: A single implant is usually two visits about three months apart, to let
+    the bone heal around the post before the crown goes on.
+- question: Is there parking nearby?
+  answer: There is paid street parking on Tsimiski and a public car park two minutes
+    walk away.
+
+# A privacy policy is a legal document about how THIS practice handles patient
+# data. The generator will not write one for you: supply your own text as
+# `privacy_body`, or `privacy_url` if it is hosted elsewhere. Until you do, the
+# WF-100 audit reports the gap (check G8) rather than shipping a plausible fake.
+# privacy_body: |
+#   ...your policy, one paragraph per line...
+
 postal_code: 546 23
 country: GR
 latitude: 40.6329

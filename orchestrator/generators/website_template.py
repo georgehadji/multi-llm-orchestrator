@@ -38,6 +38,7 @@ from __future__ import annotations
 import html as _html
 import re
 import shutil
+import urllib.parse
 from dataclasses import dataclass, field
 from pathlib import Path
 from string import Template
@@ -258,8 +259,22 @@ def apply_template(
         }
     values.setdefault("lang", "en")
     values.setdefault("brand_name", template.name.replace("-", " ").title())
-    values.setdefault("page_title", values["brand_name"])
-    values.setdefault("meta_description", values.get("tagline", values["brand_name"]))
+    # A title of just the brand name is 19 characters and wastes the whole
+    # result snippet; a description of just the tagline is too short to say
+    # anything. Both defaults are composed from the client's own facts — never
+    # invented copy — and an explicit value in the client file always wins.
+    # A directions link derived from the address the client already gave us.
+    # Nothing is invented: it is their own address handed to a map search.
+    if not values.get("map_url"):
+        where = ", ".join(
+            str(values.get(k, "")).strip() for k in ("address", "city", "country") if values.get(k)
+        )
+        if where:
+            values["map_url"] = (
+                "https://www.google.com/maps/search/?api=1&query=" + urllib.parse.quote_plus(where)
+            )
+    values.setdefault("page_title", _compose_title(values))
+    values.setdefault("meta_description", _compose_description(values))
 
     # Colour theory: one brand colour in, a full contrast-checked palette out.
     # Explicit `palette:` entries win over the derived values.
@@ -278,7 +293,8 @@ def apply_template(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    body = "\n".join(render_section(template.source[s], values) for s in template.sections)
+    sections = [s for s in template.sections if _section_has_content(s, template, values)]
+    body = _assemble_body(sections, template, values)
 
     script_tag = ""
     if template.root and (template.root / "script.js").is_file():
@@ -290,6 +306,7 @@ def apply_template(
         _KeepUnknown({**values, **seo, "body": body, "script": script_tag})
     )
     (out / "index.html").write_text(page, encoding="utf-8")
+    _write_supporting_pages(out, template, values, seo)
     _write_discovery_files(out, values, seo)
 
     if template.root:
@@ -518,14 +535,193 @@ def _build_seo(values: dict[str, Any]) -> dict[str, str]:
     og_url = f'  <meta property="og:url" content="{_esc(site_url)}/">' if site_url else ""
     og_image_url = f"{site_url}/public/og-image.svg" if site_url else "public/og-image.svg"
 
+    # An FAQ the client actually wrote gets marked up as one, so the answers can
+    # surface in search. Nothing is emitted when there are no questions: an empty
+    # FAQPage is a structured-data lie.
+    graph: Any = schema
+    faq = values.get("faq") or []
+    entries = [
+        {
+            "@type": "Question",
+            "name": str(item.get("question", "")),
+            "acceptedAnswer": {"@type": "Answer", "text": str(item.get("answer", ""))},
+        }
+        for item in faq
+        if isinstance(item, dict) and item.get("question") and item.get("answer")
+    ]
+    if entries:
+        graph = [
+            schema,
+            {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": entries},
+        ]
+
     return {
-        "json_ld": json.dumps(schema, indent=4, ensure_ascii=False),
+        "json_ld": json.dumps(graph, indent=4, ensure_ascii=False),
         "geo_meta": geo_meta,
         "canonical": canonical,
         "og_url": og_url,
         "og_image_url": og_image_url,
         "og_locale": str(values.get("og_locale") or "en_GB"),
     }
+
+
+# Sections that frame the page rather than carry its content. Everything else
+# goes inside <main>, which is what makes the skip link land somewhere and what
+# a screen reader uses to jump past the navigation.
+_CHROME_SECTIONS = ("header", "nav", "footer", "banner")
+
+_REPEAT_KEY = re.compile(r"<!--\s*repeat:\s*([a-z_][a-z0-9_]*)\s*-->", re.I)
+
+
+def _section_has_content(name: str, template: SiteTemplate, values: dict[str, Any]) -> bool:
+    """Whether a section has anything to say once its data is filled in.
+
+    A section is dropped only when it is built ENTIRELY around a repeat block
+    whose list is empty — an FAQ heading over nothing is a placeholder, and a
+    launch must not ship placeholders. A section that merely happens to share a
+    name with an empty value keeps rendering: its static copy is still content.
+    """
+    source = template.source.get(name, "")
+    keys = _REPEAT_KEY.findall(source)
+    if not keys:
+        return True
+    if any(values.get(key) for key in keys):
+        return True
+    # Every repeat in this section is empty. Keep it only if it carries prose of
+    # its own outside the repeat blocks.
+    without_repeats = _REPEAT.sub(" ", source)
+    stripped = re.sub(r"<[^>]+>", " ", without_repeats)
+    return len(re.sub(r"\s+", " ", stripped).strip()) > 60
+
+
+def _assemble_body(sections: list[str], template: SiteTemplate, values: dict[str, Any]) -> str:
+    """Concatenate the sections, wrapping the content ones in a <main> landmark."""
+    rendered = [(name, render_section(template.source[name], values)) for name in sections]
+    before: list[str] = []
+    content: list[str] = []
+    after: list[str] = []
+    seen_content = False
+    for name, html in rendered:
+        if name in _CHROME_SECTIONS:
+            (after if seen_content else before).append(html)
+        else:
+            seen_content = True
+            content.append(html)
+    parts = before
+    if content:
+        parts = parts + ['<main id="main">', *content, "</main>"]
+    return "\n".join(parts + after)
+
+
+def _compose_title(values: dict[str, Any]) -> str:
+    """Brand plus what it does plus where — from the client's own facts."""
+    brand = str(values.get("brand_name", "")).strip()
+    tagline = str(values.get("tagline", "")).strip().rstrip(".")
+    city = str(values.get("city", "")).strip()
+    title = brand
+    if tagline and len(f"{brand} — {tagline}") <= 60:
+        title = f"{brand} — {tagline}"
+    if city and city.lower() not in title.lower() and len(f"{title} | {city}") <= 60:
+        title = f"{title} | {city}"
+    return title
+
+
+def _compose_description(values: dict[str, Any]) -> str:
+    """A search snippet assembled from stated facts, never invented copy."""
+    explicit = str(values.get("meta_description", "")).strip()
+    if explicit:
+        return explicit
+    brand = str(values.get("brand_name", "")).strip()
+    parts = [str(values.get("tagline", "")).strip().rstrip(".")]
+    where = ", ".join(
+        p
+        for p in (str(values.get("address", "")).strip(), str(values.get("city", "")).strip())
+        if p
+    )
+    if where:
+        parts.append(f"{brand} is at {where}")
+    hours = str(values.get("hours", "")).strip()
+    if hours:
+        parts.append(f"Open {hours}")
+    phone = str(values.get("phone", "")).strip()
+    if phone and len(". ".join(p for p in parts if p)) < 120:
+        parts.append(f"Call {phone}")
+    return ". ".join(p for p in parts if p).strip().rstrip(".") + "."
+
+
+_NOT_FOUND_BODY = """<main id="main">
+  <section class="wrap notfound">
+    <h1>That page is not here</h1>
+    <p>The link may be out of date, or the page may have moved.</p>
+    <p><a class="btn" href="/">Go to the home page</a></p>
+  </section>
+</main>"""
+
+
+def _write_supporting_pages(
+    out: Path, template: SiteTemplate, values: dict[str, Any], seo: dict[str, str]
+) -> None:
+    """A 404 that keeps the navigation, and a privacy page if one was supplied.
+
+    The privacy policy is deliberately NOT generated. It is a legal document
+    about how this practice handles patient data, and a plausible-looking one
+    written by a template would be exactly the fabricated professional content
+    the quality standard forbids. Supply `privacy_body` (or `privacy_url` for an
+    externally hosted policy) and it is published; supply neither and the audit
+    reports the gap rather than the tool papering over it.
+    """
+    chrome = {
+        name: render_section(template.source[name], values)
+        for name in template.sections
+        if name in _CHROME_SECTIONS and name in template.source
+    }
+    head = chrome.get("header", "")
+    foot = chrome.get("footer", "")
+
+    not_found = _PAGE.safe_substitute(
+        _KeepUnknown(
+            {
+                **values,
+                **seo,
+                "page_title": f"Page not found — {values.get('brand_name', '')}".strip(" —"),
+                "meta_description": "This page could not be found.",
+                # A 404 must never be indexed as a page in its own right.
+                "canonical": "",
+                "body": f"{head}\n{_NOT_FOUND_BODY}\n{foot}",
+                "script": "",
+            }
+        )
+    ).replace(
+        '<meta name="robots" content="index, follow, max-image-preview:large">',
+        '<meta name="robots" content="noindex, follow">',
+    )
+    (out / "404.html").write_text(not_found, encoding="utf-8")
+
+    body = str(values.get("privacy_body", "")).strip()
+    if not body:
+        return
+    paragraphs = "\n".join(
+        f"      <p>{line.strip()}</p>" for line in body.splitlines() if line.strip()
+    )
+    privacy = _PAGE.safe_substitute(
+        _KeepUnknown(
+            {
+                **values,
+                **seo,
+                "page_title": f"Privacy policy — {values.get('brand_name', '')}".strip(" —"),
+                "meta_description": (
+                    f"How {values.get('brand_name', 'we')} collects, uses and stores "
+                    "personal data, and the rights you have over it."
+                ),
+                "body": (
+                    f'{head}\n<main id="main">\n    <section class="wrap prose">\n'
+                    f"      <h1>Privacy policy</h1>\n{paragraphs}\n    </section>\n  </main>\n{foot}"
+                ),
+                "script": "",
+            }
+        )
+    )
+    (out / "privacy.html").write_text(privacy, encoding="utf-8")
 
 
 def _write_discovery_files(out: Path, values: dict[str, Any], seo: dict[str, str]) -> None:

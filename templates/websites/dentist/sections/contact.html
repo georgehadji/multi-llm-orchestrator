@@ -8,21 +8,43 @@
         <a href="tel:$phone">$phone</a><br>
         <a href="mailto:$email">$email</a>
       </p>
+      <p><a class="map-link" href="$map_url" rel="noopener">Open directions in Google Maps</a></p>
     </div>
-    <form class="booking" method="post" action="/api/contact">
+    <form class="booking" method="post" action="$form_action" novalidate>
+      <!-- Honeypot: a real visitor never sees this field, a bot fills it in.
+           The handler drops any submission where it is not empty. -->
+      <div class="hp" aria-hidden="true">
+        <label for="company">Company</label>
+        <input id="company" name="company" type="text" tabindex="-1" autocomplete="off">
+      </div>
       <p>
         <label for="name">Your name</label>
-        <input id="name" name="name" autocomplete="name" required>
+        <input id="name" name="name" autocomplete="name" required
+               aria-describedby="name-error">
+        <span class="field-error" id="name-error" data-error="Tell us what to call you."></span>
       </p>
       <p>
         <label for="email-field">Email</label>
-        <input id="email-field" name="email" type="email" autocomplete="email" required>
+        <input id="email-field" name="email" type="email" autocomplete="email" required
+               aria-describedby="email-error">
+        <span class="field-error" id="email-error"
+              data-error="We need an address we can reply to, like name@example.com."></span>
+      </p>
+      <p>
+        <label for="phone-field">Phone (optional)</label>
+        <input id="phone-field" name="phone" type="tel" autocomplete="tel"
+               aria-describedby="phone-error">
+        <span class="field-error" id="phone-error"
+              data-error="Use digits only, including the area code."></span>
       </p>
       <p>
         <label for="message">What do you need?</label>
         <textarea id="message" name="message" rows="4"></textarea>
       </p>
       <p><button class="btn" type="submit">$cta_label</button></p>
+      <p class="form-status" role="status" aria-live="polite"
+         data-success="Thank you — your message has reached $brand_name. We reply within one working day."
+         data-failure="That did not send. Please call $phone and we will book you in."></p>
     </form>
   </div>
 </section>

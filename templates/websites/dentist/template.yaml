@@ -2,7 +2,7 @@ name: dentist
 description: Mobile-first dental clinic site — modular sections, one file per block
 # Order is the page order. Drop a section by deleting its name; add one by
 # dropping a new file in sections/ and listing it here.
-sections: [header, hero, services, about, team, testimonials, contact, footer]
+sections: [header, hero, services, about, team, testimonials, faq, contact, footer]
 required: [brand_name, city, phone, email, address]
 defaults:
   lang: en
@@ -18,7 +18,12 @@ defaults:
   team_heading: Who you will see
   testimonials_heading: What patients say
   contact_heading: Visit us
+  faq_heading: Common questions
+  # Where the booking form posts. Point it at your own handler; the honeypot
+  # field must be rejected server-side, not only in the browser.
+  form_action: /api/contact
   hours: "Mon-Fri 09:00-19:00 · Sat 09:00-14:00"
   services: []
   team: []
   testimonials: []
+  faq: []

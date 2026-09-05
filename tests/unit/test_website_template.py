@@ -158,9 +158,36 @@ class TestApplyTemplate:
     def test_sections_appear_in_declared_order(self, mod, tmp_path):
         tpl = mod.load_template(_write_template(tmp_path))
         out = tmp_path / "site4"
-        mod.apply_template(tpl, {"brand_name": "B", "phone": "1"}, out)
+        mod.apply_template(
+            tpl,
+            {"brand_name": "B", "phone": "1", "services": [{"title": "Implants"}]},
+            out,
+        )
         html = (out / "index.html").read_text(encoding="utf-8")
         assert html.index('id="hero"') < html.index('id="services"')
+
+    def test_a_section_that_is_only_an_empty_repeat_is_dropped(self, mod, tmp_path):
+        # A "Treatments" heading over an empty list is a placeholder, and a
+        # launch must not ship placeholders. The section returns the moment the
+        # client file has something to put in it.
+        tpl = mod.load_template(_write_template(tmp_path))
+        out = tmp_path / "site4b"
+        mod.apply_template(tpl, {"brand_name": "B", "phone": "1"}, out)
+        assert 'id="services"' not in (out / "index.html").read_text(encoding="utf-8")
+
+    def test_a_section_with_its_own_copy_survives_an_empty_repeat(self, mod, tmp_path):
+        tpl_dir = _write_template(tmp_path)
+        (tpl_dir / "sections" / "services.html").write_text(
+            '<section id="services"><h2>Treatments</h2>'
+            "<p>Everything from a routine clean to full implant work, explained and "
+            "costed before anything starts.</p>\n<!-- repeat: services -->\n"
+            "<article><h3>$title</h3></article>\n<!-- /repeat -->\n</section>",
+            encoding="utf-8",
+        )
+        tpl = mod.load_template(tpl_dir)
+        out = tmp_path / "site4c"
+        mod.apply_template(tpl, {"brand_name": "B", "phone": "1"}, out)
+        assert 'id="services"' in (out / "index.html").read_text(encoding="utf-8")
 
     def test_output_is_a_complete_document(self, mod, tmp_path):
         tpl = mod.load_template(_write_template(tmp_path))

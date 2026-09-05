@@ -22,3 +22,46 @@
 
   Array.prototype.forEach.call(targets, function (el) { observer.observe(el); });
 })();
+
+// Form messaging. The markup carries the words (data-error / data-success) so a
+// site in another language needs no JavaScript change, and the page still
+// submits normally with scripting off — the browser's own validation takes over.
+(function () {
+  var form = document.querySelector('form.booking');
+  if (!form) return;
+
+  function messageFor(field) {
+    var slot = field.getAttribute('aria-describedby');
+    return slot ? document.getElementById(slot) : null;
+  }
+
+  function show(field) {
+    var slot = messageFor(field);
+    if (!slot) return;
+    var invalid = !field.checkValidity();
+    slot.textContent = invalid ? slot.getAttribute('data-error') || '' : '';
+    field.setAttribute('aria-invalid', invalid ? 'true' : 'false');
+  }
+
+  Array.prototype.forEach.call(form.elements, function (field) {
+    if (!field.name || field.type === 'submit') return;
+    field.addEventListener('blur', function () { show(field); });
+    field.addEventListener('input', function () {
+      if (field.getAttribute('aria-invalid') === 'true') show(field);
+    });
+  });
+
+  form.addEventListener('submit', function (event) {
+    var status = form.querySelector('.form-status');
+    if (!form.checkValidity()) {
+      event.preventDefault();
+      Array.prototype.forEach.call(form.elements, function (f) { if (f.name) show(f); });
+      var first = form.querySelector('[aria-invalid="true"]');
+      if (first) first.focus();
+      return;
+    }
+    // The handler redirects on success; this covers the interim state so the
+    // page is never silent after a click.
+    if (status) status.textContent = status.getAttribute('data-success') || '';
+  });
+})();

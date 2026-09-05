@@ -200,3 +200,56 @@ blockquote { margin: 0 0 .5rem; }
 /* No-JS and reduced-motion safety net: never leave content hidden. */
 .no-js .reveal, .reveal.is-visible { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; } }
+
+/* Honeypot: off-screen rather than display:none, because some bots skip
+   hidden fields. Never focusable, never announced. */
+.hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.field-error {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--error, #a1231f);
+  min-height: 1.2em;
+}
+
+.booking [aria-invalid="true"] {
+  border-color: var(--error, #a1231f);
+}
+
+.form-status {
+  margin-top: 0.75rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.map-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+}
+
+.faq-list {
+  margin: 0;
+}
+
+.faq-item + .faq-item {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.faq-item dt {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.faq-item dd {
+  margin: 0.375rem 0 0;
+  color: var(--ink-soft);
+}
