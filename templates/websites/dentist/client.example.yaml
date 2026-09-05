@@ -1,0 +1,72 @@
+# Copy this per client, edit, then:
+#   python -m orchestrator website-template apply templates/websites/dentist \
+#       --client this-file.yaml --output outputs/<slug>
+#
+# `accent` is the ONLY colour you supply — the rest of the palette is derived
+# by colour theory and checked against WCAG contrast before it ships.
+brand_name: Thessaloniki Dental
+city: Thessaloniki
+phone: +30 2310 000000
+email: hello@example.gr
+address: Tsimiski 42
+tagline: Careful, modern dentistry
+hero_body: Unhurried appointments, clear pricing, and every treatment explained before
+  it starts.
+services:
+- title: Implants
+  body: Single-tooth and full-arch restoration, planned from a 3D scan.
+  price: from 900 EUR
+- title: Cosmetic dentistry
+  body: Veneers, bonding and whitening matched to your existing teeth.
+  price: from 250 EUR
+- title: Invisible orthodontics
+  body: Clear aligners with fortnightly remote check-ins.
+  price: from 1800 EUR
+# Qualifications and registration numbers go in the bios. They are left out of
+# this example on purpose: a plausible-looking credential is the one kind of
+# placeholder that is never harmless, so the generator will not invent one and
+# the WF-100 audit reports the gap instead (check F11, and H4 for whether what
+# you write is actually true).
+team:
+- name: Dr Elena Papadopoulou
+  role: Implantology
+  bio: Fifteen years placing implants, and a preference for doing less rather than
+    more.
+- name: Dr Nikos Georgiou
+  role: Orthodontics
+  bio: Aligner cases from mild crowding to full-arch correction.
+testimonials:
+- quote: They talked me out of a treatment I did not need. That is why I go back.
+  author: Maria K.
+- quote: Clear pricing before anything started, and it did not change afterwards.
+  author: Dimitris P.
+faq:
+- question: How much does an implant cost?
+  answer: Single implants start at 900 EUR including the crown. You get a written
+    quote after the scan, and it does not change once work begins.
+- question: Does it hurt?
+  answer: Placement is done under local anaesthetic and most people describe it as
+    pressure rather than pain. We talk through sedation options beforehand.
+- question: How long does treatment take?
+  answer: A single implant is usually two visits about three months apart, to let
+    the bone heal around the post before the crown goes on.
+- question: Is there parking nearby?
+  answer: There is paid street parking on Tsimiski and a public car park two minutes
+    walk away.
+
+# A privacy policy is a legal document about how THIS practice handles patient
+# data. The generator will not write one for you: supply your own text as
+# `privacy_body`, or `privacy_url` if it is hosted elsewhere. Until you do, the
+# WF-100 audit reports the gap (check G8) rather than shipping a plausible fake.
+# privacy_body: |
+#   ...your policy, one paragraph per line...
+
+postal_code: 546 23
+country: GR
+latitude: 40.6329
+longitude: 22.9419
+site_url: https://thessaloniki-dental.example.gr
+accent: '#0f5d4a'
+scheme: analogous
+price_range: EUR EUR
+og_locale: el_GR
