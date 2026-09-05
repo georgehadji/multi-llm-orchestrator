@@ -175,6 +175,19 @@ class ModelRegistry:
     # NOTE: anthropic/claude-{opus,sonnet,haiku}-N-M (hyphen) are intentionally
     # NOT listed — OpenRouter normalizes them server-side (verified live call).
     UNAVAILABLE_MODELS = {
+        # Retired 2026-09-05 — dead on the live OpenRouter catalogue (CI
+        # "OpenRouter Model Audit", run 33968801103). Each replacement is an id
+        # this repo already declares and that the same audit found live.
+        #   claude-opus-5-fast -> claude-opus-5: the base model of the retired
+        #     "fast" variant; fallbacks.json already mapped it this way.
+        #   nemotron-nano-9b-v2:free -> nemotron-3-super-120b-a12b:free: same
+        #     vendor, same free tier (the nano line has no declared successor).
+        #   ring-2.6-1t -> gemini-3.5-flash-lite: no inclusionai sibling is
+        #     declared; this is the nearest declared-live model by price with an
+        #     identical 1,048,576-token context window.
+        "anthropic/claude-opus-5-fast": "anthropic/claude-opus-5",
+        "nvidia/nemotron-nano-9b-v2:free": "nvidia/nemotron-3-super-120b-a12b:free",
+        "inclusionai/ring-2.6-1t": "google/gemini-3.5-flash-lite",
         # Anthropic legacy ids (genuine 404)
         "anthropic/claude-3.5-sonnet": "anthropic/claude-sonnet-5",
         "anthropic/claude-3-opus": "anthropic/claude-opus-4-8",
