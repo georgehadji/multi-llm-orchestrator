@@ -321,7 +321,14 @@ class ModificationGate:
                 result.warnings.append(f"Unverified import in {path.name}: {line[:60]}")
 
     def _check_secrets(self, content: str, result: VerificationResult) -> None:
-        """Check for hardcoded secrets."""
+        """Check for hardcoded secrets.
+
+        T2-C3: previously appended to `result.warnings`, which apply() never
+        reads (only `result.errors` blocks a write) — a detected secret never
+        actually stopped anything from reaching disk. Appends to `errors` now,
+        and never echoes the matched value (the old message embedded up to 20
+        raw characters of the detected secret into the warning text itself).
+        """
         import re
 
         secret_patterns = [
@@ -333,7 +340,7 @@ class ModificationGate:
         for pattern, message in secret_patterns:
             match = re.search(pattern, content, re.IGNORECASE)
             if match:
-                result.warnings.append(f"Possible {message}: {match.group(1)[:20]}")
+                result.errors.append(f"{message} detected — refusing to write")
 
 
 class CodebaseWriter:

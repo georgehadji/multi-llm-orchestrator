@@ -33,7 +33,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
 
-from .log_config import get_logger
+from ..log_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -194,6 +194,7 @@ class Tenant:
             "name": self.name,
             "plan": self.plan.to_dict(),
             "usage": self.usage.to_dict(),
+            "api_key": self.api_key,
             "created_at": self.created_at.isoformat(),
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "active": self.active,
