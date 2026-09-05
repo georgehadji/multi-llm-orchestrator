@@ -18,11 +18,19 @@ what order, and why.*
 **VERIFIED (reproducible):**
 ```
 find orchestrator -name "*.py" -not -path "*/tests/*" | wc -l   → 892
-grep -oE '`[a-zA-Z0-9_./]+\.py`' docs/hunts/INVENTORY.md | sort -u | wc -l → 53
+grep -oE '[a-zA-Z0-9_./-]+\.py(:[0-9]+(-[0-9]+)?)?' docs/hunts/INVENTORY.md \
+  | sed -E 's/:[0-9]+(-[0-9]+)?$//' | sort -u | wc -l           → 59
 ```
+(First pass used a stricter backtick-anchored regex and undercounted at 53 —
+it missed references like `` `orchestrator/safety/code_executor.py:183` ``
+where a trailing line number sits before the closing backtick. Corrected
+above; `safety/code_executor.py`, `rate_limiter.py`,
+`application/verbalized_sampling.py`, `costing/tracker.py` move from
+"untouched" to "touched" as a result.)
+
 Diffing the full backend file list against every `.py` path individually
 named in `INVENTORY.md` (as fixed, cleared, or explicitly flagged residual
-across T0–T7) leaves **845 files with no individual disposition on record**.
+across T0–T7) leaves **841 files with no individual disposition on record**.
 
 **Caveat (this is a floor, not a ceiling):** T6's broad-except survey read
 ~115 files in detail and T7's subprocess/exec census touched 54 files at the
@@ -55,7 +63,7 @@ continues this work.
 
 | Wave | Subsystems | Files (approx) | Why this order |
 |---|---|---|---|
-| **T9** | `safety/` (18, incl. `sandbox.py`, `secure_execution.py`), `security/` (5), `plugin/`+`plugins/` (11), `reference_monitor.py`, `red_team.py`, `guardrails.py`, `agent_safety.py`, `input_validation.py`, `gateway/` subpackage (3), `hierarchy.py` | ~40 | Direct continuation of T7's own named gap ("52 files remain unexamined, including `safety/sandbox.py`, `safety/secure_execution.py`") — sandbox/isolation code is the highest-consequence category left (arbitrary-code-execution blast radius) and was explicitly flagged `[UNK]`, not cleared. |
+| **T9** | `safety/` (16 untouched + `sandbox.py`/`secure_execution.py` carried over from T7's named-but-unread flag), `security/` (5), `plugin/`+`plugins/` (11), `reference_monitor.py`, `red_team.py`, `guardrails.py`, `agent_safety.py`, `input_validation.py`, `gateway/` subpackage (3), `hierarchy.py`, `multi_tenant_gateway.py`, plus two newly-discovered duplicate candidates: root-level `sandbox.py`/`secure_execution.py` and `runtime/sandbox.py` (three more files with the same base names as the safety/ pair — the exact root-vs-subpackage divergence shape T1/T2/T3/T5/T7 each already found) | ~48 | Direct continuation of T7's own named gap ("52 files remain unexamined, including `safety/sandbox.py`, `safety/secure_execution.py`") — sandbox/isolation code is the highest-consequence category left (arbitrary-code-execution blast radius) and was explicitly flagged `[UNK]`, not cleared. The root/runtime duplicates were found while rebuilding this wave's file list and were not in T7's original note. |
 | **T10** | `cost_optimization/` (14, already flagged dead-but-imported by T1's C6), `costing/` remainder (2), `rate_limiter.py`, `token_optimizer.py`, `token_budget.py`, `provisioned_throughput.py` | ~20 | Money-adjacent; T1 explicitly deferred verifying whether `cost_optimization/`'s "imported everywhere, instantiated nowhere" claim still holds and whether any path silently bypasses budget accounting. |
 | **T11** | `infrastructure/` (51, `state.py` excepted), `engine_core/` (47, `container.py` excepted), `domain/` (12), `events/`+`unified_events/` (10) | ~130 | The hexagonal-architecture core (driven adapters + Mediator wiring + domain ports + event bus, per CLAUDE.md's own pattern table) has the largest single unexamined footprint and the largest blast radius if a Mediator-wiring or port-contract bug exists — architecture-critical, not yet touched at all beyond `container.py`/`state.py`. |
 | **T12** | `application/` (42, `evaluator.py`/`budget_enforcer.py` excepted), `planning/` (3), `routing/` (2), `reasoning/` (6), `agents/`+`agents.py` (16), `supervisor/` (7), `delegation/` (3), `meta/` (7), `nash/` (6) | ~90 | Application-layer orchestration logic (task decomposition, agent coordination, multi-agent delegation) — the layer CLAUDE.md calls out as Strategy/Mediator-adjacent; a defect here changes *what the orchestrator decides to do*, not just how it logs a failure. |
