@@ -10,7 +10,7 @@ CONTACT_FORM_TEMPLATE = """import { useState } from 'react'
  * user-visible error. Do NOT embed API keys in this file.
  */
 export default function ContactForm({
-  headline = '{headline}',
+  headline = '$headline',
 }: {
   headline?: string
 }) {
@@ -53,11 +53,11 @@ export default function ContactForm({
   }
 
   return (
-    <section id="contact" className="w-full max-w-2xl mx-auto px-4 py-16" style={{ fontFamily: '{font_body}' }}>
-      <h2 className="text-3xl font-bold text-center mb-8">{headline}</h2>
+    <section id="contact" className="w-full max-w-2xl mx-auto px-4 py-16" style={{ fontFamily: '$font_body' }}>
+      <h2 className="text-3xl font-bold text-center mb-8">$headline</h2>
 
       {formState === 'sent' ? (
-        <div className="p-6 rounded-lg text-center" style={{ backgroundColor: '{surface_alt}', borderColor: '{border}' }}>
+        <div className="p-6 rounded-lg text-center" style={{ backgroundColor: '$surface_alt', borderColor: '$border' }}>
           <p className="text-lg font-medium">Thank you for reaching out!</p>
           <p className="text-sm mt-2 opacity-70">We will respond within 24 hours.</p>
         </div>
@@ -67,19 +67,19 @@ export default function ContactForm({
             <label htmlFor="contact-name" className="block text-sm font-medium mb-1">Name</label>
             <input id="contact-name" name="name" type="text" required
               className="w-full px-4 py-2.5 rounded-lg transition-colors focus:outline-none focus:ring-2"
-              style={{ backgroundColor: '{surface_alt}', borderColor: '{border}' }} />
+              style={{ backgroundColor: '$surface_alt', borderColor: '$border' }} />
           </div>
           <div>
             <label htmlFor="contact-email" className="block text-sm font-medium mb-1">Email</label>
             <input id="contact-email" name="email" type="email" required
               className="w-full px-4 py-2.5 rounded-lg transition-colors focus:outline-none focus:ring-2"
-              style={{ backgroundColor: '{surface_alt}', borderColor: '{border}' }} />
+              style={{ backgroundColor: '$surface_alt', borderColor: '$border' }} />
           </div>
           <div>
             <label htmlFor="contact-message" className="block text-sm font-medium mb-1">Message</label>
             <textarea id="contact-message" name="message" required rows={5}
               className="w-full px-4 py-2.5 rounded-lg resize-y transition-colors focus:outline-none focus:ring-2"
-              style={{ backgroundColor: '{surface_alt}', borderColor: '{border}' }} />
+              style={{ backgroundColor: '$surface_alt', borderColor: '$border' }} />
           </div>
 
           {formState === 'rate-limited' && (
@@ -91,14 +91,14 @@ export default function ContactForm({
 
           {formState === 'error' && (
             <div role="alert" className="p-3 rounded-lg text-sm opacity-70"
-              style={{ backgroundColor: '{surface_alt}' }}>
+              style={{ backgroundColor: '$surface_alt' }}>
               {errorMessage}
             </div>
           )}
 
           <button type="submit" disabled={formState === 'sending' || formState === 'rate-limited'}
             className="w-full py-3 px-6 rounded-lg font-medium transition-all duration-200 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50"
-            style={{ backgroundColor: '{primary}', color: '#ffffff' }}>
+            style={{ backgroundColor: '$primary', color: '#ffffff' }}>
             {formState === 'sending' ? 'Sending...' : 'Send Message'}
           </button>
 

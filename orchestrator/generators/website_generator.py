@@ -3538,9 +3538,14 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         font_body = getattr(
             getattr(getattr(ds, "typography", ds), "font_body", None), "value", None
         ) or getattr(getattr(ds, "typography", ds), "font_sans", "Inter")
+        from string import Template
+
         from .templates.contact_form import CONTACT_FORM_TEMPLATE
 
-        return CONTACT_FORM_TEMPLATE.format(
+        # string.Template, not str.format: these templates are TSX source containing
+        # literal JS braces (`import { useState } from 'react'`), which str.format
+        # parses as replacement fields and rejects with KeyError(' useState ').
+        return Template(CONTACT_FORM_TEMPLATE).substitute(
             headline=headline,
             primary=primary,
             surface_alt=surface_alt,
@@ -3556,6 +3561,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
         font_body = getattr(
             getattr(getattr(ds, "typography", ds), "font_body", None), "value", None
         ) or getattr(getattr(ds, "typography", ds), "font_sans", "Inter")
+        from string import Template
+
         from .templates.auth_page import AUTH_TEMPLATE
 
         is_register = any(kw in name.lower() for kw in ("register", "signup"))
@@ -3579,7 +3586,8 @@ OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. R
             verify_note = ""
             switch_message = 'Don\'t have an account? <a href="/register" className="underline" style={{ color: primary }}>Sign up</a>'
 
-        return AUTH_TEMPLATE.format(
+        # See _build_contact_form: literal JS braces make str.format unusable here.
+        return Template(AUTH_TEMPLATE).substitute(
             component_name=name,
             page_type="Registration" if is_register else "Login",
             headline=headline,
