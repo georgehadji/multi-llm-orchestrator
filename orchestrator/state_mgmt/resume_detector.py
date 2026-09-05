@@ -268,7 +268,7 @@ class ResumeDetector:
         self.match_threshold = 0.6
         self.recency_decay_days = 30
 
-    def find_resumable_project(
+    async def find_resumable_project(
         self,
         project_description: str,
         success_criteria: str,
@@ -277,6 +277,12 @@ class ResumeDetector:
 
         Searches for incomplete projects with similar keywords and returns
         the best match if its score exceeds the threshold.
+
+        Mirrors the pattern already live in
+        entrypoints/cli_dispatch.py::_check_resume() — queries
+        StateManager.find_resumable(), scores candidates with
+        _score_candidates(), and returns the best match above
+        match_threshold.
 
         Args:
             project_description: Description of the new project
@@ -304,9 +310,38 @@ class ResumeDetector:
         if not self.state_manager:
             return None
 
-        # This would be called in an async context via async wrapper
-        # For now, return None (would be implemented with async/await)
-        return None
+        rows = await self.state_manager.find_resumable(list(combined_keywords))
+        if not rows:
+            return None
+
+        now = time.time()
+        candidates = [
+            ResumeCandidate(
+                project_id=row["project_id"],
+                description=row.get("description", ""),
+                keywords=row.get("keywords", []),
+                recency_score=_recency_factor(float(row.get("updated_at") or 0.0), now),
+                similarity_score=0.0,
+                overall_score=0.0,
+            )
+            for row in rows
+        ]
+
+        scored = _score_candidates(combined_keywords, candidates)
+        if not scored:
+            return None
+
+        best = scored[0]
+        if best.overall_score < self.match_threshold:
+            return None
+
+        return {
+            "project_id": best.project_id,
+            "description": best.description,
+            "similarity": best.similarity_score,
+            "recency": best.recency_score,
+            "match_score": best.overall_score,
+        }
 
     def _extract_keywords(self, text: str | None) -> set[str]:
         """Extract keywords from text.
