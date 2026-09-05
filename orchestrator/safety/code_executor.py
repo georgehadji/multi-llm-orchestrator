@@ -180,7 +180,7 @@ class CodeExecutor:
         """Execute code in Docker sandbox."""
         # Import sandbox module
         # FIXED: from ..cost_optimization.docker_sandbox import DockerSandbox
-        from ...cost_optimization.docker_sandbox import DockerSandbox
+        from ..cost_optimization.docker_sandbox import DockerSandbox
 
         sandbox = DockerSandbox(
             image=self.config.sandbox_image,
