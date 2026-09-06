@@ -388,3 +388,44 @@ investigated further; flagged for whoever next touches `costs.json`.
 now exits 0 (was exit 1, 71 hard-drift lines). New tests 8/8 (RED→GREEN verified — 7 failed
 pre-fix for the exact predicted reason, 1 no-regression check passed both sides). Targeted
 regression (`-k "routing or model_selector or planner"`) 67/67 pass, zero regressions.
+
+## T13 — generators/, appbuilder/, design/, scaffold/, output/, quality/ (closed)
+
+Full detail: `docs/hunts/t13-generators-design-quality/inventory.md`, `docs/hunts/t13-generators-design-quality/coverage.md`.
+Fifth of waves T9-T16 per `docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md` (122 files). Framed by
+the plan itself as lower architectural blast radius than T9-T12 (generated-output quality,
+not orchestrator integrity/security).
+
+**Lead verdict:** `generators/website_validator.py`'s T6-flagged false-clean secret scan is
+already fixed (by T8) and reconfirmed intact — no action needed.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `quality_control.py::TestRunner._run_security_checks` silently reported "No security issues found" for files it couldn't read (`except Exception: pass`) — the third instance of this hunt's false-clean-scan pattern (after T8's `website_validator.py`, T9's `generated_output_scanner.py`). Confirmed dead today (`TestLevel.SECURITY` never requested by either real caller of `run_quality_gate`), fixed anyway per this hunt's established "cheap fix even in dead code" precedent: narrowed to `except OSError`, added a skip counter + warning log, folded into the pass/fail result. |
+| C2 | **VERIFIED DEFECT — FIXED** | `orchestrator/quality/quality_control.py` was an unshimmed, byte-for-byte duplicate of the live root `quality_control.py` (import-depth comments aside), carrying C1's identical bug. Confirmed zero live importers. Converted to a shim. |
+
+**Residual, surveyed but not fixed — reclassified from the survey's own "highest impact this
+wave" claim:** `design/component_registry.py` imports `ComponentSource`/`ComponentSpec` from
+`.design_system` — two classes that have **never existed anywhere in this repository's
+history** (confirmed via `git log -S` across the whole repo). The survey correctly traced the
+consequence (generated websites always fall back to 4 generic placeholder components instead
+of the curated multi-source library) but framed it as a silent, undiscovered defect.
+Independent verification of `generators/website_generator.py` found this is instead a
+**previously-known, explicitly documented, deliberate workaround** (`# FIXED: ... Lazy
+import — component_registry has broken dependencies`) — a prior developer already identified
+this exact gap and chose graceful degradation. Completing it means designing a
+compatibility-scoring algorithm from scratch, a product decision `[REQUIRES HUMAN REVIEW]`,
+not a mechanical fix. Also residual: `output/organizer.py` (dead, missing two pipeline steps
+the live root copy has); `docker_generator.py`'s root/subpackage divergence (hardcoded
+default DB credentials vs. hardened generation, both dead today, security-adjacent); a
+complete but entirely unused CSP/CSRF generation library (`design/frontend_security.py`); a
+fully dead legacy import chain (root `website_generator.py` → nonexistent
+`component_registry.py` → `cli_website.py`); a `CodebaseAnalyzer` naming collision between two
+independent classes (`[UNK]`).
+
+**Gate status:** black/ruff/lint-imports/root-freeze/test-markers/bandit all PASS. mypy:
+isolated diff empty. New tests 5/5 (RED→GREEN verified). Targeted regression
+(`-k "quality_control or quality_gate"`) 27/27 pass. Full suite: 2549 passed (+14 over the
+prior commit's 2535 — 13 new hunt tests across T13 and the out-of-band routing.json fix, +1
+test newly un-skipped by the user-supplied OpenRouter snapshot), 2 pre-registered
+environmental failures unchanged, 20 skipped (was 21), 157 deselected — zero regressions.

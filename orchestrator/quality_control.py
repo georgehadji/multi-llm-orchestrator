@@ -512,6 +512,7 @@ class TestRunner:
 
         # Check for common security issues
         issues = []
+        unreadable = 0
 
         for py_file in project_path.rglob("*.py"):
             try:
@@ -530,8 +531,12 @@ class TestRunner:
                     if re.search(pattern, content, re.IGNORECASE):
                         issues.append(f"{py_file}: {description}")
 
-            except Exception:
-                pass
+            except OSError:
+                unreadable += 1
+                logger.warning("Security scan could not read %s, skipping", py_file)
+
+        if unreadable:
+            issues.append(f"{unreadable} file(s) could not be read and were not scanned")
 
         results.append(
             TestResult(
