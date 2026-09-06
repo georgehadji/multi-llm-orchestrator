@@ -359,3 +359,32 @@ PASS. mypy: isolated diff empty after sorting (raw diff was pure ordering noise 
 1879-line counts both sides). New tests 5/5 (RED→GREEN verified). Pre-existing 26-test
 container/ACR/engine/resilience suite: zero regressions. Full suite: 2535 passed (+5), 2
 pre-registered environmental failures unchanged, 21 skipped — zero regressions.
+
+## Out-of-band — `config/routing.json` config drift (resolved, not a numbered tier)
+
+T11 flagged "a large routing.json config-drift condition... large enough to warrant its own
+dedicated investigation" but explicitly out of scope for that tier. Resolved here, between
+T13's dispatch and close, using two artifacts the user supplied directly: a live OpenRouter
+`/models` catalogue snapshot (431 models) — this sandbox has no outbound network access to
+`openrouter.ai`, so this let `tests/unit/test_openrouter_model_audit.py`'s snapshot-based
+check run for real instead of skipping (saved to the gitignored
+`scripts/openrouter_models_snapshot.json`, confirmed clean: 0 dead ids, 0 stale
+replacements against 628 live ids) — and the actual V7 protocol source document, confirming
+`docs/DEFECT_HUNT_PLAN.md`'s operationalization of it needed no correction. Re-running
+`.claude/skills/orchestrator-diagnostics-and-tooling/scripts/check_config_drift.py` (unrelated
+to the snapshot — a pure JSON-vs-enum check) surfaced this finding.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `config/routing.json` had 21 dead top-level keys shaped like `{model_id: [task_type, ...]}` — the inverse of the file's real `{task_type: [model_id, ...]}` shape. `models.py::_build_routing_table`'s `if k in TaskType._value2member_map_` guard (verified directly in the production code, the exact mechanism `check_config_drift.py` simulates) silently drops any key that isn't a real `TaskType` value, so all 21 were always inert. Of the 50 (model, task_type) pairs those dead keys carried, 44 duplicated a pairing already present in the correct list — harmless clutter; 6 did not, and were the actual defect: `meituan/longcat-2.0`, `google/gemini-3.5-flash-lite`, and `anthropic/claude-opus-5-fast` silently missing from `code_review` (the latter two also missing from `creative_writing`), and `z-ai/glm-5.1` missing from `code_generation` — all four are live, routable models per the supplied catalogue. Fixed by adding the 6 pairs to their correct lists and deleting all 21 dead keys (13 clean `TaskType`-keyed entries remain). |
+
+**Discovered incidentally, out of scope, not fixed:** `check_config_drift.py`'s Direction-B
+(informational) output also lists 7 `Model` enum values with no `costs.json` entry — all
+`:free`-suffixed variants (e.g. `qwen/qwen3-coder:free`), where a missing entry may be
+intentional (free tier, $0 is arguably correct) rather than a defect like T11's C1. Not
+investigated further; flagged for whoever next touches `costs.json`.
+
+**Gate status:** black/ruff/root-freeze/test-markers/bandit all PASS. `check_config_drift.py`
+now exits 0 (was exit 1, 71 hard-drift lines). New tests 8/8 (RED→GREEN verified — 7 failed
+pre-fix for the exact predicted reason, 1 no-regression check passed both sides). Targeted
+regression (`-k "routing or model_selector or planner"`) 67/67 pass, zero regressions.
