@@ -775,3 +775,50 @@ unread**, including ~2,700 of `ide_orchestrator_server.py` and all ~1,300 lines
 of Subsystem A's routes/handlers/session manager. "T21 complete" means
 importable with real tests, **not** audited. No server was started and no port
 was bound.
+
+---
+
+## T22 — Reasoning & generation depth (closed)
+
+Sixth wave of the depth pass. Scope: `reasoning/` (5,450 lines, `ara_pipelines.py`
+4,288) and `generators/wf100/` (5,121 lines, `checks.py` 2,251) — the largest
+line-count debt in the programme, both on money paths.
+
+**The probe that mattered, and the hypothesis it killed.** `wf100` gates every
+check on declared evidence (`auditor.py`: `if check.requires - evidence.available
+-> OUTSTANDING`). Running all 82 check implementations directly against
+`SiteEvidence()` produced **24 PASSes** with self-incriminating details —
+*"exactly one `<h1>` on each of 0 pages"*, *"no WCAG violations across 0 pages"*.
+That looked like 24 defects; it was not. The probe called implementations
+directly and bypassed the gate. But it sharpened into the real rule: **the gate
+is only as good as each check's declaration**, so comparing declared `requires`
+against the `ev.*` attributes each body reads gives 4 candidates — and reading
+them settled 3.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | G7 (form abuse protection) computed `ev.markup + ev.scripts` while declaring `requires = {MARKUP}`. Captcha, honeypot and rate limiting are normally wired in JavaScript, so with the scripts uncollected G7 searched an empty string for half its evidence and still returned a definite verdict. Demonstrated on identical markup: PASS *"protection in place: captcha"* with scripts collected, FAIL *"public forms with no captcha, honeypot or rate limiting — they will be found by bots"* without. Now returns OUTSTANDING in exactly that ambiguous case. |
+| C2 | **VERIFIED DEFECT — FIXED** | `ara_pipelines.py:1424` fetched `state.metadata.get("meta_evaluation", {})` and **discarded it**, under the comment *"# Weight by meta-evaluation quality"*, inside `_phase_jury_weighted_ranking`. The name appears exactly twice in 4,288 lines: written at 1397, dropped at 1424. The ranking is not weighted by it. |
+| — | **Cost note** | That data comes from a real `client.call(model=verifier, max_tokens=1500)` at 1388–1394 in a reachable phase, while its sibling call's output (`verifications`) *is* used at 1431/1464/1493. So the orchestrator makes **a paid LLM call on every run and throws the answer away**. The dead statement and false comment are fixed; removing the call or wiring the weighting is escalated, since no specification of the weighting exists and inventing one would fabricate intent. |
+| C3–C5 | FALSE (innocent) | A9 and D9 read `ev.http` under `if ev.http is not None` with file/markup fallbacks; E8 reads `ev.record` under `if record else`, falls back to structured data, and returns OUTSTANDING when it still cannot decide — precisely the pattern C1 lacked. |
+| C6 | **FALSE — hypothesis falsified** | All four `/ len(...)` sites in both regions are guarded (`if not verified: return`, `if state.scores:`, `if scores else 5.0`, `if len(words) < 50: continue`). No division-by-zero, no vacuous mean. |
+| C7 | Recorded, not elevated | Two fabricated neutral defaults — `5.0` for an empty score list, `0.5` for no claims — the same shape as T6's fabricated neutral score and T18's C6, treated consistently rather than re-litigated. |
+
+**Why the C1 fix is narrow.** Declaring SCRIPTS in `requires` would have been
+wrong: a site with no JavaScript has no SCRIPTS evidence, so the auditor would
+skip G7 entirely and lose a verdict it makes fine from markup. Five cases
+verified — protection visible → PASS; scripts uncollected → OUTSTANDING;
+scripts collected but unprotected → FAIL; static site with an HTML honeypot →
+PASS; static site unprotected → FAIL. The last two are the reason.
+
+**New gate — `scripts/check_wf100_evidence.py`:** fails any check reading
+evidence it does not declare; four guarded reads allowlisted with reasons.
+Verified to catch the rule rather than bless the exemption — with G7 removed
+from the allowlist *and* its fix stashed, it reports `G7: reads SCRIPTS but
+declares MARKUP` and exits 1.
+
+**Scope limit (see `t22-reasoning-generation/coverage.md`):** two shapes were
+swept exhaustively across both regions; the regions were not audited. **~10,000
+of the 10,571 lines remain unread**, including 78 of the 82 check bodies as
+logic (only their evidence declarations were verified) and ~4,100 lines of
+`ara_pipelines.py`.

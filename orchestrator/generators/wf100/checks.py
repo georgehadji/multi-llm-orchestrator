@@ -1975,6 +1975,16 @@ def _g7_form_protection(ev: SiteEvidence) -> Finding:
         protections.append("CSRF token")
     if re.search(r"rate[_-]?limit", combined, re.I):
         protections.append("rate limiting")
+    if not protections and re.search(r"<script\b", ev.markup, re.I) and not ev.scripts.strip():
+        # G7 declares only MARKUP, so the auditor runs it whether or not the
+        # scripts were collected — but captcha, honeypot and rate limiting are
+        # usually wired up in JavaScript. Asserting their absence from markup
+        # alone accuses a site of a hole its uncollected scripts may well close.
+        return _out(
+            "G7",
+            "the pages load scripts the auditor did not collect, and form protection is "
+            "normally implemented there — make the site's JavaScript reachable to decide this",
+        )
     return _judge(
         "G7",
         bool(protections),

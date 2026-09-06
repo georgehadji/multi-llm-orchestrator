@@ -1420,8 +1420,12 @@ class JuryPipeline(BasePipeline):
                     )
                     candidate_scores[perspective].append(total)
 
-        # Weight by meta-evaluation quality
-        state.metadata.get("meta_evaluation", {})
+        # NOTE: `meta_evaluation` (written by _phase_jury_verify_and_meta_eval)
+        # is NOT applied here. The ranking below weights critic scores and
+        # verifications only. The line that used to sit here fetched
+        # state.metadata["meta_evaluation"] and discarded the result, which read
+        # as if the weighting existed. It does not — and the LLM call that
+        # produces that data is therefore paid for and unused.
 
         for candidate in state.candidates:
             scores = candidate_scores.get(candidate.perspective, [])
