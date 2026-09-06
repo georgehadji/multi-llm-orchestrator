@@ -31,16 +31,22 @@ mypy orchestrator/domain/ .../application/ .../container.py       PASS — isola
 bandit -lll -r <changed files>                                    PASS (no issues
                                                                       identified)
 python -m pytest tests/unit/test_hunt_t18_silent_failure.py       PASS (4/4)
-python -m pytest tests/ -q -m "unit or integration"               RUN IN PROGRESS at
-                                                                      commit time; see
-                                                                      the note below
+python -m pytest tests/ -q -m "unit or integration"               2584 passed (+4
+                                                                      over T17's 2580),
+                                                                      2 pre-registered
+                                                                      environmental
+                                                                      failures
+                                                                      unchanged, 20
+                                                                      skipped, 157
+                                                                      deselected —
+                                                                      zero regressions
+                                                                      (257s)
 ```
 
-**Full-suite status at commit time.** The full run was still executing when this
-wave was committed, so its pass count is deliberately not asserted here. Every
-narrower check had already completed green: the 4 new tests, the complete gate
-suite above, and the mypy isolated diff. This line is updated with the real
-number once the run lands — an unverified count is not recorded as a pass.
+**Full-suite note.** The run was still executing when this wave was committed,
+so the count above was deliberately left unasserted in that commit and filled in
+here once the run landed: 2584 passed, the 4 new tests accounting for the entire
+increase, with the skip and deselect counts unchanged.
 
 ## RED→GREEN verification
 

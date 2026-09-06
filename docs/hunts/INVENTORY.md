@@ -632,5 +632,5 @@ ways: catches `return True`, catches `return R(passed=True)`, and correctly does
 test-markers/bandit all PASS. mypy: isolated diff empty. New tests 4/4 (RED→GREEN —
 both defect tests failed pre-fix quoting the misleading text verbatim; the two gate
 tests pass on both trees and are labelled tool tests, not defect proofs). Full
-suite: run still in progress at commit time — count deliberately not asserted; every
-narrower check (new tests, full gate suite, mypy isolated diff) was green.
+suite: 2584 passed (+4), 2 pre-registered environmental failures unchanged, 20 skipped,
+157 deselected — zero regressions.
