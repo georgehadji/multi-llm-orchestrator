@@ -21,17 +21,21 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Re-export static defaults from orchestrator/config.py (TASK 501)
+# Re-export static defaults from orchestrator/config.py (TASK 501).
+# These names never existed there (real ones are namespaced under Timeout /
+# TokenLimits / BudgetDefaults) so this always silently hit the except branch
+# with a stale $10 fallback that didn't even match the real $8 default
+# (hunt T16) — fixed to import the real attributes.
 try:
-    from ..config import (
-        TIMEOUT_DEFAULT_SECONDS as TIMEOUT_SECONDS,
-        TOKENS_MAX_OUTPUT as MAX_TOKENS_OUTPUT,
-        BUDGET_DEFAULT_USD as DEFAULT_BUDGET_USD,
-    )
+    from ..config import Timeout, TokenLimits, BudgetDefaults
+
+    TIMEOUT_SECONDS = Timeout.API_CALL_LONG
+    MAX_TOKENS_OUTPUT = TokenLimits.CODE_STANDARD
+    DEFAULT_BUDGET_USD = BudgetDefaults.MAX_USD_DEFAULT
 except ImportError:
     TIMEOUT_SECONDS = 120
     MAX_TOKENS_OUTPUT = 4096
-    DEFAULT_BUDGET_USD = 10.0
+    DEFAULT_BUDGET_USD = 8.0
 
 
 class FeatureFlags(BaseSettings):

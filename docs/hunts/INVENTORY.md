@@ -467,6 +467,56 @@ Seventh of waves T9-T16 per `docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md` (82 fil
 directly user-facing (CLI/dashboard surfaces) — 7 fixes, the most of any tier so far, driven
 by genuine severity distribution rather than a target.
 
+## T16 — operations/ remainder, verification/, policy*, telemetry/logging misc (closed)
+
+Full detail: `docs/hunts/t16-operations-verification-remainder/inventory.md`,
+`docs/hunts/t16-operations-verification-remainder/coverage.md`. Eighth and **final** wave of
+`docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md` (85 files: the plan's 75-file estimate plus
+`project_mgmt/`/`workspace/`, the same duplicate-pair shape this hunt targets). Included two
+mandated deep-dive leads carried from earlier tiers: the SecretsFilter-installation residual
+(T8/T9/T13) and CLAUDE.md's "policy system not fully integrated" claim.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `application/cli_helpers.py::setup_logging()` — the actual live CLI logging entry point, called on every invocation — never attached `generators/secrets_manager.py`'s `SecretsFilter`, unlike `log_config.py::configure_logging()` (fixed in T8), which has zero live callers. The masking safety net was built and correctly wired to the wrong, unreachable function; ~100 files' log records (including the live LLM-call error path) propagated unmasked. Fixed by mirroring `log_config.py`'s own correct pattern on the real entry point. |
+| C2 | **VERIFIED DEFECT — FIXED** | `testing/validator.py::TestValidator._generate_test()` called `self.client.call_model(...)`, a method `UnifiedClient` has never had (only `.call()` exists). The `AttributeError` was silently caught, falling back to a trivial stub that gets written to disk, run, and reported as a passing generated test — a false-positive, not just a skip. Fixed the method name; the flag gating this class's own construction remains separately, architecturally unwired (not fixed — matches this hunt's wiring-gap pattern). |
+| C3 | **VERIFIED DEFECT — FIXED** | `project_mgmt/analyzer.py` was a stale, unshimmed duplicate of the live `project_analyzer.py`, missing the real `ArchitectureScorer` delegation and two whole methods (`save_report()`, `print_suggestions()`) root gained since. Converted to a shim. |
+| C4 | **VERIFIED DEFECT — FIXED** | Four `operations/` duplicate pairs (`hitl_workflow.py`, `concurrency_controller.py`, `deployment_feedback.py`, `memory_tier.py`) were unshimmed, dead-on-the-`operations/`-side forks of live root modules; two diverge functionally (root carries an asyncio task-reference fix and an SSRF guard the dead copies lacked). All four converted to shims. |
+| C5 | **VERIFIED DEFECT — FIXED** | `services/executor.py`, `services/generator.py`, `services/observability.py` independently redefined classes `services/__init__.py` already re-exports from `application/` as canonical — 8 existing test files importing the submodule path directly were silently exercising the shadowed copy, not the one production code runs. Converted all three to shims (aliased for `generator.py`, whose real name is `DecomposerService`); verified by running all 73 tests across the 8 affected files against the new shims — zero regressions. |
+| C6 | **VERIFIED DEFECT — FIXED** | `crosscutting/config.py`'s re-export of `orchestrator/config.py` constants always silently `ImportError`'d (the names never existed there) and fell back to stale values, including a $10 default that didn't match the real $8. Fixed to import the real namespaced attributes. |
+| C7 | **VERIFIED DEFECT — FIXED** | `operations/quick_self_test.py` executed a full ad-hoc integration test at import time — writing a log file into the source tree and calling `sys.exit(1)` on failure at module scope. Independently discovered twice (a stop-hook untracked-file check, and this tier's own survey). Gated behind `if __name__ == "__main__":`; log destination moved out of the source tree. The script's own self-test target (a module retired years ago) was deliberately left non-functional rather than rewired to a guessed replacement. |
+
+**Residual, surveyed but not fixed:** the policy system (`policy_engine.py::enforce()`/
+`.check()`, `ConstraintPlanner.select_model()` et al.) has **zero live enforcement on any
+entry point** — `engine.py::run_job()`'s own docstring claims compliance is "enforced on
+every API call," which is false; a caller can pass a real `PolicySet` and get silent no-op
+enforcement with no audit trail. Escalates CLAUDE.md's current one-line "not fully
+integrated" note to a plain statement that enforcement is completely dead everywhere,
+`[REQUIRES HUMAN REVIEW]` (which entry point should gate it is a product decision);
+`operations/autonomy_config.py`'s Multi-Mode Selector is fully built and completely inert,
+bypassed by an unrelated ad-hoc mapping in 4 `cli_dispatch.py` blocks, `[REQUIRES HUMAN
+REVIEW]`; `orchestrator/verification.py`'s permanent shadowing by the `verification/`
+package (same shape as T2's already-recorded `gateway.py`/`agents.py` instances, left
+un-modified per that precedent); `orchestrator/logging.py`'s dead structlog
+`configure_logging()` fork (zero callers); `ShellTool`'s shell-execution surface (by design,
+zero live construction); `services/completion_judge.py`/`autonomy_costs.py` (dead code, no
+duplicate to reconcile); `memory_tier.py`'s shared silent-file-skip bug (T14 already
+evaluated and declined to elevate this in an already-closed tier — not reopened here, only
+the newly-found duplicate-pair hygiene issue around it was fixed).
+
+**Gate status:** black/ruff/lint-imports/root-freeze/test-markers/bandit all PASS. mypy:
+isolated diff shows only *removed* errors (1571 → 1554, zero new). New tests 7/7 (RED→GREEN
+verified — all 7 failed pre-fix for the exact predicted reason). The 8 pre-existing test
+files affected by C5's shim conversion (73 tests) re-run directly against the new shims:
+zero regressions. Full suite: 2572 passed (+7), 2 pre-registered environmental failures
+unchanged, 20 skipped, 157 deselected — zero regressions.
+
+This closes the T9-T16 continuation plan. As stated in
+`docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md` from the outset, the 8-wave decomposition was a
+data-backed, estimate-based prioritization of the files left with no individual disposition
+after T0-T8 — not a mathematically-verified 100% line-by-line partition of every file in
+scope.
+
 | ID | Disposition | Summary |
 |---|---|---|
 | C1 | **VERIFIED DEFECT — FIXED** | `Orchestrator(..., verbose=...)` — a kwarg `Orchestrator.__init__` has never accepted — crashed both `entrypoints/chat_cli.py`'s `orchestrator chat` build handoff and `dashboard_core/chat_view.py`'s live `/ws/chat` websocket feature. Removed the kwarg from both call sites (it was never read or used anywhere). |
