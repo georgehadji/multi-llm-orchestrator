@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import ClassVar
 
 from .design_system import (
     ComponentSource,
     ComponentSpec,
     DesignSystem,
+    normalize_framework,
 )
 
 logger = logging.getLogger(__name__)
@@ -92,6 +94,27 @@ Layout: 50/50 split on desktop, stacks on mobile.
 Mobile: Content first, visual below.
 """,
         ),
+        ComponentSpec(
+            name="hero_svelte_headless",
+            source=ComponentSource.BITS_UI,
+            category="hero",
+            variant="headless",
+            layout_type="flex",
+            primary_color=None,
+            animation_style="premium_minimal",
+            has_aria_labels=True,
+            keyboard_navigable=True,
+            responsive=True,
+            dark_mode_support=True,
+            prompt_reference="""
+Hero built from headless, unstyled Svelte primitives styled entirely with
+design-system tokens.
+Features: Heading, subheading, CTA group built from accessible primitives.
+Accessibility: Primitives supply focus management and ARIA wiring; do not
+hand-roll keyboard handling.
+Layout: Centered, max-width constrained. Mobile: stacks vertically.
+""",
+        ),
     ],
     # ═══════════════════════════════════════════════════════════════════════════
     # FEATURES SECTIONS
@@ -155,6 +178,26 @@ Features: Masonry-like layout, some cards span multiple rows/columns.
 Animation: Staggered fade-in, hover glow effects.
 Layout: CSS grid with named areas.
 Mobile: Linearized, all cards same width.
+""",
+        ),
+        ComponentSpec(
+            name="features_svelte_animated",
+            source=ComponentSource.SVELTEBITS,
+            category="features",
+            variant="animated_grid",
+            layout_type="grid",
+            primary_color=None,
+            animation_style="saas_modern",
+            has_aria_labels=True,
+            keyboard_navigable=True,
+            responsive=True,
+            dark_mode_support=True,
+            prompt_reference="""
+Feature grid using Svelte transition/motion primitives for entrance animation.
+Features: Responsive card grid, icon + title + description per card.
+Animation: Staggered entrance via Svelte transitions; must respect
+prefers-reduced-motion.
+Layout: CSS grid, auto-fit columns. Mobile: single column.
 """,
         ),
     ],
@@ -394,6 +437,7 @@ class ComponentRegistry:
         page_type: str,
         design_system: DesignSystem,
         sections_needed: list[str],
+        framework: str = "react",
     ) -> list[ComponentSpec]:
         """
         Select best-matching components from multiple sources.
@@ -412,6 +456,19 @@ class ComponentRegistry:
 
         for section in sections_needed:
             candidates = self._get_candidates(section)
+
+            # Prefer components whose upstream library targets the framework
+            # being generated — a Svelte build must not be steered toward a
+            # React-only library. Fall back to the full candidate list rather
+            # than returning nothing when a section has no framework match.
+            framework_matched = [c for c in candidates if c.supports_framework(framework)]
+            if candidates and not framework_matched:
+                logger.info(
+                    "No %s-native component for section %s; using framework-agnostic guidance",
+                    framework,
+                    section,
+                )
+            candidates = framework_matched or candidates
 
             if not candidates:
                 # Create a default component spec for unknown sections
@@ -452,7 +509,7 @@ class ComponentRegistry:
             variant="default",
             layout_type="flex",
             primary_color=design_system.colors.primary,
-            animation_style=design_system.tone.value,
+            animation_style=str(getattr(design_system.tone, "value", design_system.tone)),
             has_aria_labels=True,
             keyboard_navigable=True,
             responsive=True,
@@ -466,11 +523,29 @@ Colors: Uses design system palette.
 """,
         )
 
+    # Output contract per framework. Keyed by the normalized ecosystem name so
+    # "next.js"/"react" and "svelte"/"sveltekit" each map to one entry.
+    _OUTPUT_CONTRACT: ClassVar[dict[str, str]] = {
+        "react": (
+            "Generate a React/Next.js component with Tailwind CSS.\n"
+            "Export as the default export. Include TypeScript types."
+        ),
+        "svelte": (
+            "Generate a Svelte 5 single-file component (.svelte) with Tailwind CSS.\n"
+            'Use runes ($state/$derived/$props) for reactivity and <script lang="ts">.'
+        ),
+        "html": (
+            "Generate a complete HTML section with inlined CSS in a <style> block.\n"
+            "Use semantic HTML5 elements. No JavaScript framework, no JSX."
+        ),
+    }
+
     def get_component_prompt(
         self,
         component: ComponentSpec,
         design_system: DesignSystem,
         content_brief: dict | None = None,
+        framework: str = "react",
     ) -> str:
         """
         Generate a prompt for creating a component.
@@ -505,7 +580,7 @@ CONTENT FOR THIS SECTION:
 DESIGN SYSTEM TOKENS TO USE:
 {design_system.to_prompt_context()}
 
-Generate a React/Next.js component with Tailwind CSS.
+{self._OUTPUT_CONTRACT.get(normalize_framework(framework), self._OUTPUT_CONTRACT["react"])}
 Use ONLY design system tokens for colors, spacing, typography.
 Include: semantic HTML, aria-labels, focus states, reduced-motion support.
 Mobile-first responsive design.

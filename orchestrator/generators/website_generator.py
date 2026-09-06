@@ -55,6 +55,39 @@ def _get_registry():
 
 from ..design_system import DesignSystem, QualityReport
 
+_COMPONENT_EXTENSIONS = {"react": ".tsx", "svelte": ".svelte", "html": ".html"}
+
+_OUTPUT_CONTRACTS = {
+    "react": (
+        "Complete React/Next.js component with Tailwind CSS. "
+        "Export as default export. Include TypeScript types."
+    ),
+    "svelte": (
+        "Complete Svelte 5 single-file component with Tailwind CSS. "
+        'Use <script lang="ts"> and runes ($state/$derived/$props) for reactivity. '
+        "No JSX, no React."
+    ),
+    "html": (
+        "Complete HTML section with inlined CSS. Use semantic HTML5 elements. "
+        "Return a plain HTML + CSS <style> block. No JavaScript framework, no JSX, no React."
+    ),
+}
+
+
+def _component_extension(framework: str) -> str:
+    """File extension for a generated component in *framework*."""
+    from ..design_system import normalize_framework
+
+    return _COMPONENT_EXTENSIONS[normalize_framework(framework)]
+
+
+def _output_contract(framework: str) -> str:
+    """The OUTPUT instruction handed to the model for *framework*."""
+    from ..design_system import normalize_framework
+
+    return _OUTPUT_CONTRACTS[normalize_framework(framework)]
+
+
 # Stubs for symbols removed from design_system
 
 
@@ -1097,6 +1130,7 @@ class WebsiteGenerator:
                 page_type=config.page_type,
                 design_system=design_system,
                 sections_needed=config.sections,
+                framework=config.framework,
             )
 
             # Step 3: Generate tasks for each section
@@ -1140,7 +1174,7 @@ class WebsiteGenerator:
                                     task.max_output_tokens = min(task.max_output_tokens * 2, 16384)
                                     continue
 
-                                ext = ".html" if config.framework == "html" else ".tsx"
+                                ext = _component_extension(config.framework)
                                 comp_path = output_dir / "components" / f"{section_name}{ext}"
                                 comp_path.parent.mkdir(parents=True, exist_ok=True)
                                 comp_path.write_text(cleaned, encoding="utf-8")
@@ -1368,7 +1402,7 @@ class WebsiteGenerator:
                 type=TaskType.CODE_GEN,
                 prompt=prompt,
                 dependencies=dependencies,
-                target_path=f"components/{section}{'.html' if config.framework == 'html' else '.tsx'}",
+                target_path=f"components/{section}{_component_extension(config.framework)}",
                 tech_context=f"{config.framework} + {config.styling}",
                 acceptance_threshold=0.85,
                 max_iterations=3,
@@ -1553,7 +1587,7 @@ RULES:
 11. If the page contains auth/registration, include email verification flow:
     send a verification token after signup before allowing login.
 
-OUTPUT: {'Complete HTML section with inlined CSS. Use semantic HTML5 elements. Return a plain HTML + CSS <style> block. No JavaScript framework, no JSX, no React.' if config.framework == 'html' else 'Complete React/Next.js component with Tailwind CSS. Export as default export. Include TypeScript types.'}
+OUTPUT: {_output_contract(config.framework)}
 {'Only the HTML content (no ``` fences).' if config.framework == 'html' else 'Export as default export. Include TypeScript types.'}
 """
 
