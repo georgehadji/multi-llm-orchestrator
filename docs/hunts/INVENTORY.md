@@ -634,3 +634,51 @@ both defect tests failed pre-fix quoting the misleading text verbatim; the two g
 tests pass on both trees and are labelled tool tests, not defect proofs). Full
 suite: 2584 passed (+4), 2 pre-registered environmental failures unchanged, 20 skipped,
 157 deselected — zero regressions.
+
+---
+
+## T19 — Subprocess/exec argument construction (closed)
+
+Third wave of the depth pass (`docs/hunts/BACKEND_DEPTH_PASS_PLAN.md`). Shape:
+a command string **built by interpolation** and handed to a shell, so a value
+from outside the file becomes shell syntax rather than data.
+
+AST census found **108 process-spawning call sites across 43 files**
+(`subprocess.*` argv-form 71, `create_subprocess_exec` 25, raw
+`compile`/`exec`/`eval` 7, `create_subprocess_shell` 4, `os.system` 1). Only
+the shell-interpreting ones can carry this shape, narrowing the sweep to
+**8 sites**, each read.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `nexus_search/server_manager.py::start` built `f"{self._docker_compose_cmd} -f {self.compose_file} up -d"` for `create_subprocess_shell`. `compose_file` is the constructor's caller-supplied parameter. A path containing a *space* breaks the command by accident; one containing `;` executes the remainder. Now builds argv for `create_subprocess_exec`. |
+| C2 | **VERIFIED DEFECT — FIXED** | `nexus_search/server_manager.py::stop`, identical shape (`... down`). Same fix. |
+| C3 | **VERIFIED DEFECT (low) — FIXED** | `scripts/utils/push_to_github.py` ran `f"git push origin {branch}"` under `shell=True` with `branch` from `git branch --show-current`. `git check-ref-format` **accepts** `;`, `$()`, backticks, `&&`, `|` in branch names — only the space is rejected — so a branch named `main;id` executes `id`. Maintainer-local, requires running a dev script on a hostile branch; fixed in two lines. |
+| — | **Severity note** | C1/C2 are arbitrary command execution, but reachable only by whoever supplies `compose_file` (today: the default, or an operator argument). Latent, not remotely triggerable — the same disposition as T8's fail-open finding, deliberately not ranked above it. |
+| C4 | FALSE (innocent) | `commands/nash.py:117` — `os.system("cls" if os.name == "nt" else "clear")`, both branches literal. |
+| C5 | FALSE (innocent) | `dev_server.py:124,152,161` — commands come from a hardcoded `ProjectType` table; the only interpolated value is a port already validated as an int in 1..65535. |
+| C6 | FALSE (innocent) | `safety/sandbox_executor.py:76` and `tools/shell_tool.py:35` — running a caller-supplied command *is* each API's documented purpose. Same disposition as `ShellTool` in T18. |
+| C7 | FALSE (innocent) | The four remaining `scripts/git/*.py` `shell=True` sites interpolate only hardcoded literal lists. |
+| C8 | **FALSE — hypothesis falsified** | Bandit warns `Test in comment: <word> is not a test name or id` for every prose word in the repo's `# nosec B602 — reason` comments. Hypothesis: prose degrades these to *blanket* suppressions hiding unrelated findings. Probed directly — a valid-but-non-matching id is still reported **with** prose (`# nosec B324 — prose`), and only a comment with no valid id at all (`# nosec B999`) falls back to blanket. Targeting survives. Cosmetic warnings, no defect, no change made. |
+
+**Proof.** The RED pass is the wave's strongest evidence: run against the
+**unmodified production code**, docker itself reported the argument it had
+received as `"compose projects/docker-compose.yml"`, the injected `touch`
+created its marker file, and `stop()` left a stray file named `down` in the
+working directory — the tail of its own shredded command line. The committed
+test's payload was then changed to an inert `echo`, so a future revert proves
+the point without touching the filesystem.
+
+**New gate — `scripts/check_shell_injection.py`:** fails any
+`create_subprocess_shell` / `shell=True` / `os.system` under `orchestrator/`
+whose command is not a literal (constants, literal concatenation, `IfExp` of
+literals and `{}`-free f-strings all count). Three reviewed sites allowlisted
+with reasons in the source. Verified to catch the bug rather than merely to
+pass: re-run with the fix stashed, it reports both `server_manager.py` lines
+and exits 1.
+
+**Scope limit (see `t19-subprocess-argv/coverage.md`):** the 100 argv-form
+call sites were classified by AST, not read. That is defensible for *this*
+shape only — argv cannot shell-inject by construction — and says nothing
+about attacker-controlled executable paths, `cwd`, or `env`. The 7 raw
+`compile`/`exec`/`eval` sites are a different shape and were not hunted.

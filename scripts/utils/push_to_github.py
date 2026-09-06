@@ -20,11 +20,10 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-def run(cmd: str, check: bool = False) -> tuple[int, str, str]:
-    """Run a shell command."""
-    result = subprocess.run(
-        cmd, shell=True, capture_output=True, text=True
-    )
+def run(cmd: "str | list[str]", check: bool = False) -> tuple[int, str, str]:
+    """Run a command. A list is handed straight to the OS; only a literal
+    string goes through the shell."""
+    result = subprocess.run(cmd, shell=isinstance(cmd, str), capture_output=True, text=True)
     return result.returncode, result.stdout, result.stderr
 
 def log(msg: str, level: str = "info"):
@@ -110,7 +109,7 @@ Date: {datetime.now().strftime('%Y-%m-%d')}"""
         return 1
     
     log("Pushing to GitHub...")
-    code, _, stderr = run(f"git push origin {branch}")
+    code, _, stderr = run(["git", "push", "origin", branch])
     if code != 0:
         log(f"Push error: {stderr}", "error")
         return 1
