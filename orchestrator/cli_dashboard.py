@@ -17,16 +17,13 @@ def main():
     )
     parser.add_argument("--host", default="0.0.0.0", help="Host address to bind (default: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=8080, help="Port to listen on (default: 8080)")
-    parser.add_argument(
-        "--no-browser", action="store_true", help="Don't automatically open browser"
-    )
 
     args = parser.parse_args()
 
     try:
         from orchestrator.dashboard import run_dashboard
 
-        run_dashboard(host=args.host, port=args.port, open_browser=not args.no_browser)
+        run_dashboard(host=args.host, port=args.port)
     except ImportError as e:
         print(f"""
 ╔══════════════════════════════════════════════════════════╗

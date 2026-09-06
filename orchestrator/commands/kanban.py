@@ -6,7 +6,7 @@ from __future__ import annotations
 def execute(args) -> None:
     """Handle the 'kanban' subcommand: manage the work queue."""
     import asyncio
-    from .kanban.board import KanbanBoard
+    from ..kanban.board import KanbanBoard
 
     async def _run():
         board = KanbanBoard()
@@ -25,7 +25,7 @@ def execute(args) -> None:
             for k, v in stats.items():
                 print(f"  {k}: {v}")
         elif args.command == "start":
-            from .kanban.dispatcher import KanbanDispatcher
+            from ..kanban.dispatcher import KanbanDispatcher
 
             dispatcher = KanbanDispatcher(board)
             try:

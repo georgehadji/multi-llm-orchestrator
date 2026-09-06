@@ -125,7 +125,7 @@ async def _run_build(websocket: WebSocket, agent) -> None:  # type: ignore[valid
     await websocket.send_json({"type": "build_start"})
 
     try:
-        orch = Orchestrator(budget=Budget(max_usd=spec.budget_usd), verbose=False)
+        orch = Orchestrator(budget=Budget(max_usd=spec.budget_usd))
         async with orch:
             state = await orch.run_project(
                 project_description=args["project"],

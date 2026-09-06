@@ -459,3 +459,41 @@ predicted reason, 1 no-regression check passed both sides). Targeted regression 
 tests exercising the fixed modules) 86/86 pass. Full suite: 2558 passed (+9), 2
 pre-registered environmental failures unchanged, 20 skipped, 157 deselected — zero
 regressions.
+
+## T15 — integrations/, vcs/, ide_backend/, dashboard_core/, commands/, cli*, entrypoints/ (closed)
+
+Full detail: `docs/hunts/t15-integrations-cli-dashboard/inventory.md`, `docs/hunts/t15-integrations-cli-dashboard/coverage.md`.
+Seventh of waves T9-T16 per `docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md` (82 files). Framed as
+directly user-facing (CLI/dashboard surfaces) — 7 fixes, the most of any tier so far, driven
+by genuine severity distribution rather than a target.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `Orchestrator(..., verbose=...)` — a kwarg `Orchestrator.__init__` has never accepted — crashed both `entrypoints/chat_cli.py`'s `orchestrator chat` build handoff and `dashboard_core/chat_view.py`'s live `/ws/chat` websocket feature. Removed the kwarg from both call sites (it was never read or used anywhere). |
+| C2 | **VERIFIED DEFECT — FIXED** | The `dashboard` console script (one of only 3 this project ships) was broken on every invocation: `dashboard.py`'s shim aliased `run_dashboard` to a zero-arg function while `cli_dashboard.py` called it with `host`/`port`/`open_browser` kwargs. Rewired the shim to the real, correctly-parameterized `dashboard_core.core.run_dashboard`; dropped the never-implemented `open_browser`/`--no-browser` option rather than leaving it as a second silently-ignored flag. |
+| C3 | **VERIFIED DEFECT — FIXED** | `commands/kanban.py`'s two lazy imports used the wrong relative-import depth (`.kanban.board` instead of `..kanban.board`, since `commands/kanban.py` is a flat module, not a package), breaking all four kanban subcommands and stranding a fully-built 441-line SQLite work-queue subsystem. Fixed both imports; verified `kanban list` now runs end-to-end. |
+| C4 | **VERIFIED DEFECT — FIXED** | `commands/gateway.py`, identical bug shape (`.gateway.run` → `..gateway.run`), broke both gateway subcommands. Fixed; verified `gateway status` now runs end-to-end. |
+| C5 | **VERIFIED DEFECT — FIXED** | `commands/codebase.py`'s `--budget` flag was defined but never read — `modify` always charged against a hardcoded $10 regardless of user input. Threaded `args.budget` through to the actual `Budget(max_usd=...)` construction. |
+| C6 | **VERIFIED DEFECT — FIXED** | `commands/nash.py`'s `nash backup` crashed with a raw `ModuleNotFoundError` traceback (`orchestrator.nash_backup` has never existed — T13 handoff, exhaustively reconfirmed nothing resembling a backup manager exists anywhere in the repo). Wrapped the import in try/except for a clean, bounded message instead of inventing the unbuilt feature — mirroring the dead sibling `cli_nash.py`'s own defensive handling of the identical broken import. |
+| C7 | **VERIFIED DEFECT — FIXED** | `cli.py`'s docstring (T13 handoff) named a dispatcher module (`application.cli_dispatch`) that was renamed to `entrypoints.cli_dispatch` years ago; the real import was already correct. Corrected all 3 references. |
+
+**Residual, surveyed but not fixed:** `integrations/mcp_server.py`'s 5 broken imports (T10
+handoff) — confirmed fixable, but it's a feature-richer dead fork of the live root MCP
+server, and which side should be canonical is a product decision, `[REQUIRES HUMAN REVIEW]`;
+`Orchestrator.modify_codebase()` — referenced by `commands/codebase.py` but never implemented
+anywhere in this repository's history (only a design document ever described it), left
+unbuilt per this hunt's standing discipline against inventing features, along with the same
+command's silent exit-code-0-on-failure (a repo-wide exit-code convention decision, not a
+single-file patch); `integrations/compat.py` (4 broken imports, dead) and
+`integrations/swiftstack_integration.py` (an unshimmed dead duplicate of the live root file);
+a `git_sync.py` (root) vs `vcs/sync.py` divergence (root has a fix `vcs/`'s copy lacks — an
+unusual direction, since `vcs/` is normally canonical for this codebase's git-adjacent
+shims); a dead, internally-inconsistent 7-file "command center" cluster; several
+cosmetic/minor findings (a stale CLAUDE.md `--analyze-codebase` example, a typo'd deprecation
+warning, 3 misplaced `test_*.py` files `pytest tests/` never collects).
+
+**Gate status:** black/ruff/lint-imports/root-freeze/test-markers/bandit all PASS. mypy:
+isolated diff empty. New tests 7/7 (RED→GREEN verified — 6 failed pre-fix for the exact
+predicted reason, 1 no-regression check passed both sides). No existing test in the repo
+touched any of the 9 fixed files. Full suite: 2565 passed (+7), 2 pre-registered
+environmental failures unchanged, 20 skipped, 157 deselected — zero regressions.

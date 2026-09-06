@@ -15,18 +15,19 @@ def execute(args) -> None:
             repo=resolve_allowed_path(args.repo),
             objective=args.objective,
             dry_run=getattr(args, "dry_run", False),
+            budget=getattr(args, "budget", 10.0),
         )
     )
     print(result)
 
 
-async def _run_modify(repo, objective: str, dry_run: bool) -> str:
+async def _run_modify(repo, objective: str, dry_run: bool, budget: float = 10.0) -> str:
     """Execute the codebase modification flow."""
     from ..budget import Budget
     from ..engine import Orchestrator
 
     try:
-        orch = Orchestrator(budget=Budget(max_usd=10.0))
+        orch = Orchestrator(budget=Budget(max_usd=budget))
         state = await orch.modify_codebase(
             repo_path=repo,
             objective=objective,
