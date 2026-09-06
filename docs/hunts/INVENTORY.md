@@ -265,3 +265,32 @@ mypy: 0 new errors introduced by this tier's own edits (8 errors surfaced in
 `reference_monitor.py`/`specs.py` are pre-existing, now-reachable via C1's shim, out of scope).
 New tests 5/5 (RED→GREEN verified). Full suite: 2522 passed (+5), 2 pre-registered environmental
 failures unchanged, 21 skipped — zero regressions.
+
+## T10 — Cost-optimization remainder (closed)
+
+Full detail: `docs/hunts/t10-cost-optimization/inventory.md`, `docs/hunts/t10-cost-optimization/coverage.md`.
+Second of waves T9-T16 per `docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md`.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `orchestrator/token_budget.py` was an unshimmed, byte-identical duplicate of `infrastructure/token_budget.py` — caught before divergence rather than after. Fixed: converted to a shim. Not the same feature as `cost_optimization/token_budget.py` (different class, different purpose, coincidental filename). |
+| C2 | **VERIFIED DEFECT — FIXED** | `orchestrator/provisioned_throughput.py` was likewise an unshimmed, byte-identical duplicate of `operations/provisioned_throughput.py` — the module `infrastructure/provisioned_throughput.py` already shims to, establishing `operations/` as canonical. Fixed: converted to a shim, matching direction. |
+| C3 | **VERIFIED DEFECT — FIXED** | `cost_optimization/cost_optimization_integration.py::Tier1OptimizationMixin` used a same-package-depth relative import (`from .log_config import get_logger`, one dot short), raising `ModuleNotFoundError` unconditionally — the same "wrong depth" shape found at least five times this hunt. Fixed (plus two TYPE_CHECKING-only imports with the same bug). |
+| C4 | **VERIFIED DEFECT — FIXED** | `cost_optimization/docker_sandbox.py::DockerSandbox.execute()` wrote caller-supplied `code_files` filenames into the sandbox workspace with no path-containment check — an absolute path or `../` traversal could write outside the sandbox onto the host filesystem, before the container even starts. Dead today (`CodeExecutor`, its only construction site, has zero live callers). Fixed: resolves and validates containment, rejecting escapes. Did not add separately-flagged missing container hardening (`read_only`/`cap_drop`/etc.) — `[REQUIRES HUMAN REVIEW]` if ever wired live. |
+
+**Residual, surveyed but not fixed:** the `--tdd-first` CLI flag's silent no-op (a concrete
+symptom of T1's already-recorded C3, not new); `pricing_cache.py`'s architectural fragmentation
+(a 4th/5th independent pricing mechanism). **Cleared:** `token_optimizer.py` (correct live shim);
+`rate_limiter.py` whole-module reachability (extends T5/T8); `costing/analytics.py` + 8 other
+dead `cost_optimization/` files (extends T1's C6 per-file).
+
+**Handoff findings, out of this tier's scope, not fixed here:** `application/cache_warmup.py`
+(wave T12) calls a nonexistent `operations/cache_warmup.py` module from the real parallel-task
+hot path in `engine.py` — silently disables prompt-cache warming on every run, misreported as
+"non-critical" (a missed cost/latency optimization, not a correctness defect). `integrations/mcp_server.py`
+(wave T15) has a broken import for its `TokenOptimizer` reference.
+
+**Gate status at T10 close:** black/ruff/lint-imports/root-freeze/test-markers/bandit all PASS.
+mypy: isolated diff empty (this tier's files aren't reached by the core-path invocation). New
+tests 5/5 (RED→GREEN verified, 4/5 defect-proving + 1 no-regression check). Full suite: 2527
+passed (+5), 2 pre-registered environmental failures unchanged, 21 skipped — zero regressions.

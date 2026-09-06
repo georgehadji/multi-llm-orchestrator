@@ -180,9 +180,16 @@ class DockerSandbox:
                 workspace = Path(tempfile.mkdtemp(prefix="sandbox_"))
                 self._workspaces[str(workspace)] = workspace
 
-                # Write code files
+                # Write code files. filename comes straight from the caller;
+                # an absolute path or a "../" traversal must not escape the
+                # sandbox workspace onto the host filesystem (hunt T10).
+                workspace_root = workspace.resolve()
                 for filename, content in code_files.items():
-                    file_path = workspace / filename
+                    file_path = (workspace / filename).resolve()
+                    if not file_path.is_relative_to(workspace_root):
+                        raise ValueError(
+                            f"code_files entry {filename!r} escapes the sandbox workspace"
+                        )
                     file_path.parent.mkdir(parents=True, exist_ok=True)
                     file_path.write_text(content)
 
