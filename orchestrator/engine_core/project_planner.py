@@ -62,6 +62,16 @@ class ProjectPlanner:
                         next_ready.append(neighbor)
             ready = sorted(next_ready)
 
+        scheduled = {tid for level in levels for tid in level}
+        if len(scheduled) != len(tasks):
+            missing = sorted(set(tasks) - scheduled)
+            logger.error(
+                "Circular dependency detected — %d task(s) never became ready and "
+                "were silently dropped from execution: %s",
+                len(missing),
+                missing,
+            )
+
         return levels
 
     def _local_topological_sort(self, tasks: dict[str, Task]) -> list[str]:

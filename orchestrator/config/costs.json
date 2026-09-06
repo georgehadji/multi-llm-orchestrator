@@ -195,6 +195,10 @@
     "input": 0.03,
     "output": 0.13
   },
+  "qwen/qwen3.6-flash": {
+    "input": 0.1875,
+    "output": 1.125
+  },
   "minimax/minimax-m2.7": {
     "input": 0.3,
     "output": 1.2
@@ -587,5 +591,9 @@
   "thinkingmachines/inkling-small": {
     "input": 0.5,
     "output": 1.2
+  },
+  "internal/nano-banana-2": {
+    "input": 0.01,
+    "output": 0.01
   }
 }

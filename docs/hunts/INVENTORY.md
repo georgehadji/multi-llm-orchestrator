@@ -294,3 +294,31 @@ hot path in `engine.py` — silently disables prompt-cache warming on every run,
 mypy: isolated diff empty (this tier's files aren't reached by the core-path invocation). New
 tests 5/5 (RED→GREEN verified, 4/5 defect-proving + 1 no-regression check). Full suite: 2527
 passed (+5), 2 pre-registered environmental failures unchanged, 21 skipped — zero regressions.
+
+## T11 — Infrastructure / engine_core / domain / events core (closed)
+
+Full detail: `docs/hunts/t11-core-architecture/inventory.md`, `docs/hunts/t11-core-architecture/coverage.md`.
+Third of waves T9-T16 per `docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md`; largest wave to date (118 files).
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `config/costs.json` had no entry for `qwen/qwen3.6-flash` — a real, actively-routed model — so `infrastructure/llm_client.py`'s live cost-computation path silently priced every real call at $0.00. The survey's initial claim of "5 affected models" was independently corrected during verification: 3 of the 5 referenced deprecated, commented-out (non-live) enum members that can never actually be constructed. Fixed the one genuine gap (plus a placeholder internal-only model for consistency). Highest-severity live defect found in this hunt to date. |
+| C2 | **VERIFIED DEFECT — FIXED** | `engine_core/project_planner.py::get_execution_levels()` — the live task-scheduling method every project run goes through — silently dropped circularly-dependent tasks with zero diagnostic. Partially mitigated already (`StateCoordinator` correctly downgrades to `PARTIAL_SUCCESS`) but named nothing. Fixed: logs an ERROR naming the exact dropped task IDs, without changing the existing return behavior. A separate, broken `container.py` import that would have wired in real cycle-detection instead of this silent fallback was left unfixed (`[REQUIRES HUMAN REVIEW]`, an architecture decision). |
+| C3 | **VERIFIED DEFECT — FIXED** | `engine_core/pipeline_executor.py`'s retry loop didn't recognize `"vs_retry_escape"` (set by `stages/self_consistency.py`'s own verbalized-sampling diversity-escape feature) as a retry signal, so the escape it had just configured never ran — live whenever the `vs_retry_escape` flag is on (which `search_strategy_tuner.py` can autonomously enable). Fixed: added the missing value to the recognized tuple. |
+
+**Residual, surveyed but not fixed:** an unsynchronized circuit-breaker HALF_OPEN race in
+`infrastructure/streaming_resilient.py` (same class as T5's fix, confirmed fully dead);
+`unified_events/core.py::UnifiedEventBus` never calling `.start()` (dead projections, unbounded
+queue growth — a bigger wiring decision than this tier's fixes); `domain/model_registry.py`'s
+stale `QWEN_3_6_FLASH` entries (dead, lower priority than C1's live gap); `engine_core/dep_resolver.py`
+vs `dependency_resolver.py` investigated as a possible duplicate pair, found NOT to be one (genuinely
+different, unrelated responsibilities — the latter is a dead, harmless orphan shim).
+
+**Discovered incidentally, out of scope, not fixed:** running the repo's own config-drift
+diagnostic while verifying C1 surfaced a large, separate `routing.json` drift condition (many
+task-type/model keys silently dropped due to enum mismatches) — large enough to warrant its own
+future investigation, not folded into T11.
+
+**Gate status at T11 close:** black/ruff/lint-imports/root-freeze/test-markers/bandit all PASS.
+mypy: isolated diff empty. New tests 3/3 (RED→GREEN verified). Full suite: 2530 passed (+3), 2
+pre-registered environmental failures unchanged, 21 skipped — zero regressions.
