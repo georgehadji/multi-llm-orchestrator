@@ -429,3 +429,33 @@ isolated diff empty. New tests 5/5 (RED→GREEN verified). Targeted regression
 prior commit's 2535 — 13 new hunt tests across T13 and the out-of-band routing.json fix, +1
 test newly un-skipped by the user-supplied OpenRouter snapshot), 2 pre-registered
 environmental failures unchanged, 20 skipped (was 21), 157 deselected — zero regressions.
+
+## T14 — learning/, knowledge/, nexus_search/, pattern_learner/, context_mgmt/, analysis/ (closed)
+
+Full detail: `docs/hunts/t14-learning-knowledge-search/inventory.md`, `docs/hunts/t14-learning-knowledge-search/coverage.md`.
+Sixth of waves T9-T16 per `docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md` (71 files). Framed as
+"auxiliary intelligence/retrieval subsystems — real but not on the critical execution path."
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `knowledge/knowledge_base.py`'s shim imported a nonexistent `KnowledgeEntry` name (root defines `KnowledgeArtifact`, not `KnowledgeEntry`). Converted to a wildcard shim. |
+| C2 | **VERIFIED DEFECT — FIXED** | `knowledge/knowledge_graph.py`'s shim imported two nonexistent names (`ModelPerformanceGraph`, bare `KnowledgeGraph` — root defines `PerformanceKnowledgeGraph`). Converted to a wildcard shim; transitively fixed `knowledge/docs_generator.py`'s broken import too. |
+| C3 | **VERIFIED DEFECT — FIXED** | `learning/federated_learning.py` was an unshimmed duplicate of the live root file whose stripped import (`# REMOVED: from .feedback_loop import ...`) made `contribute_insight()` raise `NameError` on `OutcomeStatus` the moment it ran. Confirmed dead (real caller uses root). Converted to a shim. |
+| C4 | **VERIFIED DEFECT — FIXED** | `learning/transfer_learning.py`, same shape as C3, but the stripped import was justified by a confidently-wrong comment ("meta_orchestrator types removed (module does not exist)") — `orchestrator/meta_orchestrator.py` exists and defines all four names root still imports. Converted to a shim. |
+| C5 | **VERIFIED DEFECT — FIXED** | `performance.py::QueryOptimizer.build_selective_query()` built raw SQL via unvalidated f-string interpolation of `table`/`columns`/`order_by` — the third instance this tier of "fix landed on the dead copy of an unshimmed duplicate, never backported": `analysis/performance.py`'s copy had already been hardened (allowlist + identifier validation) but the fix never reached the live root copy. Confirmed dead (`QueryOptimizer` has zero callers anywhere). Ported the hardening to root; converted `analysis/performance.py` to a shim now that it's redundant. |
+
+**Residual, surveyed but not fixed:** 7 further duplicate pairs in `analysis/` confirmed
+clean today (zero divergence) but still unshimmed — a standing structural risk given 3
+confirmed divergences of exactly this shape surfaced in this tier alone; a latent split-brain
+`leaderboard.py` singleton (root side currently dead, so no active bug); several
+lower-priority informational findings (an unreachable duplicate `except` block in
+`nexus_search/nexus_client.py`, a soft silent-skip in `memory_tier.py`'s best-effort file
+scan, 4 of 7 `nexus_search/optimization/` modules unwired, an unwired generated-app
+RLS-policy generator matching T13's already-documented pattern).
+
+**Gate status:** black/ruff/lint-imports/root-freeze/test-markers/bandit all PASS. mypy:
+isolated diff empty. New tests 9/9 (RED→GREEN verified — 8 failed pre-fix for the exact
+predicted reason, 1 no-regression check passed both sides). Targeted regression (existing
+tests exercising the fixed modules) 86/86 pass. Full suite: 2558 passed (+9), 2
+pre-registered environmental failures unchanged, 20 skipped, 157 deselected — zero
+regressions.
