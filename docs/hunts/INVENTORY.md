@@ -682,3 +682,48 @@ call sites were classified by AST, not read. That is defensible for *this*
 shape only — argv cannot shell-inject by construction — and says nothing
 about attacker-controlled executable paths, `cwd`, or `env`. The 7 raw
 `compile`/`exec`/`eval` sites are a different shape and were not hunted.
+
+---
+
+## T20 — Wiring gaps: registered but never read (closed)
+
+Fourth wave of the depth pass. Shape: something **declared** as a control
+surface that no code consults, so setting it appears to work and does nothing.
+
+| Sub-shape | Declared | Never read |
+|---|---|---|
+| CLI flags (`add_argument`) | 109 | **0** |
+| `FeatureFlags` fields | 53 | 8 |
+| `OrchestratorSettings` fields | 21 | 12 |
+
+**Detector calibration mattered more than the sweep.** The first CLI census
+said 18 flags were never read (it subtracted declaration hits from a count
+that never contained them); the second said 0 by matching nearly anything. The
+third scopes reads to the argparse namespace and was calibrated against seven
+flags confirmed read by hand — 0 false positives — before its answer was
+believed. The inverse check produced 15 "undeclared reads", **all false**:
+`parsed` is a dict and a `urlparse` result, `options` a config dataclass,
+`args` a list and a string; `func`/`meta_cmd`/`subcommand`/`template_action`
+come from `set_defaults(func=)` and `add_subparsers(dest=)`. The CLI surface
+is clean, and that negative result is reported as one.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `knowledge_rerank_enabled` was declared and read by **no module**, while the feature behind it was complete: `KnowledgeBase.find_similar(rerank=, fetch_k=)` implemented, `LLMReranker` live via `HybridSearchPipeline`, five passing tests. `implementation_plan_reranking.md` lists every step — all done except the last: *"Caller … passes `rerank=flags.knowledge_rerank_enabled`"*. That consumer, `get_recommendations`, has no in-repo callers and was nearly dismissed as dead, but `CAPABILITIES.md:247` and `USAGE_GUIDE.md:1141` document it as the public way to query the knowledge base. A user who set `ORCH_KNOWLEDGE_RERANK_ENABLED=true` got no reranking and no warning. Fixed in 7 lines by taking the plan's last step. |
+| C2 | **VERIFIED — ESCALATED** | `bilevel_tabu_enabled` inert *and* `engine_core/tabu_search.py` imported by nothing — the other `tabu_search` hits are string literals in docstring examples. Flag and subsystem both dead; deletion vs. completion is a product call. |
+| C3 | **VERIFIED — ESCALATED** | `bilevel_level15_enabled` inert, but its `SearchStrategyTuner` *is* injected into `BilevelAutoresearch`. The flag is redundant, not the feature. |
+| C4 | **VERIFIED — ESCALATED** | 12 of 21 `OrchestratorSettings` fields read nowhere (`dashboard_port`, `mcp_port`, `audit_log_path`, `default_budget_usd`, …). With `env_prefix="ORCH_"` and `extra="ignore"`, `ORCH_DASHBOARD_PORT=9000` is accepted in silence and discarded. |
+| C5 | **VERIFIED — ESCALATED (worth a second look)** | `dashboard_host: str = "127.0.0.1"` in config.py while `dashboard_core/core.py:347,372` hardcode `host="0.0.0.0"`. The config states loopback-only; the dashboard binds every interface. Also `dashboard_port: int = 8000` vs. the real `8888`. Changing the bind or the setting is a product decision with a security dimension, so nothing was changed unilaterally. |
+| C6 | FALSE (innocent) | Six `use_*` flags look dead but their env vars are read directly via `os.getenv`; CLAUDE.md documents them as working, and they are. The field is redundant, not the feature. |
+| C7 | FALSE (innocent) | `cache_home` — same shape; `infrastructure/path_provider.py:37` reads `ORCH_CACHE_HOME` directly. |
+
+**New gate — `scripts/check_config_wiring.py`:** freezes the 20 unread fields
+and fails on any new one, so the shape can only shrink. Verified by probe:
+adding a dead field is reported as `FeatureFlags.t20_gate_probe_flag`, exit 1.
+
+**Scope limit (see `t20-wiring-gaps/coverage.md`):** the census answers "does
+anything read this", not "does the *right* thing read it", and covers only
+`crosscutting/config.py` — dead settings defined elsewhere are invisible to
+both census and gate. `engine_core/container.py` is hand-wired with no
+name-keyed registry, so "registered but never resolved" collapses into the
+settings sub-shape and was not hunted separately.
