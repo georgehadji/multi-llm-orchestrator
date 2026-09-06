@@ -1830,15 +1830,20 @@ edition = "2021"
         """
         import re
 
-        # Try to find the summary line first
-        # Pattern: "X passed, Y failed, Z skipped, W errors"
+        # Try to find the summary line first. Each pattern's SOLE or FIRST
+        # group is a passed-count except the two below, whose only group is a
+        # failed/error count — a run with zero passes ("3 failed in 0.5s")
+        # has no "passed" substring at all, so it only ever matches these.
+        failed_only_patterns = {
+            r"(\d+)\s+failed\s+in",  # "1 failed in 0.1s"
+            r"(\d+)\s+error",
+        }
         summary_patterns = [
             r"(\d+)\s+passed,\s*(\d+)\s+failed",
             r"(\d+)\s+passed\s+in",  # "1 passed in 0.1s"
-            r"(\d+)\s+failed\s+in",  # "1 failed in 0.1s"
+            *failed_only_patterns,
             r"(\d+)\s+passed,\s*(\d+)\s+warning",
             r"(\d+)\s+passed,\s*(\d+)\s+skipped",
-            r"(\d+)\s+error",
         ]
 
         tests_passed = 0
@@ -1847,9 +1852,12 @@ edition = "2021"
         for pattern in summary_patterns:
             match = re.search(pattern, output)
             if match:
-                tests_passed = int(match.group(1))
-                if len(match.groups()) > 1:
-                    tests_failed = int(match.group(2))
+                if pattern in failed_only_patterns:
+                    tests_failed = int(match.group(1))
+                else:
+                    tests_passed = int(match.group(1))
+                    if len(match.groups()) > 1:
+                        tests_failed = int(match.group(2))
                 break
 
         tests_run = tests_passed + tests_failed

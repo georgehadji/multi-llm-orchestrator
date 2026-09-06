@@ -1,14 +1,14 @@
 # V4 precision-audit wave manifest — generated, do not hand-edit
 # regenerate: python scripts/plan_v4_waves.py
 #wave	tier	priority	loc	path
-P1	DEEP	12	3733	orchestrator/generators/website_generator.py
-P1	DEEP	10	1903	orchestrator/testing/first_generator.py
-P1	DEEP	10	1264	orchestrator/engine.py
-P1	DEEP	10	898	orchestrator/entrypoints/cli_dispatch.py
-P1	DEEP	9	3019	orchestrator/ide_backend/ide_orchestrator_server.py
-P1	DEEP	9	718	orchestrator/infrastructure/streaming.py
-P1	DEEP	9	641	orchestrator/infrastructure/llm_client.py
-P1	DEEP	8	1610	orchestrator/api_server.py
+P1	DEEP	12	3738	orchestrator/generators/website_generator.py
+P1	DEEP	10	1911	orchestrator/testing/first_generator.py
+P1	DEEP	10	1277	orchestrator/engine.py
+P1	DEEP	10	922	orchestrator/entrypoints/cli_dispatch.py
+P1	DEEP	9	3046	orchestrator/ide_backend/ide_orchestrator_server.py
+P1	DEEP	9	723	orchestrator/infrastructure/streaming.py
+P1	DEEP	9	644	orchestrator/infrastructure/llm_client.py
+P1	DEEP	8	1617	orchestrator/api_server.py
 P2	DEEP	8	1530	orchestrator/integrations/slack_integration.py
 P2	DEEP	8	1389	orchestrator/models.py
 P2	DEEP	8	1239	orchestrator/nash/infrastructure_v2.py

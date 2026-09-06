@@ -846,18 +846,27 @@ class Orchestrator:
         app_profile: AppProfile | None = None,  # noqa: F821
         analyze_on_complete: bool = False,
         output_dir: Path | None = None,  # noqa: F821
+        budget: Budget | None = None,
     ) -> ProjectState:
         """
         Main entry point. Decomposes project → executes tasks → returns state.
 
         P3-4: Delegates to ProjectRunner. All coordination logic lives there;
         this shell preserves the public API signature and docstring.
+
+        ``budget``: pass an explicit per-call budget when reusing a
+        long-running Orchestrator across independent callers (e.g. an HTTP
+        server handling concurrent requests). Without it, two overlapping
+        calls on the same instance would otherwise need to mutate
+        ``self._run_ctx.budget`` externally before each call — unsynchronized
+        shared state between them. Omitted (None), behavior is unchanged:
+        the run keeps whatever budget is already set on ``_run_ctx``.
         """
         validate_project_args(project_description, success_criteria, project_id, output_dir)
         # Reset per-run state for this new project
         self._run_ctx.reset(
             project_id=project_id,
-            budget=self._run_ctx.budget,
+            budget=budget if budget is not None else self._run_ctx.budget,
             analyze_on_complete=analyze_on_complete,
         )
         return await self._project_runner.run_project(
@@ -879,6 +888,7 @@ class Orchestrator:
         analyze_on_complete: bool = False,
         output_dir: Path | None = None,
         constitution: Any = None,
+        budget: Budget | None = None,
     ) -> ProjectState:
         """
         Run project with **pre-composed tasks** (skips LLM decomposition).
@@ -888,13 +898,16 @@ class Orchestrator:
         instead of being generated from a raw prompt.
 
         All other pipeline phases (generate → critique → revise → evaluate)
-        run identically to ``run_project()``.
+        run identically to ``run_project()``. See ``run_project()`` for why
+        ``budget`` exists: it lets a caller reusing a long-running instance
+        pass a per-call budget instead of mutating ``_run_ctx.budget``
+        externally.
         """
         validate_project_args(project_description, success_criteria, project_id, output_dir)
         # Reset per-run state for this new project
         self._run_ctx.reset(
             project_id=project_id,
-            budget=self._run_ctx.budget,
+            budget=budget if budget is not None else self._run_ctx.budget,
             analyze_on_complete=analyze_on_complete,
         )
         return await self._project_runner.run_project(

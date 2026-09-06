@@ -337,6 +337,12 @@ async def _async_resume(args: Any) -> None:
             "research": {"quality_mode": "standard", "iteration_cap": 6},
         }
         cfg = profile_map.get(args.agent_profile, {})
+        logger.warning(
+            "--agent-profile %r is not currently wired to any effect on this "
+            "command; %s ignored",
+            args.agent_profile,
+            "settings" if cfg else "unrecognized profile name,",
+        )
     existing = await orch.state_mgr.load_project(args.resume)
     if not existing:
         print(f"Project {args.resume} not found.")
@@ -401,6 +407,12 @@ async def _async_file_project(args: Any) -> None:
             "research": {"quality_mode": "standard", "iteration_cap": 6},
         }
         cfg = profile_map.get(args.agent_profile, {})
+        logger.warning(
+            "--agent-profile %r is not currently wired to any effect on this "
+            "command; %s ignored",
+            args.agent_profile,
+            "settings" if cfg else "unrecognized profile name,",
+        )
 
     print(f"Loading project from: {args.file}")
     print(f"Project: {spec.project_description[:80]}")
@@ -624,6 +636,12 @@ async def _async_new_project(args: Any) -> None:
             "research": {"quality_mode": "standard", "iteration_cap": 6},
         }
         cfg = profile_map.get(args.agent_profile, {})
+        logger.warning(
+            "--agent-profile %r is not currently wired to any effect on this "
+            "command; %s ignored",
+            args.agent_profile,
+            "settings" if cfg else "unrecognized profile name,",
+        )
 
     print(f"Starting project (budget: ${args.budget}, time: {args.time}s) [raw-tasks mode]")
     print(f"Project: {description}")
@@ -680,6 +698,12 @@ async def _async_visualize(args: Any) -> None:
             "research": {"quality_mode": "standard", "iteration_cap": 6},
         }
         cfg = profile_map.get(args.agent_profile, {})
+        logger.warning(
+            "--agent-profile %r is not currently wired to any effect on this "
+            "command; %s ignored",
+            args.agent_profile,
+            "settings" if cfg else "unrecognized profile name,",
+        )
 
     orch = Orchestrator(
         budget=budget, max_concurrency=args.concurrency, tracing_cfg=_build_tracing_cfg(args)

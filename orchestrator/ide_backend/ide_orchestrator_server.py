@@ -527,6 +527,18 @@ class SessionManager:
             logger.error(f"Failed to start server: {e}")
             return False
 
+    def is_process_alive(self, session_id: str) -> bool:
+        """Whether the session's spawned server process is still running.
+
+        Two sessions on the same default port can both pass the TOCTOU-prone
+        is_port_available() check before either has actually bound it; the
+        loser's process exits shortly after spawn while start_server() has
+        already returned True. Callers should check this before reporting
+        success to the user.
+        """
+        process = self.running_processes.get(session_id)
+        return process is not None and process.poll() is None
+
     def stop_server(self, session_id: str):
         """Stop server for a session."""
         if session_id in self.running_processes:
@@ -2763,12 +2775,17 @@ async def handle_chat_message(session_id: str, message: str, websocket: WebSocke
 
         if server_started:
             await asyncio.sleep(3)
-            session_manager.add_terminal_line(
-                session_id, "success", "✓ Dev server running on http://localhost:3000"
-            )
-            session_manager.add_terminal_line(
-                session_id, "info", "🌐 Open http://localhost:3000 to view your app"
-            )
+            if session_manager.is_process_alive(session_id):
+                session_manager.add_terminal_line(
+                    session_id, "success", "✓ Dev server running on http://localhost:3000"
+                )
+                session_manager.add_terminal_line(
+                    session_id, "info", "🌐 Open http://localhost:3000 to view your app"
+                )
+            else:
+                session_manager.add_terminal_line(
+                    session_id, "warning", "⚠ Dev server exited shortly after starting"
+                )
         else:
             session_manager.add_terminal_line(
                 session_id, "warning", "⚠ Server could not start (port may be in use)"
@@ -2783,12 +2800,17 @@ async def handle_chat_message(session_id: str, message: str, websocket: WebSocke
 
         if server_started:
             await asyncio.sleep(2)
-            session_manager.add_terminal_line(
-                session_id, "success", "✓ API running on http://localhost:8000"
-            )
-            session_manager.add_terminal_line(
-                session_id, "info", "📄 Swagger docs: http://localhost:8000/docs"
-            )
+            if session_manager.is_process_alive(session_id):
+                session_manager.add_terminal_line(
+                    session_id, "success", "✓ API running on http://localhost:8000"
+                )
+                session_manager.add_terminal_line(
+                    session_id, "info", "📄 Swagger docs: http://localhost:8000/docs"
+                )
+            else:
+                session_manager.add_terminal_line(
+                    session_id, "warning", "⚠ API server exited shortly after starting"
+                )
         else:
             session_manager.add_terminal_line(
                 session_id, "warning", "⚠ Server could not start (port may be in use)"
@@ -2803,12 +2825,17 @@ async def handle_chat_message(session_id: str, message: str, websocket: WebSocke
 
         if server_started:
             await asyncio.sleep(2)
-            session_manager.add_terminal_line(
-                session_id, "success", "✓ Server running on http://localhost:3000"
-            )
-            session_manager.add_terminal_line(
-                session_id, "info", "🌐 Open http://localhost:3000 to view your website"
-            )
+            if session_manager.is_process_alive(session_id):
+                session_manager.add_terminal_line(
+                    session_id, "success", "✓ Server running on http://localhost:3000"
+                )
+                session_manager.add_terminal_line(
+                    session_id, "info", "🌐 Open http://localhost:3000 to view your website"
+                )
+            else:
+                session_manager.add_terminal_line(
+                    session_id, "warning", "⚠ Server exited shortly after starting"
+                )
         else:
             session_manager.add_terminal_line(
                 session_id, "warning", "⚠ Server could not start (port may be in use)"

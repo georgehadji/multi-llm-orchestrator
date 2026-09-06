@@ -31,6 +31,11 @@ def _get_registry():
 
             get_registry = _gr
         except ImportError:
+            logger.warning(
+                "design.component_registry unavailable — falling back to "
+                "4 uncurated sections (hero/features/pricing/contact), no "
+                "component curation or design-token guidance this run"
+            )
 
             class _FakeComponent:
                 def __init__(self, name, **kwargs):

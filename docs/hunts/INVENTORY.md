@@ -871,3 +871,48 @@ for this: CI's own collection step is the detector, and it caught the defect
 within minutes of the runners returning. The gap was that the local environment
 had drifted from CI's, and a gate running in the drifted environment would not
 have seen it either.
+
+---
+
+## P1 — V4 precision audit, wave 1 (highest-priority region: 8 files, 13,786 LOC)
+
+First wave of `docs/hunts/PRECISION_AUDIT_V4_WAVE_PLAN.md`'s two-speed cut, unit = file
+rather than shape (orthogonal to the T0-T22 shape sweeps that preceded it — see that
+plan's §1 for why the two methods don't overlap). Full elicitation, innocence, fix, and
+coverage detail: `docs/hunts/p1-priority-region/{inventory,coverage}.md`.
+
+**8 VERIFIED/well-mechanized defects fixed, 8 files touched, 11 new regression tests
+(`tests/unit/test_hunt_p1_deep.py`), zero regressions** (2790 passed, 24 skipped, 3
+deselected, 7 xfailed; the 2 pre-registered `test_openrouter_model_audit.py` failures are
+this environment's proxy, confirmed passing on CI). mypy isolated-diff: 3898 -> 3896
+errors — a pure reduction, and the two removed errors independently corroborate P1-4 and
+P1-5 (mypy's own message on P1-5: `note: Maybe you forgot to use "await"?`).
+
+| ID | Disposition | Summary |
+|---|---|---|
+| P1-7 | **VERIFIED DEFECT — FIXED** | `api_server.py`'s three `_dispatch_execute_*` handlers reused a constructor-injected long-running `Orchestrator` (the documented mode) and mutated its shared `_run_ctx.budget` with no lock before launching each project as a fire-and-forget background task. `_run_ctx.budget` is read live inside the pipeline (`engine.py:860,897`), so a later concurrent request's overwrite is not inert — it changes what an already-running background project reads on its next check. Fixed by adding an explicit `budget` parameter to `run_project()`/`run_project_with_tasks()` (using `RunContext.reset()`'s existing, previously-unused `budget` hook) and passing it through the call at all three sites instead of writing the shared attribute. |
+| P1-3 | **VERIFIED DEFECT — FIXED (partial)** | `ide_orchestrator_server.py::SessionManager.start_server` hardcodes dev-server ports (3000/8000/3000) with no session-scoping; `is_port_available`'s bind-then-close check is TOCTOU-prone against a real uvicorn/npm process's own (slower) bind. Two concurrent same-stack sessions can both pass the check, and the loser's UI shows a false "✓ Dev server running" after its process has already exited. Fixed the false-success half: `SessionManager.is_process_alive()` (new), checked at all 3 call sites before reporting success. The port-collision-in-the-first-place half (real per-session port allocation) is a product decision on port scheme, `[REQUIRES HUMAN REVIEW]`, recorded in coverage.md rather than invented. |
+| P1-6 | **VERIFIED DEFECT — FIXED** | `UnifiedClient._clients` was declared `ClassVar[dict[...]]` at class level and never shadowed in `__init__` (unlike the correctly-scoped `_provider_clients`), so every instance in the process shared one XAI-client cache; any instance's `close()` cleared and closed it out from under every other live instance. Confirmed reachable via `WebsiteFactory`'s bounded-concurrency batch mode (N concurrent `Orchestrator`/`UnifiedClient` instances, one `container.py`-constructed each). Fixed: `self._clients = {}` added to `__init__`, `ClassVar` annotation removed. |
+| P1-8 | **VERIFIED DEFECT — FIXED** | `first_generator.py::_parse_pytest_output`'s `r"(\d+)\s+failed\s+in"` pattern (matches a 100%-failing run's real summary line) has one capture group — the failed count — but the shared handling code unconditionally assigned `match.group(1)` to `tests_passed`. `"3 failed in 0.52s"` parsed as `(tests_run=3, tests_passed=3)`. The `_run_pytest_locally` call site has its own pre-existing returncode cross-check that neutralizes this; the sandbox call site (`_run_tests_and_collect_results`) does not, and additionally feeds the wrong `tests_passed` into `_calculate_test_quality`, inflating the quality score for a totally-failed run. Fixed at the root (both call sites benefit): failed-only patterns now assign to `tests_failed`, not `tests_passed`. |
+| P1-1 | **VERIFIED DEFECT — FIXED** | `website_generator.py::_get_registry`'s `except ImportError` (the fallback that made `component_registry` "dead since it was written" per the earlier `5acde5b` revival commit) had zero log line — the exact reason nobody noticed the registry was dead for its entire lifetime until a separate hunt tier found it by reading source. Fixed with one `logger.warning`, so any future regression of `component_registry`'s imports is visible instead of silently degrading every generated site to 4 uncurated sections. |
+| P1-2 | **VERIFIED DEFECT — FIXED (partial)** | `--agent-profile` is a real, documented CLI flag (`cli_dispatch.py:194`, no `choices=`) parsed into a `quality_mode`/`iteration_cap`/`temperature` dict at 4 call sites (`_async_resume`, `_async_file_project`, `_async_new_project`, `_async_visualize` — the last makes no semantic sense as a target, evidence of mechanical copy-paste) and applied at none of them. A second, independently-built classmethod (`AutonomyConfig.from_agent_profile`) exists for exactly this purpose and also has zero callers anywhere in the repo; a third, differently-named profile vocabulary exists in `operations/autonomy.py`. Three competing implementations, none wired, no existing minimal wire-up point on the actual call path (`run_project_streaming` accepts no profile-related parameter) — full wiring is `[REQUIRES HUMAN REVIEW]`. Fixed the visible half: each site now logs that the flag has no effect, rather than silently accepting and discarding it. |
+| P1-4 | **VERIFIED DEFECT — FIXED** | `streaming.py::StreamingPipeline._run_pipeline` referenced the bare name `project_description` (not a parameter, not in scope — the value is `context.description`), raising `NameError` on the first statement of every invocation. Caught by the method's own `except Exception`, converted into a generic `ERROR` event, so the entire 3-stage pipeline (Decompose/Execute/Validate) never runs even once. Reachability is DEAD in production: `engine.py`'s real streaming path uses a different class (`ProjectEventBus`) in the same file; zero test files reference `StreamingPipeline`. Fixed with a one-token correction; mypy's own `name-defined` error for this exact line is gone post-fix. |
+| P1-5 | **VERIFIED DEFECT — FIXED** | `StreamingPipeline.__init__` calls `get_event_bus()` (genuinely `async def`) synchronously, binding `self.event_bus` to a bare, un-awaited coroutine object — confirmed via Python's own `RuntimeWarning: coroutine 'get_event_bus' was never awaited` firing unprompted. Every `_emit_to_bus()` call then raises `AttributeError: 'coroutine' object has no attribute 'publish'`, silently swallowed by its own `except Exception`. Same DEAD reachability as P1-4. Fixed by deferring resolution to `_emit_to_bus`'s first call (already async) rather than making `__init__` async, which would be a breaking signature change; mypy's own `union-attr` error plus its `Maybe you forgot to use "await"?` note for this exact line are gone post-fix. |
+
+**Cleared (innocent), 6 candidates — see inventory.md for full evidence.** Two are notable
+for the discipline they exercised: `ide_orchestrator_server.py:2072-2101`'s
+`class Item(BaseModel)` / `@app.get("/items/{{item_id}}")` looked like a live double-brace
+routing bug; AST proved it sits inside an f-string inside a code-generation template — the
+same grep-vs-AST trap this hunt has hit before. `engine.py::__aexit__`'s unguarded
+`await self._c.shutdown()` looked inconsistent with 3 guarded sibling calls; reading
+`container.py::shutdown()` in full showed every one of its 7 steps independently
+self-guards, so the call cannot propagate.
+
+**Scope limit (see `p1-priority-region/coverage.md`):** two shapes (Concurrency,
+Logic/silent-failure) accounted for all 8 findings; Injection, Memory/Resource, and
+Edge-case classes were checked with no findings but not exhaustively swept. Roughly 85% of
+these 8 files' combined logic remains unread, concentrated in `ide_orchestrator_server.py`'s
+multi-thousand-line template-generation bodies and its FastAPI route handlers (this wave
+covered only `SessionManager`'s process/port lifecycle). A second, unrelated `RunContext`
+class was noticed at `application/unattended_guard.py:36` during Candidate 7's trace and
+deliberately not investigated — flagged for a future wave rather than chased as a tangent.
