@@ -21,6 +21,7 @@ C2 — orchestrator/quality/toml_validator.py did `import tomllib`
 from __future__ import annotations
 
 import re
+import sys
 import tempfile
 from pathlib import Path
 
@@ -75,6 +76,11 @@ def test_c2_pyproject_declares_tomli_for_pre_311():
 
 
 @pytest.mark.unit
+@pytest.mark.skipif(
+    sys.version_info < (3, 11),
+    reason="exercises the stdlib tomllib codepath, which only exists on 3.11+; "
+    "the <3.11 tomli fallback path is covered by test_c2_toml_validator_has_version_gated_tomllib_import",
+)
 def test_c2_module_still_imports_and_validates_on_current_interpreter():
     """Boundary: on the interpreter actually running this suite (3.11+), the
     fix must be a no-op — same stdlib tomllib, same validate_toml() behavior."""
