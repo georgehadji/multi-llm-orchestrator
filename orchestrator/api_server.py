@@ -472,10 +472,14 @@ class APIServer:
 
         budget = Budget(max_usd=budget_usd, max_time_seconds=max_time)
 
-        # Use long-running orchestrator with per-run budget
+        # Reuse the long-running orchestrator if configured, else build one
+        # scoped to this request. Either way, `budget` is passed straight
+        # into run_project() rather than mutated onto orch._run_ctx here:
+        # orch may be shared across concurrently in-flight requests, and
+        # writing orch._run_ctx.budget would be unsynchronized shared state
+        # between them (see engine.py::run_project's `budget` parameter).
         if self._orchestrator is not None:
             orch = self._orchestrator
-            orch._run_ctx.budget = budget
         else:
             orch = Orchestrator(budget=budget, max_concurrency=concurrency)
 
@@ -501,6 +505,7 @@ class APIServer:
                 project_description=project_description,
                 success_criteria=success_criteria,
                 project_id=project_id,
+                budget=budget,
             ),
         )
         self._update_request_stats(success=True)
@@ -564,10 +569,10 @@ class APIServer:
         ).hexdigest()[:12]
 
         budget = Budget(max_usd=budget_usd, max_time_seconds=max_time)
-        # Use long-running orchestrator with per-run budget
+        # See _dispatch_execute_project: pass budget into the call rather
+        # than mutating a possibly-shared orch._run_ctx.
         if self._orchestrator is not None:
             orch = self._orchestrator
-            orch._run_ctx.budget = budget
         else:
             orch = Orchestrator(budget=budget, max_concurrency=concurrency)
 
@@ -594,6 +599,7 @@ class APIServer:
                 success_criteria=success_criteria,
                 tasks=tasks,
                 project_id=project_id,
+                budget=budget,
             ),
         )
 
@@ -662,10 +668,10 @@ class APIServer:
         ).hexdigest()[:12]
 
         budget = Budget(max_usd=budget_usd)
-        # Use long-running orchestrator with per-run budget
+        # See _dispatch_execute_project: pass budget into the call rather
+        # than mutating a possibly-shared orch._run_ctx.
         if self._orchestrator is not None:
             orch = self._orchestrator
-            orch._run_ctx.budget = budget
         else:
             orch = Orchestrator(budget=budget, max_concurrency=max_concurrency)
 
@@ -692,6 +698,7 @@ class APIServer:
                 tasks=artifacts.tasks,
                 project_id=project_id,
                 constitution=artifacts.constitution,
+                budget=budget,
             ),
         )
 

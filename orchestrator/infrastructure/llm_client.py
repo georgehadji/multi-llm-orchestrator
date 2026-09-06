@@ -2,7 +2,7 @@ import asyncio
 import json
 import os
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
@@ -142,7 +142,6 @@ class UnifiedClient:
     """
 
     _default_client: "AsyncInstructor[AsyncOpenAI] | None" = None
-    _clients: ClassVar[dict[str, "AsyncInstructor[AsyncOpenAI]"]] = {}
 
     @staticmethod
     def _instructor_mode() -> Any:
@@ -202,6 +201,10 @@ class UnifiedClient:
 
         # Per-provider clients, lazily initialized
         self._provider_clients: dict[Provider, "AsyncInstructor[AsyncOpenAI]"] = {}
+        # Per-model clients (XAI path). Instance-scoped: shadows the
+        # class-level default below so close() only ever clears THIS
+        # instance's cache, not every UnifiedClient in the process.
+        self._clients: dict[str, "AsyncInstructor[AsyncOpenAI]"] = {}
 
         # Set up disk cache for compatibility
         from ..cache import DiskCache

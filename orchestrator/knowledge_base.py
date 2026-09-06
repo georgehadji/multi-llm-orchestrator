@@ -29,6 +29,8 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from .crosscutting.config import flags
+
 from .log_config import get_logger
 from .performance import LRUCache
 
@@ -422,8 +424,11 @@ class KnowledgeBase:
         """Get knowledge-based recommendations."""
         recommendations = []
 
-        # Find similar past solutions
-        similar = await self.find_similar(current_task, top_k=3)
+        # Find similar past solutions. `knowledge_rerank_enabled` gates the
+        # stage-2 LLM rerank; this is the consumer the flag was written for.
+        similar = await self.find_similar(
+            current_task, top_k=3, rerank=flags.knowledge_rerank_enabled
+        )
 
         for artifact in similar:
             recommendations.append(

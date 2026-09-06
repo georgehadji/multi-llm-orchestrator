@@ -224,7 +224,7 @@ class Model(Enum):
     XAI_GROK_4_5 = "x-ai/grok-4.5"
     QWEN_3_7_MAX = "qwen/qwen3.7-max"
     QWEN_3_7_FLASH = "qwen/qwen3.7-flash"
-    QWEN_3_6_FLASH = "openai/gpt-4o-mini"
+    QWEN_3_6_FLASH = "qwen/qwen3.6-flash"
     MINIMAX_M2_7 = "minimax/minimax-m2.7"
     XIAOMI_MIMO_V2_FLASH = "xiaomi/mimo-v2.5"
     XIAOMI_MIMO_V2_5 = "xiaomi/mimo-v2.5"
@@ -404,15 +404,15 @@ COST_TABLE: dict[Model, CostDict] = {
     # ------------------------------------------------
     # Open-Source Models (Tier 1)
     # ------------------------------------------------
-    Model.GPT_OSS_120B: {"input": 0.04, "output": 0.18},
-    Model.GPT_OSS_20B: {"input": 0.03, "output": 0.14},
-    Model.QWEN_NEXT_80B: {"input": 0.09, "output": 1.10},
+    Model.GPT_OSS_120B: {"input": 0.037, "output": 0.17},
+    Model.GPT_OSS_20B: {"input": 0.03, "output": 0.13},
+    Model.QWEN_NEXT_80B: {"input": 0.1, "output": 1.1},
     Model.GLM_4_7_FLASH: {"input": 0.06, "output": 0.40},
     Model.MINIMAX_M2_5: {"input": 0.15, "output": 0.90},
     Model.DEVSTRAL_2512: {"input": 0.40, "output": 2.00},  # DEPRECATED
     Model.CODESTRAL_2508: {"input": 0.30, "output": 0.90},
     Model.MISTRAL_LARGE_2512: {"input": 0.50, "output": 1.50},
-    Model.GLM_5: {"input": 0.60, "output": 1.92},
+    Model.GLM_5: {"input": 0.95, "output": 2.55},
     # ------------------------------------------------
     # Proprietary Models (Tier 1)
     # ------------------------------------------------
@@ -420,43 +420,43 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.GEMINI_3_1_PRO_PREVIEW: {"input": 2.00, "output": 12.00},
     Model.GPT_5_2: {"input": 1.75, "output": 14.00},
     Model.GPT_4O: {"input": 2.50, "output": 10.00},
-    Model.GPT_4O_MINI: {"input": 0.15, "output": 0.60},
+    Model.GPT_4O_MINI: {"input": 0.15, "output": 0.6},
     Model.GPT_5: {"input": 1.25, "output": 10.00},
     Model.GPT_5_MINI: {"input": 0.25, "output": 2.00},
     Model.GPT_5_NANO: {"input": 0.05, "output": 0.40},
     Model.O1: {"input": 15.00, "output": 60.00},
     Model.O3_MINI: {"input": 1.10, "output": 4.40},
-    Model.O4_MINI: {"input": 1.50, "output": 6.00},
-    Model.GEMINI_FLASH: {"input": 0.15, "output": 0.60},
-    Model.GEMINI_FLASH_LITE: {"input": 0.10, "output": 0.40},  # DEPRECATED
+    Model.O4_MINI: {"input": 1.1, "output": 4.4},
+    Model.GEMINI_FLASH: {"input": 1.5, "output": 9.00},
+    Model.GEMINI_FLASH_LITE: {"input": 0.25, "output": 1.5},  # DEPRECATED
     Model.CLAUDE_FABLE_5: {"input": 10.00, "output": 50.00},
     Model.CLAUDE_SONNET_4_5: {"input": 3.00, "output": 15.00},
-    Model.CLAUDE_SONNET_5: {"input": 3.00, "output": 15.00},
+    Model.CLAUDE_SONNET_5: {"input": 2.00, "output": 10.00},
     Model.CLAUDE_OPUS_4_5: {"input": 5.00, "output": 25.00},
     Model.CLAUDE_OPUS_4_8: {"input": 6.00, "output": 30.00},
-    Model.CLAUDE_OPUS_5: {"input": 10.00, "output": 50.00},
-    Model.CLAUDE_OPUS_5_FAST: {"input": 20.00, "output": 100.00},
+    Model.CLAUDE_OPUS_5: {"input": 5.00, "output": 25.00},
+    Model.CLAUDE_OPUS_5_FAST: {"input": 10.00, "output": 50.00},
     Model.CLAUDE_HAIKU_4_5: {"input": 1.00, "output": 5.00},
-    Model.DEEPSEEK_V4_PRO: {"input": 1.50, "output": 6.00},
+    Model.DEEPSEEK_V4_PRO: {"input": 0.435, "output": 0.87},
     Model.DEEPSEEK_V4_FLASH: {"input": 0.14, "output": 0.28},
-    Model.LLAMA_4_MAVERICK: {"input": 0.17, "output": 0.17},
-    Model.LLAMA_4_SCOUT: {"input": 0.11, "output": 0.34},
-    Model.LLAMA_3_3_70B: {"input": 0.12, "output": 0.30},
+    Model.LLAMA_4_MAVERICK: {"input": 0.2, "output": 0.8},
+    Model.LLAMA_4_SCOUT: {"input": 0.1, "output": 0.3},
+    Model.LLAMA_3_3_70B: {"input": 0.13, "output": 0.4},
     Model.LLAMA_3_1_405B: {"input": 2.00, "output": 2.00},
     Model.PHI_4: {"input": 0.07, "output": 0.14},
-    Model.GEMMA_3_27B: {"input": 0.08, "output": 0.20},
-    Model.HERMES_3_LLAMA_3_1_70B: {"input": 0.40, "output": 0.40},
-    Model.MOONSHOT_KIMI_K2_7_CODE: {"input": 1.10, "output": 4.50},
-    Model.MOONSHOT_KIMI_K2_6: {"input": 0.95, "output": 4.00},
-    Model.MOONSHOT_KIMI_K2: {"input": 0.50, "output": 1.50},
+    Model.GEMMA_3_27B: {"input": 0.08, "output": 0.45},
+    Model.HERMES_3_LLAMA_3_1_70B: {"input": 0.7, "output": 0.7},
+    Model.MOONSHOT_KIMI_K2_7_CODE: {"input": 0.73, "output": 3.5},
+    Model.MOONSHOT_KIMI_K2_6: {"input": 0.6, "output": 3.41},
+    Model.MOONSHOT_KIMI_K2: {"input": 0.57, "output": 2.3},
     Model.STEPFUN_STEP_3_5_FLASH: {"input": 0.10, "output": 0.30},
-    Model.ZHIPU_GLM_5_2: {"input": 0.50, "output": 2.00},
+    Model.ZHIPU_GLM_5_2: {"input": 0.7601, "output": 2.3888},
     Model.ZHIPU_GLM_5_TURBO: {"input": 1.20, "output": 4.00},
-    Model.XAI_GROK_4_5: {"input": 1.50, "output": 4.00},
-    Model.QWEN_3_7_MAX: {"input": 0.78, "output": 3.90},
+    Model.XAI_GROK_4_5: {"input": 2.00, "output": 6.00},
+    Model.QWEN_3_7_MAX: {"input": 1.475, "output": 4.425},
     Model.QWEN_3_7_FLASH: {"input": 0.03, "output": 0.13},
-    Model.QWEN_3_6_FLASH: {"input": 0.12, "output": 0.50},
-    Model.MINIMAX_M2_7: {"input": 0.30, "output": 1.20},
+    Model.QWEN_3_6_FLASH: {"input": 0.1875, "output": 1.125},
+    Model.MINIMAX_M2_7: {"input": 0.25, "output": 1.00},
     Model.XIAOMI_MIMO_V2_FLASH: {"input": 0.14, "output": 0.28},
     Model.XIAOMI_MIMO_V2_5_PRO: {"input": 0.44, "output": 0.87},
     # ------------------------------------------------
@@ -465,32 +465,32 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.GPT_5_4: {"input": 2.50, "output": 15.00},
     Model.GPT_5_4_MINI: {"input": 0.75, "output": 4.50},
     Model.GPT_5_4_CODEX: {"input": 1.75, "output": 14.00},
-    Model.RING_2_6_1T: {"input": 0.50, "output": 2.00},
+    Model.RING_2_6_1T: {"input": 0.075, "output": 0.625},
     Model.MINIMAX_M3: {"input": 0.30, "output": 1.20},
     Model.QWEN_3_7_PLUS: {"input": 0.32, "output": 1.28},
     Model.GPT_5_4_NANO: {"input": 0.20, "output": 1.25},
-    Model.GEMMA_4_31B: {"input": 0.12, "output": 0.35},
-    Model.STEPFUN_STEP_3_7_FLASH: {"input": 0.15, "output": 0.45},
-    Model.NEMOTRON_3_SUPER_120B: {"input": 0.10, "output": 0.50},
+    Model.GEMMA_4_31B: {"input": 0.1, "output": 0.34},
+    Model.STEPFUN_STEP_3_7_FLASH: {"input": 0.2, "output": 1.15},
+    Model.NEMOTRON_3_SUPER_120B: {"input": 0.085, "output": 0.4},
     Model.GPT_5_CODEX: {"input": 1.25, "output": 10.00},
     Model.GPT_5_4_PRO: {"input": 30.00, "output": 180.00},
     Model.XAI_GROK_4_MINI: {"input": 0.30, "output": 0.60},
-    Model.QWEN_3_CODER: {"input": 0.20, "output": 0.80},
-    Model.QWEN_3_CODER_NEXT: {"input": 0.50, "output": 2.00},
-    Model.QWEN_3_5_397B: {"input": 1.20, "output": 4.80},
-    Model.QWEN_3_235B_THINKING: {"input": 2.50, "output": 10.00},
-    Model.QWEN_3_MAX_THINKING: {"input": 3.50, "output": 14.00},
+    Model.QWEN_3_CODER: {"input": 0.3, "output": 1.00},
+    Model.QWEN_3_CODER_NEXT: {"input": 0.12, "output": 0.8},
+    Model.QWEN_3_5_397B: {"input": 0.39, "output": 2.34},
+    Model.QWEN_3_235B_THINKING: {"input": 0.23, "output": 2.3},
+    Model.QWEN_3_MAX_THINKING: {"input": 0.78, "output": 3.9},
     Model.DEEPSEEK_R1: {"input": 0.70, "output": 2.50},
-    Model.DEEPSEEK_V3_2: {"input": 0.229, "output": 0.343},
-    Model.DEEPSEEK_V3_1_TERMINUS: {"input": 0.27, "output": 0.95},
-    Model.MOONSHOT_KIMI_K2_5: {"input": 0.375, "output": 2.025},
+    Model.DEEPSEEK_V3_2: {"input": 0.269, "output": 0.4},
+    Model.DEEPSEEK_V3_1_TERMINUS: {"input": 0.27, "output": 1.00},
+    Model.MOONSHOT_KIMI_K2_5: {"input": 0.57, "output": 2.85},
     Model.MOONSHOT_KIMI_K2_THINKING: {"input": 0.60, "output": 2.50},
     Model.MOONSHOT_KIMI_K2_0905: {"input": 0.60, "output": 2.50},
     Model.XAI_GROK_4_3: {"input": 1.25, "output": 2.50},
     Model.QWEN_3_MAX: {"input": 0.78, "output": 3.90},
-    Model.QWEN_3_235B: {"input": 2.00, "output": 6.00},
-    Model.QWEN_3_CODER_FLASH: {"input": 0.12, "output": 0.50},
-    Model.QWEN_3_CODER_PLUS: {"input": 0.50, "output": 2.00},
+    Model.QWEN_3_235B: {"input": 0.455, "output": 1.82},
+    Model.QWEN_3_CODER_FLASH: {"input": 0.195, "output": 0.975},
+    Model.QWEN_3_CODER_PLUS: {"input": 0.65, "output": 3.25},
     Model.GPT_5_5: {"input": 5.00, "output": 30.00},
     Model.GPT_5_5_PRO: {"input": 30.00, "output": 180.00},
     Model.GPT_LATEST: {"input": 5.00, "output": 30.00},
@@ -507,9 +507,9 @@ COST_TABLE: dict[Model, CostDict] = {
     # ------------------------------------------------
     # Image Generation Models
     # ------------------------------------------------
-    Model.GEMINI_3_1_FLASH_IMAGE_PREVIEW: {"input": 0.0005, "output": 0.003},
-    Model.GEMINI_2_5_FLASH_IMAGE: {"input": 0.0003, "output": 0.0025},
-    Model.GEMINI_3_PRO_IMAGE_PREVIEW: {"input": 0.002, "output": 0.012},
+    Model.GEMINI_3_1_FLASH_IMAGE_PREVIEW: {"input": 0.5, "output": 3.00},
+    Model.GEMINI_2_5_FLASH_IMAGE: {"input": 0.3, "output": 2.5},
+    Model.GEMINI_3_PRO_IMAGE_PREVIEW: {"input": 2.00, "output": 12.00},
     Model.GEMINI_FLASH_LITE_IMAGE: {"input": 0.25, "output": 1.50},  # DEPRECATED
     Model.GPT_5_IMAGE: {"input": 10.00, "output": 10.00},
     Model.GPT_5_IMAGE_MINI: {"input": 2.50, "output": 2.00},
@@ -561,7 +561,7 @@ COST_TABLE: dict[Model, CostDict] = {
     # 2026-07 batch — declared in the enum but never wired into COST_TABLE
     Model.GEMINI_3_6_FLASH: {"input": 1.50, "output": 7.50},
     Model.GEMINI_3_5_FLASH_LITE: {"input": 0.30, "output": 2.50},
-    Model.LAGUNA_S_2_1: {"input": 0.10, "output": 0.20},
+    Model.LAGUNA_S_2_1: {"input": 0.09, "output": 0.18},
     Model.INKLING: {"input": 1.00, "output": 4.05},
     Model.INKLING_SMALL: {"input": 0.50, "output": 1.20},
     Model.LONGCAT_2_0: {"input": 0.30, "output": 1.20},
@@ -632,7 +632,7 @@ CONTEXT_WINDOWS: dict[Model, int] = {
     Model.XAI_GROK_4_5: 131072,
     Model.QWEN_3_7_MAX: 65536,
     Model.QWEN_3_7_FLASH: 1048576,
-    Model.QWEN_3_6_FLASH: 32768,
+    Model.QWEN_3_6_FLASH: 1000000,
     Model.MINIMAX_M2_7: 32768,
     Model.XIAOMI_MIMO_V2_FLASH: 131072,
     # Proprietary (Tier 2)
@@ -1306,9 +1306,8 @@ def estimate_cost(model: Model, input_tokens: int, output_tokens: int) -> float:
 def vs_variant_for(model: Model, default_k: int = 5) -> VSConfig | None:
     """Choose VS variant based on model cost tier (Phase 5).
 
-    PREMIUM models (named "pro", "opus", "o1", etc.) → full VS.
-    STANDARD models (most others) → standard VS.
     BUDGET models (named "flash", "mini", etc.) → None (skip VS).
+    All other models → standard VS. There is no separate PREMIUM tier today.
 
     Uses model name heuristics since all models route through OpenRouter.
     """
@@ -1317,7 +1316,6 @@ def vs_variant_for(model: Model, default_k: int = 5) -> VSConfig | None:
     for pat in _budget:
         if pat in name:
             return None
-    _premium = ("pro", "opus", "o1", "o3", "k2", "k3", "maverick", "sonnet-4-5", "max", "turbo")
     return VSConfig(k=default_k, temperature=0.9, fmt=ProbabilityFormat.EXPLICIT, top_p=0.95)
 
 

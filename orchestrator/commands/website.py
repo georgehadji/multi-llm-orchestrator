@@ -23,7 +23,7 @@ def register(subparsers) -> None:
         "--framework",
         "-f",
         default="html",
-        choices=["html", "react", "next.js"],
+        choices=["html", "react", "next.js", "svelte", "sveltekit"],
         help="Target framework",
     )
     wp.add_argument(

@@ -792,14 +792,18 @@ class TestCodebaseWriter:
             assert isinstance(ver, object)
 
     def test_secret_detection(self):
-        """Possible hardcoded secrets are flagged."""
+        """Possible hardcoded secrets are flagged and block the write.
+
+        T2-C3: previously only landed in .warnings, which apply() never
+        reads — a detected secret must be a blocking .errors entry.
+        """
         from orchestrator.codebase_writer import ModificationGate, VerificationResult
 
         gate = ModificationGate()
         vr = VerificationResult()
         gate._check_secrets('password = "my_secret_key"\n', vr)
-        assert len(vr.warnings) > 0
-        assert any("Hardcoded password" in w for w in vr.warnings)
+        assert len(vr.errors) > 0
+        assert any("Hardcoded password" in e for e in vr.errors)
 
     def test_secret_detection_clean(self):
         """No secrets in clean code."""

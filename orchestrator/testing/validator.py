@@ -368,7 +368,7 @@ Generate ONLY the test code, nothing else:
 
         # Call LLM
         try:
-            response = await self.client.call_model(
+            response = await self.client.call(
                 model="gpt-4o-mini",  # Cheaper, faster for tests
                 prompt=prompt,
                 max_tokens=2000,

@@ -42,7 +42,13 @@ def backup(args):
     """Handle nash backup command."""
     import asyncio
 
-    from orchestrator.nash_backup import get_backup_manager
+    try:
+        from orchestrator.nash_backup import get_backup_manager
+    except ImportError:
+        print(
+            "Nash backup/restore is not implemented yet (orchestrator.nash_backup does not exist)."
+        )
+        return
 
     async def run():
         mgr = get_backup_manager()

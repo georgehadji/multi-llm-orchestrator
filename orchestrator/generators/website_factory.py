@@ -63,7 +63,7 @@ class SiteSpec:
     company_name: str = ""
     industry: str = "technology"
     page_type: str = "landing"
-    framework: str = "html"
+    framework: str = "html"  # html | react | next.js | svelte | sveltekit
     preset: str = "modern"
     sections: list[str] = field(default_factory=lambda: list(_DEFAULT_SECTIONS))
     min_quality: float = 0.0

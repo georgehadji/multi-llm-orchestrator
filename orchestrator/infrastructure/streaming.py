@@ -420,7 +420,10 @@ class StreamingPipeline:
         event_bus: EventBus | None = None,
     ):
         self.max_parallel = max_parallel
-        self.event_bus = event_bus or get_event_bus()
+        # get_event_bus() is async; __init__ can't await it, so resolution is
+        # deferred to _emit_to_bus's first call (already async) rather than
+        # binding self.event_bus to an un-awaited coroutine here.
+        self.event_bus = event_bus
         self.stages: list[PipelineStage] = [
             DecomposeStage(),
             ExecuteStage(max_parallel=max_parallel),
@@ -500,7 +503,7 @@ class StreamingPipeline:
                     type=PipelineEventType.PROJECT_START,
                     project_id=context.project_id,
                     data={
-                        "description": project_description[:100],
+                        "description": context.description[:100],
                         "budget": context.budget.max_usd,
                     },
                 )
@@ -552,6 +555,8 @@ class StreamingPipeline:
     async def _emit_to_bus(self, event: PipelineEvent) -> None:
         """Convert pipeline event to domain event and emit to bus."""
         try:
+            if self.event_bus is None:
+                self.event_bus = await get_event_bus()
             domain_event = self._to_domain_event(event)
             if domain_event:
                 await self.event_bus.publish(domain_event)
@@ -665,7 +670,6 @@ class ProjectEventBus:
     """
 
     def __init__(self):
-        self._event_bus = get_event_bus()
         self._queue: asyncio.Queue = asyncio.Queue()
         self._subscribers: list[asyncio.Queue] = []
         self._running = False

@@ -207,7 +207,7 @@ class BudgetEnforcer:
         self.phase_spent[phase] = new_phase_spent
         return True
 
-    def record_cost(
+    async def record_cost(
         self,
         task_id: str,
         cost_usd: float,
@@ -216,21 +216,27 @@ class BudgetEnforcer:
         """
         Record task execution cost.
 
+        T1-C2: previously mutated `self.budget.spent_usd` directly, bypassing
+        Budget's own asyncio.Lock (the exact TOCTOU protection BUG-001/FIX-001a
+        added). Now delegates to Budget.charge(), which is lock-protected.
+
+        This also used to call `self.budget_hierarchy.record_cost(...)`, a
+        method that does not exist on BudgetHierarchy (real method:
+        `charge_job(job_id, team, amount)`, which needs a job_id/team this
+        method was never given) — silenced with `# type: ignore[attr-defined]`.
+        Cross-run hierarchy charging is `enforce_hierarchy_job()`'s job (see
+        ProjectRunner.run_job), not this per-call method's.
+
         Args:
             task_id: Task identifier
             cost_usd: Cost in USD
             phase: Optional phase name
         """
-        # Update budget
-        self.budget.spent_usd += cost_usd
+        await self.budget.charge(cost_usd, phase or "generation")
 
-        # Update phase spending
+        # Enforcer's own phase-spend tracking (separate from Budget.phase_spent).
         if phase and phase in self.phase_spent:
             self.phase_spent[phase] += cost_usd
-
-        # Update hierarchy if available
-        if self.budget_hierarchy:
-            self.budget_hierarchy.record_cost(task_id, cost_usd)  # type: ignore[attr-defined]
 
         logger.debug(f"Recorded cost for {task_id}: ${cost_usd:.6f}")
 

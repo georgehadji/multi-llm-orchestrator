@@ -493,7 +493,11 @@ class ProjectRunner:
             raise
         # Charge actual spend to BudgetHierarchy
         if self._budget_hierarchy is not None:
-            actual_spend = self._budget.max_usd - self._budget.remaining_usd
+            # T1-C5: use spent_usd directly. Deriving this from
+            # `max_usd - remaining_usd` silently clamps at max_usd whenever the
+            # run overspends its own per-run cap, because remaining_usd floors
+            # at 0.0 — the excess would never reach the cross-run hierarchy.
+            actual_spend = self._budget.spent_usd
             BudgetEnforcer.enforce_hierarchy_job(
                 self._budget_hierarchy, job_id, team, spec.budget.max_usd, actual_spend
             )

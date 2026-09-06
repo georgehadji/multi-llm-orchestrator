@@ -370,12 +370,14 @@ class TestSafetyGates:
         assert "```" not in result
 
     def test_secret_detection(self):
+        # T2-C3: a detected secret must block (.errors), not just warn — apply()
+        # only checks .errors to decide whether a write proceeds.
         from orchestrator.codebase_writer import ModificationGate, VerificationResult
 
         gate = ModificationGate()
         vr = VerificationResult()
         gate._check_secrets("password = 'secret123'", vr)
-        assert len(vr.warnings) > 0
+        assert len(vr.errors) > 0
 
     def test_secret_detection_clean_code(self):
         from orchestrator.codebase_writer import ModificationGate, VerificationResult

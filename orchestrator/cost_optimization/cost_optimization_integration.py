@@ -26,11 +26,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .log_config import get_logger
+from ..log_config import get_logger
 
 if TYPE_CHECKING:
-    from .engine import Orchestrator
-    from .models import Task
+    from ..engine import Orchestrator
+    from ..models import Task
 
 logger = get_logger(__name__)
 

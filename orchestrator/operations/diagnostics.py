@@ -130,12 +130,15 @@ class SystemDiagnostic:
         """Check environment variables."""
         logger.debug("Checking environment variables...")
 
+        # Must match what infrastructure/llm_client.py::UnifiedClient actually
+        # reads — OPENAI/GOOGLE/ANTHROPIC keys are never read there (branded
+        # models route through OpenRouter); checking for them here reported a
+        # false CRITICAL for a correctly-configured OPENROUTER_API_KEY-only
+        # setup and a false HEALTHY for one missing it (hunt T8, C6).
         required_vars = [
-            "OPENAI_API_KEY",
-            "GOOGLE_API_KEY",
-            "ANTHROPIC_API_KEY",
+            "OPENROUTER_API_KEY",
             "DEEPSEEK_API_KEY",
-            "MINIMAX_API_KEY",
+            "XAI_API_KEY",
         ]
 
         found_keys = []
@@ -149,7 +152,7 @@ class SystemDiagnostic:
                     component="environment",
                     description="No API keys found. At least one provider key is required.",
                     severity=Severity.CRITICAL,
-                    suggested_fix="Set at least one API key: export OPENAI_API_KEY=sk-...",
+                    suggested_fix="Set at least one API key: export OPENROUTER_API_KEY=sk-or-...",
                     error_code="ENV001",
                 )
             )

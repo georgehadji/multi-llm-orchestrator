@@ -16,7 +16,7 @@ The **orchestrator-ide.jsx** dashboard has been successfully integrated into the
 | `api/routes.py` | REST API endpoints |
 | `websocket/handlers.py` | WebSocket event handlers |
 | `integration/orchestrator_bridge.py` | Bridge to main Orchestrator |
-| `test_server.py` | Standalone test server |
+|  `standalone_server.py` | Standalone test server |
 | `launch.py` | Launcher script |
 
 ### Frontend (`ide_frontend/`)
@@ -89,13 +89,13 @@ npm run build
 
 # Start server
 cd ..
-python orchestrator/ide_backend/test_server.py
+python orchestrator/ide_backend/standalone_server.py
 ```
 
 ### Option 3: Development Mode
 ```bash
 # Terminal 1: Start backend
-python orchestrator/ide_backend/test_server.py
+python orchestrator/ide_backend/standalone_server.py
 
 # Terminal 2: Start frontend dev server
 cd ide_frontend
@@ -161,7 +161,7 @@ Server → Client:
 
 ### Test Server
 ```bash
-python orchestrator/ide_backend/test_server.py
+python orchestrator/ide_backend/standalone_server.py
 ```
 
 ### Test Health Endpoint
@@ -233,7 +233,7 @@ python --version
 pip install fastapi uvicorn websockets
 
 # Run with verbose logging
-python orchestrator/ide_backend/test_server.py
+python orchestrator/ide_backend/standalone_server.py
 ```
 
 ### Frontend not loading

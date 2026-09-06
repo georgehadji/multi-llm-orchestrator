@@ -80,6 +80,13 @@ def setup_logging(verbose: bool = False, suppress_cache: bool = True) -> None:
         datefmt="%H:%M:%S",
         force=True,
     )
+    # Mask secrets (API keys, tokens) in every log record — this is the actual
+    # live CLI logging path; log_config.py's own SecretsFilter wiring (hunt T8)
+    # never runs since nothing calls configure_logging() (hunt T16).
+    from ..generators.secrets_manager import SecretsFilter
+
+    for handler in logging.getLogger().handlers:
+        handler.addFilter(SecretsFilter())
     if suppress_cache and not verbose:
         try:
             from ..output_organizer import suppress_cache_messages

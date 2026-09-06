@@ -6,7 +6,7 @@ from __future__ import annotations
 def execute(args) -> None:
     """Handle the 'gateway' subcommand: start/stop the messaging gateway."""
     import asyncio
-    from .gateway.run import OrchestratorGateway, GatewayConfig
+    from ..gateway.run import OrchestratorGateway, GatewayConfig
 
     async def _run():
         config = GatewayConfig()

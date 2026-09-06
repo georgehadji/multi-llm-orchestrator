@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 """
-CLI Entry Point — thin dispatch to application.cli_dispatch.run()
+CLI Entry Point — thin dispatch to entrypoints.cli_dispatch.run()
 ===================================================================
 Phase 5 Strangler Fig: argument parsing, async handlers, and helpers
-extracted to ``application/cli_dispatch.py`` and ``application/cli_helpers.py``.
+extracted to ``entrypoints/cli_dispatch.py`` and ``application/cli_helpers.py``.
 
 This file retains only the Nash/NexusScope stubs (needed by dynamic command
 registration), the Click-based codebase-analysis entry point, and the
@@ -196,7 +196,7 @@ def cmd_chat(args) -> None:
 
 
 def main():
-    """Entry point: delegates to application.cli_dispatch.run()."""
+    """Entry point: delegates to entrypoints.cli_dispatch.run()."""
     from .entrypoints.cli_dispatch import run
 
     run()

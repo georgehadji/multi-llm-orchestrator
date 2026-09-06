@@ -41,6 +41,7 @@ dependencies = [
     "aiohttp>=3.9.0,<4.0",  # Used by a2a_protocol, rate_limiter, openrouter_sync
     "tenacity>=8.2.0,<10.0",  # Retry/backoff for run_with_resilience and retry_utils
     "instructor>=1.0,<2.0",  # Structured outputs in infrastructure/llm_client (UnifiedClient)
+    "tomli>=2.0,<3.0; python_version < '3.11'",  # tomllib is stdlib on 3.11+; declared floor is 3.10
 ]
 
 [project.optional-dependencies]

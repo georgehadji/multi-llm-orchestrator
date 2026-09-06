@@ -323,33 +323,10 @@ class StatisticalAnalyzer:
 
     @staticmethod
     def _t_distribution_cdf(t: float, df: float) -> float:
-        """
-        Approximate CDF of t-distribution.
+        """CDF of the t-distribution (scipy is already a project dependency)."""
+        from scipy import stats
 
-        Uses approximation for computational efficiency.
-        For production, consider scipy.stats.t.cdf
-        """
-        # Simple approximation using normal distribution for large df
-        if df > 30:
-            # Use normal approximation
-            return 0.5 * (1 + math.erf(t / math.sqrt(2)))
-
-        # For small df, use beta distribution approximation
-        x = df / (df + t * t)
-        return 0.5 * StatisticalAnalyzer._incomplete_beta(df / 2, 0.5, x)
-
-    @staticmethod
-    def _incomplete_beta(a: float, b: float, x: float) -> float:
-        """Approximate incomplete beta function."""
-        # Simple approximation for t-distribution CDF
-        # This is a simplified version; for production use scipy.special.betainc
-        if x <= 0:
-            return 0.0
-        if x >= 1:
-            return 1.0
-
-        # Use continued fraction approximation (simplified)
-        return x**a * (1 - x) ** b / a
+        return float(stats.t.cdf(t, df))
 
     @staticmethod
     def cohens_d(

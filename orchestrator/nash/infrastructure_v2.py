@@ -502,10 +502,10 @@ class WriteAheadLog:
 
             try:
                 # Write data to temp file
-                async with self._get_io() as io:
-                    await io.write_file(
-                        Path(temp_path), data, mode="wb" if isinstance(data, bytes) else "w"
-                    )
+                io = await self._get_io()
+                await io.write_file(
+                    Path(temp_path), data, mode="wb" if isinstance(data, bytes) else "w"
+                )
                 logger.debug(f"WAL entry {entry_id}: wrote temp file {temp_path}")
             except Exception as e:
                 # Clean up temp file on write failure

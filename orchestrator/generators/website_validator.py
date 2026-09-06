@@ -697,6 +697,7 @@ class WebsiteQualityValidator:
         ]
         rest = [f for f in files_to_check if f not in priority]
         found = False
+        unscanned: list[str] = []
         for fpath in (priority + rest)[:50]:
             try:
                 c = fpath.read_text(encoding="utf-8", errors="ignore")
@@ -704,7 +705,9 @@ class WebsiteQualityValidator:
                     if re.search(pat, c, re.IGNORECASE):
                         found = True
                         break
-            except Exception:
+            except Exception as exc:
+                logger.warning("Rate-limit scan could not read %s: %s", fpath, exc)
+                unscanned.append(str(fpath.name))
                 continue
             if found:
                 break
@@ -717,9 +720,22 @@ class WebsiteQualityValidator:
             details=(
                 "Rate-limit patterns detected"
                 if passed
-                else (
-                    "No rate limiting found. Contact forms and registration "
-                    "endpoints must include IP-based rate limiting."
+                else " ".join(
+                    filter(
+                        None,
+                        [
+                            "No rate limiting found. Contact forms and registration "
+                            "endpoints must include IP-based rate limiting.",
+                            # A file that couldn't be read must not be reported as a
+                            # file that was read and found wanting — hunt T18.
+                            (
+                                f"{len(unscanned)} file(s) could not be read and were "
+                                "skipped, so this scan is incomplete."
+                                if unscanned
+                                else ""
+                            ),
+                        ],
+                    )
                 )
             ),
             recommendations=(
@@ -766,6 +782,7 @@ class WebsiteQualityValidator:
                 recommendations=[],
             )
         found = False
+        unscanned: list[str] = []
         for fpath in auth_files[:20]:
             try:
                 c = fpath.read_text(encoding="utf-8", errors="ignore")
@@ -773,7 +790,9 @@ class WebsiteQualityValidator:
                     if re.search(pat, c, re.IGNORECASE):
                         found = True
                         break
-            except Exception:
+            except Exception as exc:
+                logger.warning("Auth-flow scan could not read %s: %s", fpath, exc)
+                unscanned.append(str(fpath.name))
                 continue
             if found:
                 break
@@ -786,7 +805,21 @@ class WebsiteQualityValidator:
             details=(
                 "Email verification flow detected"
                 if passed
-                else ("Auth pages found but no email verification flow detected.")
+                else " ".join(
+                    filter(
+                        None,
+                        [
+                            "Auth pages found but no email verification flow detected.",
+                            # Same reasoning as the rate-limit scan above — hunt T18.
+                            (
+                                f"{len(unscanned)} file(s) could not be read and were "
+                                "skipped, so this scan is incomplete."
+                                if unscanned
+                                else ""
+                            ),
+                        ],
+                    )
+                )
             ),
             recommendations=(
                 []
@@ -843,6 +876,7 @@ class WebsiteQualityValidator:
             f for f in frontend_files if "api" not in f.parts and "server" not in f.parts
         ]
         leaks = []
+        unscanned = []
         for fpath in frontend_files[:50]:
             try:
                 c = fpath.read_text(encoding="utf-8", errors="ignore")
@@ -851,23 +885,46 @@ class WebsiteQualityValidator:
                         match_text = m.group(0)
                         masked = match_text[:12] + "***" if len(match_text) > 12 else match_text
                         leaks.append(f"{fpath.relative_to(output_dir)}: {masked}")
-            except Exception:
-                continue
+            except Exception as exc:
+                logger.warning("Secret-exposure scan could not read %s: %s", fpath, exc)
+                unscanned.append(str(fpath.relative_to(output_dir)))
 
-        passed = len(leaks) == 0
+        # A file that couldn't be scanned must never look the same as a file
+        # that was scanned and found clean — hunt T8, C5.
+        passed = not leaks and not unscanned
         return QualityCheck(
             name="Secret Exposure",
             passed=passed,
-            score=0.0 if leaks else 1.0,
+            score=0.0 if (leaks or unscanned) else 1.0,
             details=(
                 "No secrets found in frontend code"
                 if passed
-                else (
-                    f"Potential secret exposure in {len(leaks)} location(s). "
-                    "API keys must never appear in client-side code."
+                else " ".join(
+                    filter(
+                        None,
+                        [
+                            (
+                                f"Potential secret exposure in {len(leaks)} location(s). "
+                                "API keys must never appear in client-side code."
+                                if leaks
+                                else ""
+                            ),
+                            (
+                                f"{len(unscanned)} file(s) could not be read and were "
+                                "skipped, so this scan is incomplete."
+                                if unscanned
+                                else ""
+                            ),
+                        ],
+                    )
                 )
             ),
-            recommendations=leaks[:5] if not passed else [],
+            recommendations=(leaks[:5] if leaks else [])
+            + (
+                [f"Re-run after fixing unreadable file(s): {', '.join(unscanned[:5])}"]
+                if unscanned
+                else []
+            ),
         )
 
 

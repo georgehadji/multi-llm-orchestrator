@@ -63,7 +63,7 @@ class ModelRegistry:
     # ═══════════════════════════════════════════════════════
 
     # Qwen Models — 2026 lineup
-    QWEN_3_6_FLASH = "openai/gpt-4o-mini"  # $0.12/$0.50, coding ⭐ VERIFIED
+    QWEN_3_6_FLASH = "qwen/qwen3.6-flash"  # $0.19/$1.13, 1M ctx, image+video input ⭐ VERIFIED
     QWEN_3_7_FLASH = "qwen/qwen3.7-flash"  # $0.03/$0.13, 1M ctx, vision-language, multimodal agents
     QWEN_3_CODER = "qwen/qwen3-coder"  # $0.20/$0.80, coding specialist
     QWEN_3_CODER_NEXT = "qwen/qwen3-coder-next"  # $0.50/$2.00, next-gen coder

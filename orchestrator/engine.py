@@ -675,6 +675,18 @@ class Orchestrator:
         # Start periodic cleanup timer for background tasks
         await self._start_periodic_cleanup(interval_seconds=300)  # 5 minutes
 
+        # Start the event bus's processing loop. UnifiedEventBus.publish()
+        # queues events but only processes them once start() has run, and
+        # nothing else in the container/engine wiring ever calls it
+        # (NullEventBus has no start() to call, hence the hasattr guard).
+        if self._event_bus is not None and hasattr(self._event_bus, "start"):
+            await self._event_bus.start()
+
+        # Recover any telemetry writes orphaned by a prior crashed session
+        # before this run's own routing decisions read model_snapshots.
+        if self._telemetry_store is not None:
+            await self._telemetry_store.drain_queue()
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -846,18 +858,27 @@ class Orchestrator:
         app_profile: AppProfile | None = None,  # noqa: F821
         analyze_on_complete: bool = False,
         output_dir: Path | None = None,  # noqa: F821
+        budget: Budget | None = None,
     ) -> ProjectState:
         """
         Main entry point. Decomposes project → executes tasks → returns state.
 
         P3-4: Delegates to ProjectRunner. All coordination logic lives there;
         this shell preserves the public API signature and docstring.
+
+        ``budget``: pass an explicit per-call budget when reusing a
+        long-running Orchestrator across independent callers (e.g. an HTTP
+        server handling concurrent requests). Without it, two overlapping
+        calls on the same instance would otherwise need to mutate
+        ``self._run_ctx.budget`` externally before each call — unsynchronized
+        shared state between them. Omitted (None), behavior is unchanged:
+        the run keeps whatever budget is already set on ``_run_ctx``.
         """
         validate_project_args(project_description, success_criteria, project_id, output_dir)
         # Reset per-run state for this new project
         self._run_ctx.reset(
             project_id=project_id,
-            budget=self._run_ctx.budget,
+            budget=budget if budget is not None else self._run_ctx.budget,
             analyze_on_complete=analyze_on_complete,
         )
         return await self._project_runner.run_project(
@@ -879,6 +900,7 @@ class Orchestrator:
         analyze_on_complete: bool = False,
         output_dir: Path | None = None,
         constitution: Any = None,
+        budget: Budget | None = None,
     ) -> ProjectState:
         """
         Run project with **pre-composed tasks** (skips LLM decomposition).
@@ -888,13 +910,16 @@ class Orchestrator:
         instead of being generated from a raw prompt.
 
         All other pipeline phases (generate → critique → revise → evaluate)
-        run identically to ``run_project()``.
+        run identically to ``run_project()``. See ``run_project()`` for why
+        ``budget`` exists: it lets a caller reusing a long-running instance
+        pass a per-call budget instead of mutating ``_run_ctx.budget``
+        externally.
         """
         validate_project_args(project_description, success_criteria, project_id, output_dir)
         # Reset per-run state for this new project
         self._run_ctx.reset(
             project_id=project_id,
-            budget=self._run_ctx.budget,
+            budget=budget if budget is not None else self._run_ctx.budget,
             analyze_on_complete=analyze_on_complete,
         )
         return await self._project_runner.run_project(
@@ -944,17 +969,20 @@ class Orchestrator:
         """
         from .streaming import ProjectEventBus
 
-        self._event_bus = ProjectEventBus()
-        subscription = self._event_bus.subscribe()
+        # Local, not self._event_bus: that attribute is the container-wired
+        # UnifiedEventBus for this Orchestrator's whole lifetime (read by
+        # assert_healthy() and passed to collaborators at __init__) — reusing
+        # it here would replace it with this per-call bus and then null it
+        # out in the finally below, corrupting state for any later call on a
+        # reused (long-running) Orchestrator instance.
+        event_bus = ProjectEventBus()
+        subscription = event_bus.subscribe()
 
         async def _run() -> None:
-            bus = self._event_bus
             try:
                 await self.run_project(project_description, success_criteria, project_id)
             finally:
-                await bus.close()
-                if self._event_bus is bus:
-                    self._event_bus = None
+                await event_bus.close()
 
         task = asyncio.create_task(_run())
 

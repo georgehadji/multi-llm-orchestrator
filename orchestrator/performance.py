@@ -677,6 +677,32 @@ class QueryOptimizer:
     - Connection reuse
     """
 
+    _ALLOWED_TABLES: frozenset[str] = frozenset(
+        {
+            "tasks",
+            "projects",
+            "sessions",
+            "metrics",
+            "events",
+            "costs",
+            "checkpoints",
+            "telemetry",
+            "performance_snapshots",
+        }
+    )
+    _IDENTIFIER_RE = __import__("re").compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+    @classmethod
+    def _validate_identifier(cls, name: str, kind: str = "column") -> str:
+        """Raise ValueError if name is not a safe SQL identifier."""
+        if not cls._IDENTIFIER_RE.match(name):
+            raise ValueError(f"Invalid SQL {kind} name: {name!r}")
+        if kind == "table" and name not in cls._ALLOWED_TABLES:
+            raise ValueError(
+                f"Table {name!r} not in allowed list. Add to _ALLOWED_TABLES if intentional."
+            )
+        return name
+
     def __init__(self, cache_ttl: int = 60):
         self._cache_ttl = cache_ttl
 
@@ -720,28 +746,29 @@ class QueryOptimizer:
         Build optimized SELECT query with only needed columns.
 
         Args:
-            table: Table name
+            table: Table name (must be in _ALLOWED_TABLES)
             columns: Specific columns (None = all, not recommended)
-            where: WHERE clause conditions
+            where: WHERE clause conditions (values use ? placeholders)
             order_by: ORDER BY column
             limit: LIMIT value
         """
-        # Use specific columns instead of SELECT *
-        col_str = ", ".join(columns) if columns else "*"
-        query = f"SELECT {col_str} FROM {table}"
+        self._validate_identifier(table, "table")
 
-        # Add WHERE clause
+        if columns:
+            col_str = ", ".join(self._validate_identifier(c) for c in columns)
+        else:
+            col_str = "*"
+        query = f"SELECT {col_str} FROM {table}"  # noqa: S608 — identifiers validated above
+
         if where:
-            conditions = " AND ".join(f"{k} = ?" for k in where)
+            conditions = " AND ".join(f"{self._validate_identifier(k)} = ?" for k in where)
             query += f" WHERE {conditions}"
 
-        # Add ORDER BY
         if order_by:
-            query += f" ORDER BY {order_by}"
+            query += f" ORDER BY {self._validate_identifier(order_by)}"
 
-        # Add LIMIT
         if limit:
-            query += f" LIMIT {limit}"
+            query += f" LIMIT {int(limit)}"
 
         return query
 

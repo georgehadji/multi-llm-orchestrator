@@ -40,8 +40,8 @@ from ..log_config import get_logger
 from .plugin_isolation import (
     IsolatedResult,
     IsolationConfig,
-    Plugin,
 )
+from .plugins import Plugin
 
 try:
     import resource
@@ -421,8 +421,13 @@ class SecureIsolatedRuntime:
                 for syscall in network_syscalls:
                     try:
                         f.add_rule(seccomp.ERRNO(errno.EPERM), syscall)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning(
+                            "seccomp rule for network syscall %r failed to install "
+                            "(network egress may not be blocked): %s",
+                            syscall,
+                            e,
+                        )
 
             f.load()
             logger.debug("seccomp policy loaded")

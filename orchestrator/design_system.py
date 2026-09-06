@@ -7,6 +7,7 @@ Part of Category 4, Phase 6 (Replit-inspired).
 
 from __future__ import annotations
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
 from pathlib import Path
 import json
@@ -46,6 +47,121 @@ class TypographyTokens:
 
     def to_dict(self):
         return {k: v for k, v in self.__dict__.items()}
+
+
+class ComponentSource(str, Enum):
+    """Upstream library a curated component reference comes from.
+
+    Used by ``design/component_registry.py`` to attribute each ComponentSpec and
+    to prefer sources that actually target the framework being generated.
+    """
+
+    SHADCN = "shadcn"
+    ACETERNITY = "aceternity"
+    MAGIC_UI = "magic_ui"
+    TWENTYFIRST = "twentyfirst"
+    REACTBITS = "reactbits"
+    ANIMATE_UI = "animate_ui"
+    BITS_UI = "bits_ui"
+    SVELTEBITS = "sveltebits"
+    CUSTOM = "custom"
+
+
+# Which framework each source targets.  ``CUSTOM`` is framework-agnostic: it
+# describes a section generically, so it is valid for any target.
+#
+# NOTE ON VERIFICATION: the four libraries added for the component-generation
+# feature (reactbits, animate_ui, bits_ui, sveltebits) could NOT be verified
+# against their own documentation — this environment's egress proxy blocks
+# those domains and their MCP servers are not connected here. The assignments
+# below follow each project's name and widely-known framework; correct them
+# here if any is wrong, and everything downstream follows.
+COMPONENT_SOURCE_FRAMEWORKS: dict[ComponentSource, frozenset[str]] = {
+    ComponentSource.SHADCN: frozenset({"react"}),
+    ComponentSource.ACETERNITY: frozenset({"react"}),
+    ComponentSource.MAGIC_UI: frozenset({"react"}),
+    ComponentSource.TWENTYFIRST: frozenset({"react"}),
+    ComponentSource.REACTBITS: frozenset({"react"}),
+    ComponentSource.ANIMATE_UI: frozenset({"react"}),
+    ComponentSource.BITS_UI: frozenset({"svelte"}),
+    ComponentSource.SVELTEBITS: frozenset({"svelte"}),
+    ComponentSource.CUSTOM: frozenset({"react", "svelte", "html"}),
+}
+
+
+def normalize_framework(framework: str) -> str:
+    """Map a CLI/spec framework value onto a component-ecosystem name.
+
+    ``next.js`` and ``react`` share React's component ecosystem; ``sveltekit``
+    and ``svelte`` share Svelte's. Anything else (notably ``html``) has no
+    component ecosystem and returns ``"html"``.
+    """
+    value = (framework or "").strip().lower().replace("_", ".")
+    if value in ("react", "next.js", "nextjs", "next"):
+        return "react"
+    if value in ("svelte", "sveltekit", "svelte.kit"):
+        return "svelte"
+    return "html"
+
+
+def sources_for_framework(framework: str) -> set[ComponentSource]:
+    """Return the sources whose components are usable in *framework*."""
+    target = normalize_framework(framework)
+    return {
+        source for source, frameworks in COMPONENT_SOURCE_FRAMEWORKS.items() if target in frameworks
+    }
+
+
+@dataclass
+class ComponentSpec:
+    """A curated reference to one upstream component.
+
+    This is a *reference*, not code: ``prompt_reference`` describes the
+    component so the generator can steer an LLM toward it, which is why the
+    registry can cite libraries without vendoring or building them.
+    """
+
+    name: str
+    source: ComponentSource
+    category: str
+    variant: str = "default"
+    layout_type: str = "flex"
+    primary_color: str | None = None
+    animation_style: str = "modern"
+    has_aria_labels: bool = True
+    keyboard_navigable: bool = True
+    responsive: bool = True
+    dark_mode_support: bool = True
+    prompt_reference: str = ""
+
+    def supports_framework(self, framework: str) -> bool:
+        """True when this component's source targets *framework*."""
+        target = normalize_framework(framework)
+        return target in COMPONENT_SOURCE_FRAMEWORKS.get(
+            self.source, frozenset({"react", "svelte", "html"})
+        )
+
+    def compatibility_score(self, design_system: DesignSystem) -> float:
+        """Score 0.0-1.0 for how well this component fits *design_system*.
+
+        Accessibility and responsiveness are weighted highest because they are
+        non-negotiable in generated output; tone and dark-mode agreement break
+        ties between otherwise-equivalent candidates.
+        """
+        score = 0.0
+        if self.has_aria_labels:
+            score += 0.3
+        if self.keyboard_navigable:
+            score += 0.2
+        if self.responsive:
+            score += 0.2
+        # `tone` is a plain string on DesignSystem; tolerate an enum too.
+        tone = getattr(design_system.tone, "value", design_system.tone)
+        if self.animation_style and str(tone) in str(self.animation_style):
+            score += 0.2
+        if self.dark_mode_support == bool(getattr(design_system, "dark_mode", True)):
+            score += 0.1
+        return round(min(score, 1.0), 3)
 
 
 @dataclass

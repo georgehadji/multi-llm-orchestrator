@@ -276,7 +276,7 @@ except ImportError:
 
 # Phase 6+: ARA reasoning pipeline integration
 try:
-    from .ara_integration import create_ara_integration, ARAPipelineIntegration
+    from ..ara_integration import create_ara_integration, ARAPipelineIntegration
 
     HAS_ARA = True
 except ImportError:

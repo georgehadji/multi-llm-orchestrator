@@ -41,7 +41,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from .meta_orchestrator import (
+from .meta.orchestrator import (
     ExecutionArchive,
     ProjectTrajectory,
     StrategyProposal,
@@ -796,13 +796,21 @@ class TransferLearningEngine:
             logger.info(f"No similar projects found for {current_project_id}")
             return []
 
-        # Collect patterns from similar projects
+        # NOTE: patterns are not yet attributed to the project(s) that produced
+        # them (PatternMiner always sets source_projects=[]), so there is no
+        # way to filter by similarity to current_project_id yet — every ACTIVE
+        # pattern is returned regardless of how similar its source project was.
+        # similar_projects above is used only for the empty-result guard.
         candidate_patterns = []
         for pattern in self._patterns.values():
             if pattern.status == TransferStatus.ACTIVE:
                 candidate_patterns.append(pattern)
 
-        logger.info(f"Found {len(candidate_patterns)} candidate patterns")
+        logger.warning(
+            "find_transferable_patterns() returning %d pattern(s) unfiltered by "
+            "project similarity — source_projects attribution is not implemented",
+            len(candidate_patterns),
+        )
         return candidate_patterns
 
     async def validate_transfer(

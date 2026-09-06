@@ -13,6 +13,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Callable
 
+from ..models import estimate_cost
+
 if TYPE_CHECKING:
     from ..models import Task, Model
 
@@ -81,6 +83,21 @@ async def decompose_project(
             )
             tasks = {task.id: task for task in result.to_tasks()}
             logger.info("Instructor decomposition succeeded: %d tasks", len(tasks))
+
+            # The Instructor fast path issues its own raw API call (TaskDecomposer
+            # builds a direct AsyncOpenAI client, bypassing UnifiedClient's cost
+            # tracking) — charge_fn below is only reached by the fallback path, so
+            # this real, billable call was previously never reflected in the run
+            # budget. Charge a token-count estimate so it isn't silently free.
+            try:
+                est_input_tokens = (len(enhanced_project) + len(criteria)) // 4
+                est_output_tokens = decomposer_inst._calculate_decomposition_tokens(
+                    enhanced_project
+                )
+                await charge_fn(estimate_cost(model, est_input_tokens, est_output_tokens))
+            except Exception:
+                logger.debug("charge_fn failed for Instructor decomposition", exc_info=True)
+
             return tasks
     except ImportError:
         logger.warning("Instructor not available, using Decomposer")

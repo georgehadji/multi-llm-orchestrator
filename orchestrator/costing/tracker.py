@@ -9,10 +9,13 @@ per LLM call with token breakdown and cumulative project cost.
 
 from __future__ import annotations
 
+import json
+import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-import json
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -61,8 +64,12 @@ class CostTracker:
                     )
                     for k, v in data.items()
                 }
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning(
+                    "CostTracker: failed to load %s, starting with empty cumulative totals: %s",
+                    fp,
+                    exc,
+                )
 
     def _save(self) -> None:
         fp = self._dir / "cost_tracker.json"

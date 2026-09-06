@@ -41,7 +41,7 @@ async def warm_cache_for_level(
             logger.debug("Cache warming skipped: no system prompt or context")
             return
 
-        from ..operations.cache_warmup import warm_prompt_cache
+        from ..cost_optimization.prompt_cache import warm_prompt_cache
 
         await warm_prompt_cache(
             system_prompt=system_prompt,

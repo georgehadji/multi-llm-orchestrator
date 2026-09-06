@@ -94,7 +94,11 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install dependencies
-        run: pip install -e ".[dev]" || pip install -e "." pytest pytest-asyncio pytest-cov structlog
+        # fastapi is installed loose, not via the [dashboard] extra: that extra pins
+        # websockets<13.0 while google-genai needs >=13.0, making "[dev,dashboard]"
+        # ResolutionImpossible. It is required because ide_backend/__init__.py imports
+        # fastapi at package import, and a collection error there aborts the whole run.
+        run: pip install -e ".[dev]" "fastapi>=0.100.0,<1.0" || pip install -e "." pytest pytest-asyncio pytest-cov structlog
       - name: Run unit + integration tests
         run: |
           pytest -m "not slow and not requires_api and not stress and not e2e" \

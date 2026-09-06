@@ -22,6 +22,33 @@ if TYPE_CHECKING:
 logger = logging.getLogger("orchestrator.engine_core.pipeline_runner")
 
 
+def _build_failure_result(task: Any, reason: str) -> Any:
+    """Build a FAILED TaskResult for a task whose execute_task_fn raised.
+
+    Mirrors application/task_executor.py::_build_failure_result — same
+    placeholder-model convention (the task never got far enough to select a
+    real one).
+    """
+    from ..models import Model, TaskResult, TaskStatus
+
+    return TaskResult(
+        task_id=task.id,
+        output="",
+        score=0.0,
+        model_used=Model.GPT_4O_MINI,
+        reviewer_model=None,
+        tokens_used={"input": 0, "output": 0},
+        iterations=0,
+        cost_usd=0.0,
+        status=TaskStatus.FAILED,
+        critique=reason,
+        deterministic_check_passed=False,
+        degraded_fallback_count=0,
+        attempt_history=[],
+        task_type=task.type.value,
+    )
+
+
 class PipelineRunner:
     """Orchestrates parallel execution of tasks across project levels."""
 
@@ -76,7 +103,21 @@ class PipelineRunner:
                 task = tasks[tid]
                 async with semaphore:
                     if execute_task_fn:
-                        res = await execute_task_fn(task)
+                        try:
+                            res = await execute_task_fn(task)
+                        except Exception as exc:
+                            # T4-C1: previously left `results[tid]` unset on
+                            # failure (asyncio.gather's return_exceptions=True
+                            # only logged it below) — the failure was invisible
+                            # to anything reading ProjectState.results later.
+                            logger.error(
+                                "Task %s failed in level %d: %s",
+                                tid,
+                                level_idx,
+                                exc,
+                                exc_info=exc,
+                            )
+                            res = _build_failure_result(task, str(exc))
                         async with results_lock:
                             results[tid] = res
                             if progress_writer:

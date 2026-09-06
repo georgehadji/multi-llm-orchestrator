@@ -30,5 +30,5 @@ echo.
 echo Press Ctrl+C to stop the server.
 echo.
 
-REM Run the test server (standalone, no orchestrator dependency)
-python orchestrator\ide_backend\test_server.py
+REM Run the standalone server (no orchestrator package dependency)
+python orchestrator\ide_backend\standalone_server.py

@@ -110,7 +110,7 @@ class PipelineExecutor:
         # Loop for self-consistency / ARA retries
         while True:
             ctx = await self._pipeline.run(ctx)
-            if ctx.abort_reason not in ("retry_for_quality", "ara_retry"):
+            if ctx.abort_reason not in ("retry_for_quality", "ara_retry", "vs_retry_escape"):
                 break
             # Reset for next attempt
             ctx.reset_for_retry()

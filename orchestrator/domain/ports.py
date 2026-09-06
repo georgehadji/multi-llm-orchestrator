@@ -434,7 +434,12 @@ class NullTelemetry:
     """No-op telemetry. record_call() is a silent no-op."""
 
     def record_call(
-        self, model: Any, latency_ms: float = 0.0, cost_usd: float = 0.0, success: bool = True
+        self,
+        model: Any,
+        latency_ms: float = 0.0,
+        cost_usd: float = 0.0,
+        success: bool = True,
+        quality_score: float | None = None,
     ) -> None:
         pass
 

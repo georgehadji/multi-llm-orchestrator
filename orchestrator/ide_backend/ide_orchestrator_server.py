@@ -527,6 +527,18 @@ class SessionManager:
             logger.error(f"Failed to start server: {e}")
             return False
 
+    def is_process_alive(self, session_id: str) -> bool:
+        """Whether the session's spawned server process is still running.
+
+        Two sessions on the same default port can both pass the TOCTOU-prone
+        is_port_available() check before either has actually bound it; the
+        loser's process exits shortly after spawn while start_server() has
+        already returned True. Callers should check this before reporting
+        success to the user.
+        """
+        process = self.running_processes.get(session_id)
+        return process is not None and process.poll() is None
+
     def stop_server(self, session_id: str):
         """Stop server for a session."""
         if session_id in self.running_processes:
@@ -2205,6 +2217,26 @@ async def handle_websocket(websocket: WebSocket, session_id: str):
         session_manager.remove_websocket(session_id, websocket)
 
 
+_ACCENT_PATTERN = r"--accent:\s*#[0-9a-fA-F]{3,6}"
+
+
+def replace_accent_color(css_content: str, new_color: str) -> tuple[str, str | None]:
+    """Swap the first ``--accent`` declaration for ``new_color``.
+
+    Returns the new CSS and the declaration that was replaced, or the CSS
+    unchanged and None when there was no ``--accent`` to replace. Spacing is
+    normalised to ``--accent: <color>`` whatever the original used; both forms
+    are valid CSS.
+    """
+    match = re.search(_ACCENT_PATTERN, css_content)
+    if not match:
+        return css_content, None
+    return (
+        re.sub(_ACCENT_PATTERN, f"--accent: {new_color}", css_content, count=1),
+        match.group(0),
+    )
+
+
 async def handle_modification_request(session_id: str, message: str, websocket: WebSocket):
     """Handle modification/edit request for existing project."""
     logger.info(f"Modification request for {session_id}: {message[:100]}...")
@@ -2330,17 +2362,11 @@ async def handle_modification_request(session_id: str, message: str, websocket: 
 
             # Apply color scheme modification
             if new_color:
-                # Use regex to find and replace existing --accent color
-                accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
-                match = re.search(accent_pattern, css_content)
+                css_content, previous = replace_accent_color(css_content, new_color)
 
-                if match:
-                    # Replace ONLY the existing accent color (first occurrence)
-                    css_content = re.sub(
-                        accent_pattern, f"--accent: {new_color}", css_content, count=1
-                    )
+                if previous:
                     files_modified.append("styles.css")
-                    logger.info(f"Color changed from {match.group(0)} to --accent: {new_color}")
+                    logger.info(f"Color changed from {previous} to --accent: {new_color}")
                 else:
                     # No accent color found - log warning
                     logger.warning(
@@ -2749,12 +2775,17 @@ async def handle_chat_message(session_id: str, message: str, websocket: WebSocke
 
         if server_started:
             await asyncio.sleep(3)
-            session_manager.add_terminal_line(
-                session_id, "success", "✓ Dev server running on http://localhost:3000"
-            )
-            session_manager.add_terminal_line(
-                session_id, "info", "🌐 Open http://localhost:3000 to view your app"
-            )
+            if session_manager.is_process_alive(session_id):
+                session_manager.add_terminal_line(
+                    session_id, "success", "✓ Dev server running on http://localhost:3000"
+                )
+                session_manager.add_terminal_line(
+                    session_id, "info", "🌐 Open http://localhost:3000 to view your app"
+                )
+            else:
+                session_manager.add_terminal_line(
+                    session_id, "warning", "⚠ Dev server exited shortly after starting"
+                )
         else:
             session_manager.add_terminal_line(
                 session_id, "warning", "⚠ Server could not start (port may be in use)"
@@ -2769,12 +2800,17 @@ async def handle_chat_message(session_id: str, message: str, websocket: WebSocke
 
         if server_started:
             await asyncio.sleep(2)
-            session_manager.add_terminal_line(
-                session_id, "success", "✓ API running on http://localhost:8000"
-            )
-            session_manager.add_terminal_line(
-                session_id, "info", "📄 Swagger docs: http://localhost:8000/docs"
-            )
+            if session_manager.is_process_alive(session_id):
+                session_manager.add_terminal_line(
+                    session_id, "success", "✓ API running on http://localhost:8000"
+                )
+                session_manager.add_terminal_line(
+                    session_id, "info", "📄 Swagger docs: http://localhost:8000/docs"
+                )
+            else:
+                session_manager.add_terminal_line(
+                    session_id, "warning", "⚠ API server exited shortly after starting"
+                )
         else:
             session_manager.add_terminal_line(
                 session_id, "warning", "⚠ Server could not start (port may be in use)"
@@ -2789,12 +2825,17 @@ async def handle_chat_message(session_id: str, message: str, websocket: WebSocke
 
         if server_started:
             await asyncio.sleep(2)
-            session_manager.add_terminal_line(
-                session_id, "success", "✓ Server running on http://localhost:3000"
-            )
-            session_manager.add_terminal_line(
-                session_id, "info", "🌐 Open http://localhost:3000 to view your website"
-            )
+            if session_manager.is_process_alive(session_id):
+                session_manager.add_terminal_line(
+                    session_id, "success", "✓ Server running on http://localhost:3000"
+                )
+                session_manager.add_terminal_line(
+                    session_id, "info", "🌐 Open http://localhost:3000 to view your website"
+                )
+            else:
+                session_manager.add_terminal_line(
+                    session_id, "warning", "⚠ Server exited shortly after starting"
+                )
         else:
             session_manager.add_terminal_line(
                 session_id, "warning", "⚠ Server could not start (port may be in use)"

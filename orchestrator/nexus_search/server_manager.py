@@ -170,12 +170,14 @@ services:
         logger.info("Starting Nexus Search server...")
 
         try:
-            # Start with docker-compose
-            cmd = f"{self._docker_compose_cmd} -f {self.compose_file} up -d"
-            logger.info(f"Running: {cmd}")
+            # Start with docker-compose. Pass argv rather than a shell string:
+            # `compose_file` is caller-supplied, and a path containing a space
+            # alone splits into two arguments — a metacharacter would inject.
+            argv = [*self._docker_compose_cmd.split(), "-f", str(self.compose_file), "up", "-d"]
+            logger.info("Running: %s", " ".join(argv))
 
-            process = await asyncio.create_subprocess_shell(
-                cmd,
+            process = await asyncio.create_subprocess_exec(
+                *argv,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -310,9 +312,10 @@ services:
         # Stop with docker-compose
         if self._docker_compose_cmd:
             try:
-                cmd = f"{self._docker_compose_cmd} -f {self.compose_file} down"
-                process = await asyncio.create_subprocess_shell(
-                    cmd,
+                # argv, not a shell string — see the note in start().
+                argv = [*self._docker_compose_cmd.split(), "-f", str(self.compose_file), "down"]
+                process = await asyncio.create_subprocess_exec(
+                    *argv,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                 )

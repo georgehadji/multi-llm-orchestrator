@@ -224,8 +224,12 @@ async def load_plugin(
 
         # Import the plugin module
         if source == "bundled":
-            # orchestrator.plugin.plugins.<kind>.<name>
-            module_name = f"orchestrator.plugin.plugins.{kind}.{name}"
+            # orchestrator.plugins.<kind>.<name> — must match _bundled_plugin_path(),
+            # which looks under orchestrator/plugins/ (plural). This previously said
+            # "orchestrator.plugin.plugins" (singular "plugin"), which isn't even a
+            # package — it's the plain module orchestrator/plugin/plugins.py, so it
+            # can never have a <kind>.<name> submodule (hunt T9).
+            module_name = f"orchestrator.plugins.{kind}.{name}"
         else:
             # User plugins: add to sys.path temporarily
             _USER_PLUGINS_ROOT.mkdir(parents=True, exist_ok=True)
