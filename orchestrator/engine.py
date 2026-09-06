@@ -675,6 +675,18 @@ class Orchestrator:
         # Start periodic cleanup timer for background tasks
         await self._start_periodic_cleanup(interval_seconds=300)  # 5 minutes
 
+        # Start the event bus's processing loop. UnifiedEventBus.publish()
+        # queues events but only processes them once start() has run, and
+        # nothing else in the container/engine wiring ever calls it
+        # (NullEventBus has no start() to call, hence the hasattr guard).
+        if self._event_bus is not None and hasattr(self._event_bus, "start"):
+            await self._event_bus.start()
+
+        # Recover any telemetry writes orphaned by a prior crashed session
+        # before this run's own routing decisions read model_snapshots.
+        if self._telemetry_store is not None:
+            await self._telemetry_store.drain_queue()
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -957,17 +969,20 @@ class Orchestrator:
         """
         from .streaming import ProjectEventBus
 
-        self._event_bus = ProjectEventBus()
-        subscription = self._event_bus.subscribe()
+        # Local, not self._event_bus: that attribute is the container-wired
+        # UnifiedEventBus for this Orchestrator's whole lifetime (read by
+        # assert_healthy() and passed to collaborators at __init__) — reusing
+        # it here would replace it with this per-call bus and then null it
+        # out in the finally below, corrupting state for any later call on a
+        # reused (long-running) Orchestrator instance.
+        event_bus = ProjectEventBus()
+        subscription = event_bus.subscribe()
 
         async def _run() -> None:
-            bus = self._event_bus
             try:
                 await self.run_project(project_description, success_criteria, project_id)
             finally:
-                await bus.close()
-                if self._event_bus is bus:
-                    self._event_bus = None
+                await event_bus.close()
 
         task = asyncio.create_task(_run())
 

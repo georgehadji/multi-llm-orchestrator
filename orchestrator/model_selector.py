@@ -139,6 +139,12 @@ class ModelSelector:
 
     def decomposition_model(self, project_description: str) -> Model:
         """Select best model for project decomposition."""
+        if project_description:
+            logger.debug(
+                "decomposition_model() does not use project_description — "
+                "_COMPLEXITY_KEYWORDS/_TECH_STACK_KEYWORDS are declared but not "
+                "wired into this selection"
+            )
         for m in _RELIABLE_DECOMPOSITION_MODELS:
             if self._health.get(m, True):
                 return m

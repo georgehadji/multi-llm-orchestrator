@@ -1306,9 +1306,8 @@ def estimate_cost(model: Model, input_tokens: int, output_tokens: int) -> float:
 def vs_variant_for(model: Model, default_k: int = 5) -> VSConfig | None:
     """Choose VS variant based on model cost tier (Phase 5).
 
-    PREMIUM models (named "pro", "opus", "o1", etc.) → full VS.
-    STANDARD models (most others) → standard VS.
     BUDGET models (named "flash", "mini", etc.) → None (skip VS).
+    All other models → standard VS. There is no separate PREMIUM tier today.
 
     Uses model name heuristics since all models route through OpenRouter.
     """
@@ -1317,7 +1316,6 @@ def vs_variant_for(model: Model, default_k: int = 5) -> VSConfig | None:
     for pat in _budget:
         if pat in name:
             return None
-    _premium = ("pro", "opus", "o1", "o3", "k2", "k3", "maverick", "sonnet-4-5", "max", "turbo")
     return VSConfig(k=default_k, temperature=0.9, fmt=ProbabilityFormat.EXPLICIT, top_p=0.95)
 
 

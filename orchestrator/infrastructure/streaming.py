@@ -670,7 +670,6 @@ class ProjectEventBus:
     """
 
     def __init__(self):
-        self._event_bus = get_event_bus()
         self._queue: asyncio.Queue = asyncio.Queue()
         self._subscribers: list[asyncio.Queue] = []
         self._running = False

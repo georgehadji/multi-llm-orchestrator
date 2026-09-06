@@ -748,8 +748,8 @@ class RateLimiter:
         Returns:
             (allowed, remaining_requests)
         """
-        timestamps = self._requests.get(key, [])
-        timestamps = self._clean_old_requests(timestamps)
+        timestamps = self._clean_old_requests(self._requests.get(key, []))
+        self._requests[key] = timestamps
 
         if len(timestamps) >= self.max_requests:
             return False, 0
@@ -871,7 +871,10 @@ class TemplateRegistry:
                 if value.lower() in ("true", "false"):
                     overrides[key] = value.lower() == "true"
                 elif value.replace(".", "").isdigit():
-                    overrides[key] = float(value) if "." in value else int(value)
+                    try:
+                        overrides[key] = float(value) if "." in value else int(value)
+                    except ValueError:
+                        continue
                 else:
                     overrides[key] = value
 

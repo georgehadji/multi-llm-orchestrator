@@ -500,7 +500,7 @@ class StreamingPipeline:
                     type=PipelineEventType.PROJECT_START,
                     project_id=context.project_id,
                     data={
-                        "description": project_description[:100],
+                        "description": context.description[:100],
                         "budget": context.budget.max_usd,
                     },
                 )
@@ -665,7 +665,6 @@ class ProjectEventBus:
     """
 
     def __init__(self):
-        self._event_bus = get_event_bus()
         self._queue: asyncio.Queue = asyncio.Queue()
         self._subscribers: list[asyncio.Queue] = []
         self._running = False

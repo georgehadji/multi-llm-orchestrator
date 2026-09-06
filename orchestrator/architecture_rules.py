@@ -832,26 +832,15 @@ Choose the best options based on the project requirements. Be specific and pract
         # Architecture decisions require strong reasoning + system design knowledge
         from .models import Model as M
 
-        architecture_models = [
-            M.CLAUDE_SONNET_5,  # $3.00/$15.00, premium quality, reliable JSON
-            M.GPT_5_4,  # $2.50/$10.00, reliable
-            M.XIAOMI_MIMO_V2_5_PRO,  # $1.00/$3.00, 1T+ params, 1M+ ctx
-            M.XAI_GROK_4_5,  # $1.50/$4.00, strong reasoning
-            M.QWEN_3_7_MAX,  # $0.39/$2.34, 397B MoE (fallback)
-        ]
-
-        # Use first available model
-        model = None
-        for m in architecture_models:
-            try:
-                # Check if model is available (basic check)
-                model = m
-                break
-            except Exception:
-                continue
-
-        if model is None:
-            model = M.GPT_4O  # Fallback
+        # No live availability check exists — this always selects CLAUDE_SONNET_5.
+        # Kept as documentation of viable alternatives (in preference order) should
+        # a real health-aware fallback ever be wired in:
+        #   GPT_5_4              $2.50/$10.00, reliable
+        #   XIAOMI_MIMO_V2_5_PRO $1.00/$3.00,  1T+ params, 1M+ ctx
+        #   XAI_GROK_4_5         $1.50/$4.00,  strong reasoning
+        #   QWEN_3_7_MAX         $0.39/$2.34,  397B MoE
+        #   GPT_4O               last resort
+        model = M.CLAUDE_SONNET_5  # $3.00/$15.00, premium quality, reliable JSON
 
         resp = await self.client.call(
             model,
@@ -1035,7 +1024,7 @@ Respond with a JSON object in this exact format:
         "patterns": ["pattern1", "pattern2"],
         "rationale": "Explanation of the optimized architecture"
     }}
-}}}}
+}}
 
 If can_optimize is false, set changes to empty array and optimized_architecture to null.
 Be conservative - only suggest changes if they provide clear benefits."""
