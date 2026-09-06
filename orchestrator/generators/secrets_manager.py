@@ -98,7 +98,10 @@ class SecretsManager:
         self._validated = False
         self._initialized = True
 
-        logger.info("SecretsManager initialized")
+        # Lifecycle detail, not operator-facing: INFO here put a line on the
+        # CLI's stderr for every command once T16 wired SecretsFilter into the
+        # live logging path.
+        logger.debug("SecretsManager initialized")
 
     def load_from_env(self, prefix: str = "") -> dict[str, str]:
         """
