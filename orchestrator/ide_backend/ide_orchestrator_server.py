@@ -2205,6 +2205,26 @@ async def handle_websocket(websocket: WebSocket, session_id: str):
         session_manager.remove_websocket(session_id, websocket)
 
 
+_ACCENT_PATTERN = r"--accent:\s*#[0-9a-fA-F]{3,6}"
+
+
+def replace_accent_color(css_content: str, new_color: str) -> tuple[str, str | None]:
+    """Swap the first ``--accent`` declaration for ``new_color``.
+
+    Returns the new CSS and the declaration that was replaced, or the CSS
+    unchanged and None when there was no ``--accent`` to replace. Spacing is
+    normalised to ``--accent: <color>`` whatever the original used; both forms
+    are valid CSS.
+    """
+    match = re.search(_ACCENT_PATTERN, css_content)
+    if not match:
+        return css_content, None
+    return (
+        re.sub(_ACCENT_PATTERN, f"--accent: {new_color}", css_content, count=1),
+        match.group(0),
+    )
+
+
 async def handle_modification_request(session_id: str, message: str, websocket: WebSocket):
     """Handle modification/edit request for existing project."""
     logger.info(f"Modification request for {session_id}: {message[:100]}...")
@@ -2330,17 +2350,11 @@ async def handle_modification_request(session_id: str, message: str, websocket: 
 
             # Apply color scheme modification
             if new_color:
-                # Use regex to find and replace existing --accent color
-                accent_pattern = r"--accent:\s*#[0-9a-fA-F]{3,6}"
-                match = re.search(accent_pattern, css_content)
+                css_content, previous = replace_accent_color(css_content, new_color)
 
-                if match:
-                    # Replace ONLY the existing accent color (first occurrence)
-                    css_content = re.sub(
-                        accent_pattern, f"--accent: {new_color}", css_content, count=1
-                    )
+                if previous:
                     files_modified.append("styles.css")
-                    logger.info(f"Color changed from {match.group(0)} to --accent: {new_color}")
+                    logger.info(f"Color changed from {previous} to --accent: {new_color}")
                 else:
                     # No accent color found - log warning
                     logger.warning(

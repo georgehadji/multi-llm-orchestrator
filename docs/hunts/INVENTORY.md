@@ -727,3 +727,51 @@ anything read this", not "does the *right* thing read it", and covers only
 both census and gate. `engine_core/container.py` is hand-wired with no
 name-keyed registry, so "registered but never resolved" collapses into the
 settings sub-shape and was not hunted separately.
+
+---
+
+## T21 — `ide_backend/`, the blocked region (closed)
+
+Fifth wave of the depth pass, and the one region whose blocker was
+**environmental rather than budgetary**: 16 files / 5,152 lines that had never
+been importable in this environment, leaving its coverage claim the weakest in
+the ledger. Cleared with `pip install` of the `dashboard` extra; all 16 modules
+then import cleanly (0 failures, verified by exit code).
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `ide_backend/test_color_regex.py` contained **no `assert`** — it counted failures, printed them, and `return failed == 0`. pytest discards a test's return value, so it passed unconditionally. Proven by sabotaging its pattern to match nothing: still `1 passed`. Made fail-closed, **it failed for real** (9 of 10 cases passing, 1 not). The T18 fail-open shape, in the test surface. |
+| C2 | **VERIFIED DEFECT — FIXED** | The same file copy-pasted production's regex instead of calling it, so even green it said nothing about `ide_orchestrator_server.py`. Production's substitution extracted as `replace_accent_color()`; the test now drives it. |
+| C3 | **VERIFIED DEFECT — FIXED** | `ide_backend/test_server.py` is not a test — it is a FastAPI server on port 8765, and the file `start-ide.bat` launched. Renamed `standalone_server.py`; launcher and archived doc updated. |
+| C4 | **VERIFIED DEFECT — FIXED** | 695 lines of `test_*.py` inside `orchestrator/`, where `testpaths = ["tests"]` means pytest never collects them — 13 tests nobody had ever run. |
+| C5 | **VERIFIED DEFECT — FIXED** | `test_ide_modifications.py`'s two async tests were written against `ide_orchestrator_server.SessionManager` (sync, has `broadcast`) but imported `session_manager.SessionManager` (async, no `broadcast`) — T17's "landed on the wrong copy" shape, kept invisible by C4. |
+| C6 | **VERIFIED — ESCALATED** | Three parallel IDE entry points (`launch.py`→`server.py`; `ide_orchestrator_server.py` at 3,005 lines with its own `SessionManager`; `standalone_server.py`), the latter two both binding port **8765**. Which is canonical is a product decision. |
+| C7 | **VERIFIED — ESCALATED** | The `dashboard` extra pins `websockets<13.0`; the **required** `google-genai` needs `>=13.0.0`. pip reports the conflict. Both still import under 12.0, so nothing breaks at import; the Gemini Live-API websocket path is UNKNOWN and untested. |
+| C8 | **FALSE — hypothesis falsified** | `grep` showed two `app = FastAPI(` and two `__main__` blocks on different ports, reading as a second app shadowing the first and discarding its routes. AST found exactly **one** module-level `app`: line 2056 is inside a triple-quoted string — a project *template* the server emits. Checking with AST rather than grep is what saved this from being reported. |
+| C9 | **FALSE — hypothesis falsified** | Production calls `update_session`/`get_session` **without `await`** and broadcasts the result — the exact shape of C5's `'coroutine' object has no attribute` failure. But Subsystem B's `SessionManager` is synchronous except `broadcast`; the calls are correct. |
+| C10 | Recorded, not elevated | The deleted `test_broadcast_order_session_state_first` was **tautological**: it replaced `broadcast` with a recorder, called `broadcast` three times itself, and asserted those calls arrived in the order just made. No production code ran; it could never fail for a product reason. |
+
+**Consolidation, stated honestly.** `test_ide_modifications.py` was deleted
+rather than repaired: of its 12 tests, 9 exercised Python's own `re` module, 1
+was tautological, and 2 pointed at the wrong class — its coverage of product
+code was **zero**. What was worth keeping is now 12 parametrized tests in
+`tests/unit/test_ide_color_regex.py` that call production, plus a file
+round-trip test. No product coverage was lost. The *claimed* coverage of
+broadcast ordering is gone, but it never existed; it is now recorded as an
+uncovered property instead of a false pass.
+
+**New gate — `scripts/check_test_placement.py`:** fails any file under
+`orchestrator/` that pytest would collect by name **and** that defines
+module-level tests. Deliberately narrow — a name alone is not a violation:
+`design/slop_test.py`, `test_first_generator.py`, `test_fixer.py`,
+`test_validator.py` and `operations/quick_self_test.py` are production modules
+whose domain is testing and define no tests; all five are correctly ignored,
+verified individually. `test_instructor_tenacity.py` (three module-level test
+functions that make **live API calls**) is baselined with its reason.
+
+**Scope limit (see `t21-ide-backend/coverage.md`):** this wave cleared the
+blocker and swept the test surface. Roughly **4,000 of the 5,152 lines remain
+unread**, including ~2,700 of `ide_orchestrator_server.py` and all ~1,300 lines
+of Subsystem A's routes/handlers/session manager. "T21 complete" means
+importable with real tests, **not** audited. No server was started and no port
+was bound.
