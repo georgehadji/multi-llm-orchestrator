@@ -547,3 +547,46 @@ This closes the T9-T16 continuation plan. As stated in
 data-backed, estimate-based prioritization of the files left with no individual disposition
 after T0-T8 — not a mathematically-verified 100% line-by-line partition of every file in
 scope.
+
+## T17 — Duplicate-pair convergence sweep (closed)
+
+Full detail: `docs/hunts/t17-duplicate-pairs/inventory.md`,
+`docs/hunts/t17-duplicate-pairs/coverage.md`. First wave of
+`docs/hunts/BACKEND_DEPTH_PASS_PLAN.md` (T17–T24) and the first wave in this programme
+whose Phase-1 surface is **exhaustively enumerated over a pattern** rather than sampled
+over files: all 188 same-name root/subpackage pairs classified by AST, of which 123 were
+already resolved as shims in one direction or the other, leaving **65 with definitions on
+both sides** — the full candidate set, all triaged.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `integrations/swiftstack_integration.py` was a *byte-identical* copy of the root module one package deeper, so its root-relative imports resolved against `orchestrator.integrations.*` and it raised `ModuleNotFoundError: No module named 'orchestrator.integrations.api_builder'` on every import — a duplicate that could not load. T15 recorded it as a dead duplicate; this wave establishes it was also broken. Converged to a shim, which also makes it importable. |
+| C2 | **VERIFIED DEFECT — RECORDED, NOT FIXED** | Root `website_generator.py:17` imports `.component_registry`, which lives in `design/`, not root — so the module and its only importer, `cli_website.py`, are both unimportable. Deliberately not fixed: correcting the path only moves the failure, because `design/component_registry.py` needs `ComponentSource`, a name referenced 17 times across the design subsystem and **defined nowhere in the repository**. A path-only change would mask the symptom rather than break the mechanism. `[REQUIRES HUMAN REVIEW]`, consistent with T13's disposition of the same subsystem. |
+| C3 | **Hygiene — FIXED** | Four further byte-identical duplicate pairs (`design/component_library.py` 879 lines, `design/frontend_security.py` 1058, `security/indesign_plugin_rules.py` 1131, `security/ios_hig_prompts.py` 474) kept two independently-editable copies reachable under two import paths. No divergence today by construction; converged to shims to remove the precondition for one. |
+| C4 | **VERIFIED DEFECT (latent) — FIXED** | `design/design_system.py` was a stale 155-line fork of the 310-line canonical root module, **wildcard-exposed via `design/__init__.py`**, missing the `tone`/`font_heading`/`font_body`/`accessibility` fields and the `__post_init__` materialising `spacing`/`shadow`/`animation`/`border_radius` — precisely the attributes `website_generator.py` formats into its output. Latent rather than live: every real consumer imports root, so the fork was an `AttributeError` landmine armed for the first caller writing `from orchestrator.design import DesignSystem`. mypy independently reported `"DesignSystem" has no attribute "tone"` pre-fix; that error is gone post-fix. |
+| C5 | **FALSE (innocent)** | `design/design_to_code.py`'s `VISION_MODELS` names a stale `claude-sonnet-4.6` (root names the real `claude-sonnet-5`), but the dict is read by nothing anywhere. Inert constant in a dead fork. Recorded so it is not re-raised. |
+| C6 | **UNKNOWN — routed to T21** | `ide_backend/log_config.py` defines a fifth independent `configure_logging()` and a `get_logger()` returning a separate `ide_backend.*` logger hierarchy with no `SecretsFilter`; five `ide_backend/` modules import it. No executable trigger is possible here — importing it requires `fastapi`, which is not installed — so per V7 Phase 3 it stays `[UNK]` rather than being promoted on reasoning. Strengthens the case for T21's stated prerequisite. |
+
+**Deliberately excluded from convergence:** `integrations/gateway.py` — byte-identical and
+name-safe, but `orchestrator/gateway/` exists as a *package*, so a `..gateway` shim would
+resolve to the package rather than root's `gateway.py`. That is a semantic change, not a
+convergence. Kept in the gate baseline.
+
+**Triaged, not converged (57):** overwhelmingly import-depth-only differences (`..X` vs
+`.X`, each correct for its own location) with leftover `# FIXED:` breadcrumb comments.
+Converging all 57 in one commit is the over-broad change V7 Phase 6 vector 6 warns against;
+each needs its own name-superset proof. Frozen in the gate baseline so they cannot grow.
+
+**New gate — `scripts/check_duplicate_pairs.py`:** freezes the remaining 59 pairs, fails on
+any new both-sides-define pair, accepts a pair once either side becomes a shim, supports
+`--list`/`--update`. Self-tested three ways (detects an injected pair, accepts it once
+shimmed, `--update` idempotent and non-self-corrupting). Two defects in the gate itself were
+caught by its own tests before commit.
+
+**Gate status:** black/ruff/lint-imports/root-freeze/duplicate-pairs/test-markers/bandit all
+PASS. mypy: net −17 errors (1554 → 1537); the 47 lines that appear on root `design_system.py`
+are pre-existing looseness in a file this wave did not modify, which mypy simply never
+reached before (before = 0 lines for it) because `component_registry` resolved `DesignSystem`
+to the fork. New tests 8/8 (RED→GREEN verified — all 8 failed pre-fix for the exact predicted
+reason). Full suite: 2580 passed (+8), 2 pre-registered environmental failures unchanged,
+20 skipped, 157 deselected — zero regressions.
