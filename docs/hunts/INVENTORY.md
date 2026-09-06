@@ -822,3 +822,52 @@ swept exhaustively across both regions; the regions were not audited. **~10,000
 of the 10,571 lines remain unread**, including 78 of the 82 check bodies as
 logic (only their evidence declarations were verified) and ~4,100 lines of
 `ara_pipelines.py`.
+
+---
+
+## T21-follow-up — the dependency I installed locally and never checked in CI
+
+**Trigger:** the first real CI run after a GitHub Actions outage. Every check
+had been completing in 1–3 s with `runner_id: 0`, `runner_name: ""` and 404
+logs since `d9af8b4`; at 14:13 UTC runners were assigned again
+(`runner_id: 1000012211` / `1000012216`, jobs 90 s and 115 s) and the Test job
+failed on both the push and the pull_request run.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| D1 | **VERIFIED DEFECT — FIXED** | `tests/unit/test_ide_color_regex.py`, added in T21, imports `orchestrator.ide_backend.ide_orchestrator_server`. `ide_backend/__init__.py:9` eagerly imports `.server`, which imports `fastapi` at module level. CI installs only `.[dev]`, which has no fastapi, so the import raised at **collection** — and a collection error aborts the run: `3 deselected, 1 error`, with all **2,790** other tests never executed. |
+| D2 | Recorded, **not fixed** | `pip install -e ".[dashboard]"` is `ResolutionImpossible`. The extra pins `websockets>=11.0,<13.0` while the core dependency `google-genai` requires `>=13.0`; `httpx` collides too (core `<0.28.0` vs google-genai `>=0.28.1`). So the setup command documented in `CLAUDE.md` — `pip install -e ".[dev,security,tracing,dashboard,docs]"` — **cannot succeed**. Repairing the pins is a dependency decision with real blast radius on the dashboard, so it is escalated rather than taken unilaterally. |
+
+**How D1 was verified, not guessed.** A `sys.meta_path` finder that raises on
+`fastapi` reproduced CI's numbers exactly: `2790/2793 tests collected
+(3 deselected), 1 error`. Re-run with `--continue-on-collection-errors` to prove
+nothing hid behind the abort — still exactly one error. Re-run with fastapi
+available and only `uvicorn` blocked, simulating CI after the fix: **0 errors,
+2802/2805 collected**. Necessary and sufficient, both directions measured.
+
+**The fix is one line** — the Test job installs `fastapi>=0.100.0,<1.0`
+alongside `.[dev]`. Loose rather than through `[dashboard]`, because of D2:
+fastapi alone carries none of the conflicting pins, and `.[dev]` plus that pin
+resolves cleanly. The reason is stated in `ci.yml` so the next reader does not
+"tidy" it into `.[dashboard]` and re-break the run.
+
+**Two alternatives rejected.** `pytest.importorskip("fastapi")` is one line and
+would have gone green — by making the test silently not run in CI, which is
+verbatim the defect T21 existed to remove ("it lived where pytest never
+collected it — nothing had run it"). Trading one never-run test for another is
+not a fix. Extracting `replace_accent_color` into a fastapi-free module was the
+architecturally tidier option and still fails: `ide_backend/__init__.py` drags
+in `server.py` on any submodule import, so it would need a lazy `__getattr__`
+package init as well — ~35 lines across four files, changing import semantics
+for every existing caller, and leaving the other 16 modules just as unimportable
+in CI.
+
+**The process failure worth recording.** T21 was unblocked by running
+`pip install fastapi uvicorn[standard] websockets httpx` in the session
+container — bare packages, which bypass the project's own pins. That is why it
+worked locally and why D2 went unnoticed. The test suite was verified green
+against an environment CI does not have and cannot build. No gate is being added
+for this: CI's own collection step is the detector, and it caught the defect
+within minutes of the runners returning. The gap was that the local environment
+had drifted from CI's, and a gate running in the drifted environment would not
+have seen it either.
