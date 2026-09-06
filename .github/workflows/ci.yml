@@ -87,11 +87,17 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # pyproject.toml declares `requires-python = ">=3.10"`; this job used
+        # to run 3.12 only, so the declared floor was never exercised.
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install dependencies
         # fastapi is installed loose, not via the [dashboard] extra: that extra pins

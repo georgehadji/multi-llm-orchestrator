@@ -344,31 +344,50 @@ then by whether a decision blocks the fix.
   behavior — consistent with Rule 2); `ara_pipelines.py` gains one `if flags.x:` guard around
   the call. No new dependency, no layer violation.
 
-#### B8. `OrchestratorSettings` — dead-field count needs a proper recount, not either existing number
+#### B8. `OrchestratorSettings` — dead-field recount, completed
 
-- **State (VERIFIED field count, UNVERIFIED dead-count):** `crosscutting/config.py:137-174`'s
-  `OrchestratorSettings` has exactly **21** fields (counted directly:
-  `max_concurrency, max_parallel_tasks, default_budget_usd, default_timeout_seconds,
-  context_truncation_limit, rate_limit_per_minute, cache_ttl_hours,
-  semantic_cache_threshold, dashboard_port, dashboard_host, mcp_port, mcp_host,
-  mcp_http_mode, log_level, log_format, audit_log_path, design_variance,
-  motion_intensity, visual_density, cache_home, compression_model`) — confirming the "21"
-  half of the original "12 of 21" claim. A narrow re-check (`grep -rn
-  "settings\.(field)\b"` for all 21 names) found only **2** real consumption sites
-  (`log_level`, `log_format`, both in `project_mgmt/assembler.py:514,516`) — the apparent
-  third hit, `crosscutting/config.py:12`, is inside that file's own module **docstring**
-  (example code, not live). This regex only catches the `settings.<field>` access pattern
-  through the module-level singleton; it cannot see a locally-constructed
-  `OrchestratorSettings()` instance under a different variable name, or an `ORCH_<FIELD>`
-  environment variable read directly via `os.environ`. **The true dead-field count is
-  UNKNOWN** — it could be as low as the previously-recorded 12 or as high as 19; neither
-  number should be trusted until every one of the 21 fields is checked individually across
-  all three access patterns.
-- **Classification:** Standard investigation, then a product decision.
-- **Decision needed:** after the recount, for each confirmed-dead field: wire it to a real
-  consumer, or delete it. Not resolvable until the recount exists — do not guess at which 12
-  (or 19) in the meantime.
-- **Fix shape:** recount first (mechanical, cheap); disposition follows per-field.
+- **State (VERIFIED, replaces both the original "12 of 21" claim and this plan's own earlier
+  "UNKNOWN, could be 12-19" placeholder):** `crosscutting/config.py:137-174`'s
+  `OrchestratorSettings` has exactly **21** fields. A naive single-pattern grep
+  undercounts real consumers (it missed indirection through renamed variables), so each
+  field with any signal at all was traced to its actual call site, not just pattern-matched:
+  - **6 confirmed genuinely wired:** `log_level`, `log_format` (both read via
+    `settings.log_level`/`settings.log_format` in `project_mgmt/assembler.py:514,516`);
+    `cache_home` (read via `os.environ.get("ORCH_CACHE_HOME")` directly in
+    `infrastructure/path_provider.py`, bypassing the settings object entirely);
+    `design_variance`, `motion_intensity`, `visual_density` (the "taste-skill" dials — these
+    looked dead on a direct `settings.<field>` grep, but are genuinely consumed through a
+    4-hop chain: `engine.py:587` imports the singleton as `_settings` →
+    `engine_slimming.py::build_taste_skill_service(settings=...)` →
+    `design/taste_skill_service.py::TasteSkillService.__init__` stores it as `self._settings`
+    → read via `getattr(self._settings, "design_variance", 5)` etc. at lines 165-167).
+  - **15 confirmed dead** (zero signal found on any access pattern — direct singleton
+    access, renamed-variable indirection, or direct `ORCH_<FIELD>` env reads):
+    `max_concurrency`, `max_parallel_tasks`, `default_budget_usd`,
+    `default_timeout_seconds`, `context_truncation_limit`, `rate_limit_per_minute`,
+    `cache_ttl_hours`, `semantic_cache_threshold`, `dashboard_port`, `dashboard_host`,
+    `mcp_port`, `mcp_host`, `mcp_http_mode`, `audit_log_path`, `compression_model`. (Note:
+    `dashboard_host` and `dashboard_port` being dead here is the same finding as A2 above —
+    listed in both places since A2 is about the security consequence, this entry is about
+    the field-wiring inventory.)
+  - **Residual caveat:** the 6 "alive" fields were only found alive because each had *some*
+    initial grep signal worth tracing (a same-named hit elsewhere, or a docstring mention)
+    that turned out, on inspection, to be a real multi-hop consumer for 3 of them. The 15
+    "dead" fields had zero signal on *any* pattern tried, which is a meaningfully stronger
+    basis for "dead" than the 3 taste-skill dials briefly appeared to have — but a
+    hypothetical consumer reached through a chain with no textual trace at all (e.g. fully
+    dynamic attribute names) cannot be ruled out by any static method. Treat 15/21 as
+    well-evidenced, not absolutely exhaustive.
+- **Classification:** Investigation complete; disposing of each dead field (wire vs. delete)
+  is still a product decision.
+- **Decision needed:** for each of the 15 confirmed-dead fields: wire it to a real consumer,
+  or delete it. No single answer applies to all 15 — `dashboard_port`/`dashboard_host` are
+  covered by A2's decision above; the rest have no other pending work touching them and can
+  be dispositioned independently, most likely by deletion (YAGNI — nothing in this codebase
+  has ever needed them) unless a specific consumer is proposed.
+- **Fix shape:** once decided, deleting an unused `pydantic-settings` field is a one-line
+  change per field; wiring one to a real consumer follows whatever that consumer's own
+  layer requires.
 
 #### B9. IDE dev-server ports are hardcoded, not session-scoped
 
@@ -506,15 +525,20 @@ an explicit, separate ask.
   item where "just skip the check" is tempting under time pressure. Explicitly banned per
   Unwritten Rule 1 — fix the pins/add the matrix, never loosen a floor or add an
   `ignore_imports` to route around a real conflict.
-- **B8's number is genuinely unknown.** Don't let "12 of 21" (or my own rough "as many as 19")
-  anchor the eventual fix — recount first.
+- **B8's recount (15 of 21 dead) still isn't provably exhaustive.** 3 of the 6 "alive" fields
+  were only found alive by tracing a 4-hop indirection chain; a field with a consumer reached
+  through an even less traceable path (fully dynamic attribute names) wouldn't show up in any
+  static check. Treat 15/21 as well-evidenced, not a hard guarantee, when dispositioning them.
 - **A2's `WebSocketServer` pair is an inferred, not confirmed, duplicate.** Diff before
   assuming both files should converge to one behavior.
 
 ## 10. Uncertainty acknowledgment
 
-**Most likely to change on closer inspection:** B8 (dead-field count) and B6's httpx-range
-half — both explicitly flagged UNKNOWN/INFERENCE above rather than asserted.
+**Most likely to change on closer inspection:** B6's httpx-range half, still explicitly
+flagged INFERENCE above rather than asserted. B8's dead-field count was UNKNOWN when this
+plan was first drafted; it has since been recounted by tracing every non-zero signal to its
+real consumption site (see B8) — 15 of 21 confirmed dead, 6 confirmed alive — though even
+that recount can't rule out a consumer reached through a fully untraceable path.
 
 **Most likely to be straightforward once decided:** C1–C4 and B1's dead-code deletion half —
 all VERIFIED, all mechanical, none blocked on a design question.
@@ -527,5 +551,5 @@ repo-consistent argument for prioritizing it.
 
 **Cannot be determined from static reading alone:** whether `AutonomyConfig.apply_to_task()`
 (B2) has a `Task`/`TaskSpec` object actually in scope at all 4 `cli_dispatch.py` call sites;
-the real httpx conflict range (B6); the true dead-field count (B8); whether
-`ExecutionRecord.project_id` (B5) is reliably populated end-to-end.
+the real httpx conflict range (B6); whether `ExecutionRecord.project_id` (B5) is reliably
+populated end-to-end.
