@@ -322,3 +322,40 @@ future investigation, not folded into T11.
 **Gate status at T11 close:** black/ruff/lint-imports/root-freeze/test-markers/bandit all PASS.
 mypy: isolated diff empty. New tests 3/3 (RED→GREEN verified). Full suite: 2530 passed (+3), 2
 pre-registered environmental failures unchanged, 21 skipped — zero regressions.
+
+## T12 — application/ orchestration core, agents/, supervisor/, nash/, meta/ (closed)
+
+Full detail: `docs/hunts/t12-application-core/inventory.md`, `docs/hunts/t12-application-core/coverage.md`.
+Fourth of waves T9-T16 per `docs/hunts/BACKEND_REMAINDER_WAVES_PLAN.md` (93 files).
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `application/decomposer_service.py`'s Instructor fast-path decomposition made a real, billable OpenRouter call via a raw client (bypassing `UnifiedClient`'s cost tracking) but never called `charge_fn` — live whenever a project description is ≤8,000 chars, the common case. Fixed: charge a token-count estimate via the existing `models.py::estimate_cost()` helper, mirroring the defensive try/except style the fallback path already uses. Does not claim the estimate matches Instructor's real reported cost — a full fix requires restructuring `structured_outputs.py` (outside any tier's scope). |
+| C2 | **VERIFIED DEFECT — FIXED** | 7 wrong-depth relative imports across `engine_core/method_selector.py` (4), `container.py` (2), `engine_deps.py` (1) made the entire ARA reasoning-pipeline subsystem (~5,000 lines, 22 reasoning strategies, enabled by default) unreachable, silently swallowed by bare `except ImportError`. Fixed: corrected all 7 to point at their actual targets (`reasoning/ara_pipelines.py`, root `ara_integration.py`/`ara_execution_strategy.py`). Verified end-to-end (real construction, `enabled=True`) and against the pre-existing 26-test container/ACR suite. Cross-tier fix: `engine_core/` was T11's closed scope, but the defect is only traceable from a T12 file and the fix is a pure dot-count correction — documented rather than artificially deferred. |
+| C3 | **VERIFIED DEFECT — FIXED** | `routing/__init__.py` imported a `routing/selector.py` that has never existed in this repo's history, breaking the whole `routing/` package and, transitively, `model_routing.py` — the file CLAUDE.md's own architecture table names for LLM routing. Fixed: removed the broken import line; did not invent a replacement target. |
+| C4 | **VERIFIED DEFECT — FIXED** | `meta/integration.py` had diverged from its canonical root twin `meta_integration.py`: the subpackage copy still read `state.status.value` directly (AttributeError if `status` is a plain string), a bug the root copy already fixed via `getattr`. Fixed: converted `meta/integration.py` into a shim pointing at root — the reverse direction from this codebase's other 5 `meta_*.py` shims, since root is provably canonical here. Confirmed no circular import, both empirically and by tracing. |
+| C5 | **VERIFIED DEFECT — FIXED** | `application/cache_warmup.py` imported a nonexistent `operations/cache_warmup` module (T10 handoff). T10's "live hot-path" characterization is corrected here: `git log -S` confirms its only caller, `engine._warm_cache_for_level`, has never itself had a caller — fully dead code, not a missed hot-path optimization. Fixed the import to the real `cost_optimization/prompt_cache.py::warm_prompt_cache`; did not wire the dead call site live (a product decision). |
+
+**Residual, surveyed but not fixed:** `HumanInTheLoop`'s fail-closed gate never reaching
+`ProjectRunner` (`project_runner.py:232`'s `self._hitl` is never set anywhere), so
+`UnattendedGuard` always reports no checkpoint present regardless of real configuration —
+`[REQUIRES HUMAN REVIEW]`, a safety-gate behavior change not independently verified as
+risk-free; `orchestrator/agents.py` permanently shadowed by the `orchestrator/agents/`
+package (currently inert, needs a rename decision, not a mechanical fix);
+`application/task_executor.py`'s missing `await` on an async call (real, but inside code
+with zero live callers); `delegation/batch_runner.py`'s dead-code docstring-contract
+violation (drops failed tasks from its return dict, contradicting its own docstring).
+
+**Discovered incidentally, out of scope, not fixed:** `commands/nash.py`'s `nash backup`
+subcommand crashes unconditionally (`orchestrator/nash_backup.py` has never existed) — handed
+to T15 (commands/ is its declared scope); `cli.py`'s docstring names a nonexistent dispatcher
+module (harmless, real import is already correct) — handed to T15 (cli* is its scope); a
+broad structural pattern where roughly a third of `application/` plus most of
+`agents/`/`planning/` are real, individually-tested, but never wired into production —
+recorded for visibility, not assigned to any future wave.
+
+**Gate status at T12 close:** black/ruff/lint-imports/root-freeze/test-markers/bandit all
+PASS. mypy: isolated diff empty after sorting (raw diff was pure ordering noise — identical
+1879-line counts both sides). New tests 5/5 (RED→GREEN verified). Pre-existing 26-test
+container/ACR/engine/resilience suite: zero regressions. Full suite: 2535 passed (+5), 2
+pre-registered environmental failures unchanged, 21 skipped — zero regressions.

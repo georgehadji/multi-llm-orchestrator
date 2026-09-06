@@ -14,11 +14,11 @@ import logging
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from .ara_pipelines import ReasoningMethod
-from .models import Task, TaskType
+from ..reasoning.ara_pipelines import ReasoningMethod
+from ..models import Task, TaskType
 
 if TYPE_CHECKING:
-    from .api_clients import UnifiedClient
+    from ..api_clients import UnifiedClient
 
 logger = logging.getLogger("orchestrator")
 
@@ -590,7 +590,7 @@ Recommend the optimal method.
 
     def _get_available_models(self) -> list:
         """Get available models for LLM optimization."""
-        from .models import ROUTING_TABLE, Model
+        from ..models import ROUTING_TABLE, Model
 
         # Try to get a reasoning-capable model
         routing = ROUTING_TABLE.get(TaskType.REASONING, [])

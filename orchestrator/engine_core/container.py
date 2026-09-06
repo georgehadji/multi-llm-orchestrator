@@ -723,7 +723,7 @@ class ServiceContainer:
 
         # ARA integration
         try:
-            from .ara_integration import create_ara_integration
+            from ..ara_integration import create_ara_integration
 
             ara = create_ara_integration(
                 client=client,
@@ -736,7 +736,7 @@ class ServiceContainer:
             ara = None
 
         try:
-            from .ara_execution_strategy import ARAExecutionStrategy
+            from ..ara_execution_strategy import ARAExecutionStrategy
 
             ara_strategy = ARAExecutionStrategy(ara_integration=ara)
         except ImportError:
