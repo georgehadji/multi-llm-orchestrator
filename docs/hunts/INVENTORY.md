@@ -590,3 +590,47 @@ reached before (before = 0 lines for it) because `component_registry` resolved `
 to the fork. New tests 8/8 (RED→GREEN verified — all 8 failed pre-fix for the exact predicted
 reason). Full suite: 2580 passed (+8), 2 pre-registered environmental failures unchanged,
 20 skipped, 157 deselected — zero regressions.
+
+## T18 — Silent-failure sweep at scale (closed)
+
+Full detail: `docs/hunts/t18-silent-failure/inventory.md`,
+`docs/hunts/t18-silent-failure/coverage.md`. Second wave of
+`docs/hunts/BACKEND_DEPTH_PASS_PLAN.md`. AST-classified **all 916** broad
+exception handlers in `orchestrator/` (the plan estimated 923 from a cruder grep;
+the AST count supersedes it): 627 log, 67 re-raise, **222 silent**. The 222 were
+ranked money (7) / validation-gate (46) / persistence (24) / config (3, not
+elevated per T16) / other (142).
+
+**The headline is a negative result.** Two mechanical sweeps tested *every* one of
+the 916 handlers for the **fail-open** shape — a handler that neither logs nor
+re-raises, returning either a bare `True` or a result object built with
+`passed=True`/`success=True`/`ok=True`/`valid=True`/`healthy=True`/`available=True`.
+**Both returned zero.** No handler in the codebase reports success because it
+failed. That is the severe variant of this pattern, and its absence is consistent
+with T6/T8/T9/T13/T16 having fixed the instances that existed.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| C1 | **VERIFIED DEFECT — FIXED** | `website_validator.py::_check_rate_limiting` silently `continue`d past any of its ≤50 scanned files it could not read, then reported *"No rate limiting found. Contact forms and registration endpoints must include IP-based rate limiting."* — indistinguishable from having read the files and found nothing. Now logs the read failure and appends "N file(s) could not be read and were skipped, so this scan is incomplete", matching T8 C5's pattern in this same file. |
+| C2 | **VERIFIED DEFECT — FIXED** | `website_validator.py::_check_auth_flow`, identical shape over ≤20 auth files, reported *"Auth pages found but no email verification flow detected."* Same fix. |
+| — | **Severity note** | Unlike T8's C5 in this file (the secret scanner, which reported **clean** — fail-open, a security hole), C1/C2 fail **closed**: an unreadable file leaves `found=False` so the check reports failure. The harm is a misreport that sends a developer to add protection that may already exist, plus silently reduced coverage of checks gating the documented `--min-quality`/`--require-all-checks` flags. Severity LOW, and deliberately not inflated to match T8's. |
+| C3 | **FALSE (innocent)** | `cost.py::_static_estimate`'s `except (KeyError, Exception): return 0.0` looked like it would make unknown-cost models appear free and therefore always "cheapest". Falsified on both counts: `estimate_cost` cannot raise (`COST_TABLE.get(model, {...})` has a default), and `cheapest_model` **filters out** zero-cost candidates rather than preferring them. The 0.0 is a documented sentinel. The redundant `(KeyError, Exception)` tuple is inert. |
+| C4 | **FALSE (innocent)** | `safety/code_executor.py::_is_sandbox_available`'s silent `return False`, whose caller falls through to `_execute_local` (commented "insecure"), looked like a sandbox bypass. The guard above it either returns a blocking error result or logs `"Executing code without sandbox - security risk!"` — fail-closed by default with an explicit, logged opt-out. Swallowing a Docker-reachability error is correct. |
+| C5 | **FALSE (innocent)** | `infrastructure/state.py::save_checkpoint`'s flagged `except Exception: pass` guards `await db.rollback()` inside an outer handler that **re-raises**. A rollback that fails must not mask the original exception. |
+| C6 | **Recorded, not elevated** | `control_plane.py::_write_audit` (documented-deliberate, comment says "audit failures must never break the main flow", and the record is a log line not a durable store); `streaming_resilient.py::get_usage_percent` (returns a fabricated 50% when the memory probe fails — same shape as T6's fabricated-neutral-score item, treated consistently); `batch_client.py`'s bounded polling swallow. |
+
+**New gate — `scripts/check_silent_failure.py`:** fails when a broad handler that
+neither logs nor re-raises returns an affirmative value; prints the number of
+handlers examined so the denominator is visible. Deliberately does *not* police
+silence in general — 222 handlers would be a meaningless CI signal, and the
+classifier's false-positive rate for *severity* is high (it flags correct rollback
+guards, best-effort cleanup, and documented-deliberate swallows). Self-tested three
+ways: catches `return True`, catches `return R(passed=True)`, and correctly does
+**not** flag a handler that logs before returning True.
+
+**Gate status:** black/ruff/lint-imports/root-freeze/duplicate-pairs/silent-failure/
+test-markers/bandit all PASS. mypy: isolated diff empty. New tests 4/4 (RED→GREEN —
+both defect tests failed pre-fix quoting the misleading text verbatim; the two gate
+tests pass on both trees and are labelled tool tests, not defect proofs). Full
+suite: run still in progress at commit time — count deliberately not asserted; every
+narrower check (new tests, full gate suite, mypy isolated diff) was green.
