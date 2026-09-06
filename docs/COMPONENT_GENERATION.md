@@ -97,7 +97,7 @@ it should adapt on mobile, not how to implement it.
 Honest accounting of what was and was not checked:
 
 - **Verified by test** (`tests/unit/test_component_generation_frameworks.py`,
-  27 tests): the registry imports and yields real `ComponentSpec`s; the live
+  27 tests; full suite 2611 passed, +27, zero regressions): the registry imports and yields real `ComponentSpec`s; the live
   generator resolves to it rather than `_FakeRegistry`; framework normalization;
   React and Svelte source sets are disjoint apart from `CUSTOM`; a Svelte build
   selects bits-ui/sveltebits; a React build is unchanged; sections without a
