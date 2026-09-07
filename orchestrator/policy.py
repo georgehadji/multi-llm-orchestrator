@@ -255,6 +255,12 @@ class JobSpec:
     preferred_regions: list[str] = field(default_factory=list)
     max_parallel_tasks: int = 3
     quality_mode: Literal["standard", "production"] = "standard"
+    # Cross-run budget attribution. ProjectRunner.run_job() reads these to key
+    # BudgetHierarchy's per-job and per-team caps; without them every job settled
+    # anonymously against the org cap only (P3-COST3). Empty means "not attributed",
+    # which is still correct — just not attributable.
+    job_id: str = ""
+    team: str = ""
 
     def __post_init__(self) -> None:
         _max_desc = 10_000
