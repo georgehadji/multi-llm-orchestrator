@@ -16,12 +16,25 @@
 | T4 | SEC-006 permission enforcement | **done** | `3ae363d6` |
 | T5 | SEC-002 pickle cache | **done** — module deleted, not re-coded | `5580d037` |
 | T6 | SEC-004 SSRF | **done** | `53b83b20` |
-| T7–T10 | IDE auth/ownership, key lifecycle, legacy entry point, CI gates | **open** | — |
+| T7 | SEC-001b IDE auth + session ownership | **done** | `1e521221` |
+| T8 | Key lifecycle and persistence | **done** | `406b444d` |
+| T9 | Legacy entry point decision | **done** — deleted the two duplicates | `d8e9f447` |
+| T10 | CI and operational gates | **done** | `f5bd76a1` |
 
-121 security tests pass. All six import-linter contracts KEPT. Two breaking
-changes shipped deliberately: `supervisor:*` is no longer implied by `read` or
-`execute` (re-register keys), and `ShellTool` is disabled unless
-`ORCHESTRATOR_SHELL_TOOL_ENABLED` is set.
+**All ten slices delivered.** 176 security tests pass. All six import-linter
+contracts KEPT.
+
+Breaking changes shipped deliberately:
+
+- `supervisor:*` is no longer implied by `read` or `execute` — re-register keys;
+- `ShellTool` is disabled unless `ORCHESTRATOR_SHELL_TOOL_ENABLED` is set;
+- IDE sessions have owners, so a caller only sees and edits their own;
+- IDE session IDs are full UUID4s, so any stored 8-character ID is stale;
+- `start-ide.bat` now launches `orchestrator.ide_backend.launch`;
+  `standalone_server.py` is gone.
+
+Run `python -m orchestrator.safety.posture` to see what a given deployment is
+actually enforcing; `docs/security/PRODUCTION_PROFILE.md` lists what to set.
 
 Known unrelated breakage in the tree, pre-existing and untouched by this work:
 `tests/unit/` has ~38 failures concentrated in `test_hunt_*`,
@@ -215,7 +228,25 @@ Regression tests: localhost, IPv4/IPv6 loopback, private ranges, `169.254.169.25
 decimal/hex IP forms, redirect-to-blocked, DNS rebinding, userinfo URLs,
 oversized responses, decompression bombs, unsupported schemes.
 
-### T7 — SEC-001b: IDE authentication and ownership
+### T7 — SEC-001b: IDE authentication and ownership — **done** (`1e521221`)
+
+Delivered as specified, in `ide_backend/auth.py` (one module for both the REST
+routes and the WebSocket handshake), with `SessionState.owner_id` checked on
+every session-scoped route, full UUID4 session IDs, a 1 MiB frame cap and
+stable error codes. Not-yours answers 404 rather than 403, so a route cannot be
+used as an existence oracle. Authentication is opt-in
+(`ORCHESTRATOR_IDE_AUTH_REQUIRED`) because the bind is loopback and a hardened
+default that makes local work annoying is a default people route around —
+which is literally how the insecure standalone server became the shipped
+launcher. When it is off, requests carry `LOCAL_PRINCIPAL`, so ownership is
+still evaluated on every call.
+
+A second instance of SEC-005 turned up here: `SessionManager` built
+`storage_path / f"{session_id}.json"` from the caller's `session_id` in save,
+load and delete. All three now go through `SecurePath`.
+
+Original brief, for reference:
+
 With exposure already closed by T1, build the durable fix: a shared
 authentication path used by both the REST routes
 (`orchestrator/ide_backend/api/routes.py`) and the WebSocket handshake
@@ -225,20 +256,88 @@ access and socket event — never trust a caller-supplied session ID because it
 exists. Use UUID4 session IDs. Add message-size, rate, concurrency and idle
 limits. Return stable error codes, never raw exception text.
 
-### T8 — Key lifecycle and persistence
+### T8 — Key lifecycle and persistence — **done** (`406b444d`)
+
+`orchestrator/safety/api_keys.py`: HMAC-SHA256 under a pepper
+(`ORCHESTRATOR_API_KEY_PEPPER`), records carrying key ID, principal,
+permissions, creation, expiry and revocation, `MAX_KEYS_PER_PRINCIPAL = 10`,
+one-time raw display, rotation, and `POST /revoke_key` + `POST /rotate_key`
+behind the admin gate. A persistent store refuses to start without a pepper; an
+in-memory store mints an ephemeral one, which is the test adapter the brief
+asked for. Deliberately HMAC and not bcrypt/argon2: verification runs on every
+request, and a work factor there is a self-inflicted denial of service — the
+strength is 256 bits of token entropy plus a secret the store file does not
+contain.
+
+Still open, same flaw in another module: `integrations/gateway.py:121` keeps its
+own `sha256`-keyed dict.
+
+Original brief, for reference:
+
 Persist keys as a keyed digest (HMAC with a server-side pepper) plus key ID,
 principal, permissions, and creation/expiry/revocation timestamps — never the raw
 token. Add rotation, revocation, bounded key count per principal, one-time raw
 key display, and audit events. Keep an in-memory adapter for tests; legacy
 in-memory keys become explicit development-only opt-in.
 
-### T9 — Legacy entry point decision
+### T9 — Legacy entry point decision — **done** (`d8e9f447`)
+
+The question was wrong: there were **three** IDE servers, and the one users
+actually run was not the hardened one.
+
+| module | launched by | state before |
+|---|---|---|
+| `server.py` | `launch.py`, README | hardened by T1 |
+| `standalone_server.py` | **`start-ide.bat`** | `0.0.0.0`, wildcard CORS, no auth |
+| `ide_orchestrator_server.py` | nothing | `0.0.0.0`, wildcard CORS, leaky `/health` |
+
+`standalone_server.py` was used because the documented entry point was broken:
+`launch.py` loaded `server.py` via `spec_from_file_location`, giving it no
+parent package, so its relative imports raised `attempted relative import with
+no known parent package`. `python -m orchestrator.ide_backend.launch` could
+never have started.
+
+Fixed the launcher, repointed `start-ide.bat`, deleted `standalone_server.py`,
+and stripped the app, CORS, routes, WebSocket endpoint and `__main__` from
+`ide_orchestrator_server.py` — its generators and helpers stay, since tests
+import them.
+
+Generated output carried the same flaw: the FastAPI templates in
+`ide_orchestrator_server.py` and `generators/multi_platform_generator.py` both
+emitted `allow_origins=["*"]` with credentials and uvicorn on `0.0.0.0` — the
+exact pattern `safety/generated_output_scanner.py` flags HIGH in delivered
+projects. Both now emit an env-driven allowlist and bind loopback by default.
+
+Original brief, for reference:
+
 Decide whether `ide_orchestrator_server.py` is still deployed. If not, remove it
 from launch paths and document the migration. If it stays, route it through the
 same auth, ownership, path and command policy as the FastAPI server. Do not
 maintain a second security implementation.
 
-### T10 — CI and operational gates
+### T10 — CI and operational gates — **done** (`f5bd76a1`)
+
+`pip-audit --strict`, `gitleaks` over full history, and the security regression
+suite all run in the CI security job. The regression guards ban
+`create_subprocess_shell`, `shell=True`, unguarded `urlopen`, wildcard CORS with
+credentials and pickle deserialization, and assert that `api_server` verifies
+through the `KeyStore` and that every session-scoped IDE route goes through the
+ownership helper. Allowlists are narrow and state their reason in the test.
+
+Writing the shell guard found one more live instance:
+`safety/sandbox_executor.py` ran its `test_command` — a value that arrives from
+a project's own config, so it travels with a cloned or generated project —
+through `create_subprocess_shell`. Now `shlex.split` plus
+`create_subprocess_exec`.
+
+`python -m orchestrator.safety.posture` reports effective settings with
+`ok`/`WARN`, exits non-zero when any is unhardened, and never prints a secret's
+value. `docs/security/PRODUCTION_PROFILE.md` documents the production profile
+and the dependency-exception process (reason plus a review date inside 90 days,
+or the entry gets deleted rather than inherited).
+
+Original brief, for reference:
+
 Add `pip-audit` (or `safety`) with a documented exception/expiry process. Add
 lint rules or tests banning ~~`pickle.load(s)`~~ (**done** — T5's AST guard),
 `create_subprocess_shell`, wildcard CORS with credentials, and unguarded
