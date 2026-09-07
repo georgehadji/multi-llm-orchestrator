@@ -52,7 +52,6 @@ BASELINE: set[str] = {
     "analysis/progress.py",
     "analysis/progress_writer.py",
     "analysis/progressive_output.py",
-    "analysis/projections.py",
     "analysis/visualization.py",
     "appbuilder/assembler.py",
     "application/dashboard_bridge.py",

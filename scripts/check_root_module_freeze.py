@@ -203,7 +203,6 @@ BASELINE: set[str] = {
     "project_copier.py",
     "project_file.py",
     "project_manager.py",
-    "projections.py",
     "prompt_builder.py",
     "prompt_compressor.py",
     "prompt_enhancer.py",
