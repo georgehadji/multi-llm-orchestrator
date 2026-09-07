@@ -36,12 +36,12 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, TypeVar
 from uuid import uuid4
 
-from .unified_events.core import (
+from ..unified_events.core import (
     DomainEvent,
     EventBus,
     get_event_bus,
 )
-from .log_config import get_logger
+from ..log_config import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable

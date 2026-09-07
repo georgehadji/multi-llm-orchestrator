@@ -26,7 +26,7 @@ import logging
 from dataclasses import dataclass
 
 from .evaluation import EvaluationResult, Evaluator
-from .models import Model
+from ..models import Model
 
 logger = logging.getLogger("orchestrator.escalation")
 
@@ -176,7 +176,7 @@ class EscalationHandler:
 
     async def _process_with_model(self, content: str, model: Model) -> str:
         """Process content with a specific model."""
-        from .api_clients import UnifiedClient
+        from ..api_clients import UnifiedClient
 
         client = UnifiedClient()
 

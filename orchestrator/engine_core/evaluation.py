@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from .models import Model
+from ..models import Model
 
 logger = logging.getLogger("orchestrator.evaluation")
 
@@ -54,7 +54,7 @@ class Evaluator:
         Returns:
             EvaluationResult: The evaluation result with score and feedback
         """
-        from .api_clients import UnifiedClient
+        from ..api_clients import UnifiedClient
 
         client = UnifiedClient()
 
@@ -215,7 +215,7 @@ class Evaluator:
         REASONING: [Reasoning behind the comparison]
         """
 
-        from .api_clients import UnifiedClient
+        from ..api_clients import UnifiedClient
 
         client = UnifiedClient()
 

@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 from .adaptive_router import AdaptiveRouter, get_adaptive_router
 from .log_config import get_logger
 from .models import ROUTING_TABLE, Model, Task, TaskType
-from .outcome_router import (
+from .engine_core.outcome_router import (
     OutcomeWeightedRouter,
     RoutingStrategy,
     create_routing_context,
@@ -77,7 +77,7 @@ class HybridRouter:
 
         if not has_production_data or self.legacy_weight >= 1.0:
             # Pure legacy routing
-            return self._legacy_route(task_type)
+            return await self._legacy_route(task_type)
 
         if self.legacy_weight <= 0.0:
             # Pure outcome-weighted routing
@@ -93,7 +93,7 @@ class HybridRouter:
             return model
 
         # Hybrid: blend both approaches
-        legacy_model = self._legacy_route(task_type)
+        legacy_model = await self._legacy_route(task_type)
         outcome_model, metadata = await self.outcome.select_model(
             create_routing_context(
                 task=task,
@@ -118,7 +118,7 @@ class HybridRouter:
             logger.debug(f"Hybrid router: selected outcome-weighted choice {outcome_model.value}")
             return outcome_model
 
-    def _legacy_route(self, task_type: TaskType) -> Model:
+    async def _legacy_route(self, task_type: TaskType) -> Model:
         """Legacy routing using ROUTING_TABLE and adaptive router."""
         candidates = ROUTING_TABLE.get(task_type, list(Model))
 
@@ -127,8 +127,11 @@ class HybridRouter:
         if not healthy:
             healthy = candidates
 
-        # Prefer lowest latency
-        return self.adaptive.preferred_model(healthy, task_type) or healthy[0]
+        # Prefer lowest latency.  preferred_model() is async (it takes the
+        # router's asyncio.Lock); un-awaited it returns a truthy coroutine, which
+        # made the `or healthy[0]` fallback unreachable and returned a coroutine
+        # where a Model was expected.
+        return await self.adaptive.preferred_model(healthy, task_type) or healthy[0]
 
     def _has_production_data(self, task_type: TaskType) -> bool:
         """Check if we have production data for a task type."""
@@ -199,7 +202,7 @@ class SmartRouter:
         healthy = [m for m in candidates if self.adaptive.is_available(m)]
 
         if healthy:
-            model = self.adaptive.preferred_model(healthy, task_type) or healthy[0]
+            model = await self.adaptive.preferred_model(healthy, task_type) or healthy[0]
             return model, {"router": "legacy", "reason": "fallback"}
 
         # Ultimate fallback: any available model

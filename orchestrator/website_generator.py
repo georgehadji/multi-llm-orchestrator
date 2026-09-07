@@ -14,12 +14,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .budget import Budget
-from .component_registry import get_registry
+from .design.component_registry import get_registry
 from .design_system import (
-    ContentBrief,
     DesignSystem,
     QualityReport,
 )
+
+# ContentBrief was removed from design_system; the canonical generator
+# (generators/website_generator.py) now owns it. This root module is a
+# stranded duplicate of that file and was never updated to match.
+from .generators.website_generator import ContentBrief
 from .models import ProjectState, Task, TaskType
 
 logger = logging.getLogger(__name__)
