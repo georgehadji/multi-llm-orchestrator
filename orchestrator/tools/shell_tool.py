@@ -71,7 +71,8 @@ _SHELL_METACHARACTERS = frozenset(";&|`$><\n\r")
 _MAX_OUTPUT_BYTES = 256 * 1024
 
 
-def _enabled() -> bool:
+def tool_enabled() -> bool:
+    """Whether shell execution is switched on. Public so `safety.posture` can report it."""
     return os.getenv(ENABLED_ENV, "").strip().lower() in _TRUTHY
 
 
@@ -94,7 +95,7 @@ class ShellTool(Tool):
         if error is not None:
             return error
 
-        if not _enabled():
+        if not tool_enabled():
             return _deny(
                 "disabled",
                 f"Shell execution is disabled. Set {ENABLED_ENV}=true to enable it.",

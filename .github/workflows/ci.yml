@@ -179,3 +179,29 @@ jobs:
             -x orchestrator/graphify-out \
             -f txt
         # continue-on-error removed — all HIGH findings fixed or justified (#nosec)
+
+      # ── Dependency vulnerabilities ────────────────────────────────────
+      # Exceptions: add the advisory ID to --ignore-vuln below with a comment
+      # giving the reason and a review date. Anything without both is treated
+      # as unreviewed and should be removed. See
+      # docs/security/PRODUCTION_PROFILE.md, "Dependency exceptions".
+      - name: Install pip-audit
+        run: pip install pip-audit
+      - name: Audit dependencies
+        run: pip-audit --progress-spinner off --strict
+
+      # ── Secret scanning ───────────────────────────────────────────────
+      # Full history, not just the diff: a key committed and later deleted is
+      # still a leaked key.
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Security regression suite ─────────────────────────────────────
+      # The guards for SEC-001…006: no pickle deserialization, no wildcard
+      # CORS, no host shell, no unguarded outbound fetch, ownership enforced.
+      - name: Install project
+        run: pip install -e ".[dev]"
+      - name: Run security regression tests
+        run: pytest tests/unit/security/ -q --no-cov

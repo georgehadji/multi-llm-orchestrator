@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import difflib
 import logging
+import shlex
 import shutil
 import time
 from dataclasses import dataclass, field
@@ -72,9 +73,19 @@ class SandboxExecutor:
         output = ""
         test_ok = True
         if test_command:
+            # argv, not a shell. test_command comes from project config
+            # (app_detector reads it out of a project's own settings), so it
+            # travels with a cloned or generated project — `pytest; curl evil`
+            # would otherwise be two commands here, in the module named
+            # "sandbox" (SEC-003).
+            argv = (
+                shlex.split(test_command) if isinstance(test_command, str) else list(test_command)
+            )
+            if not argv:
+                return SandboxResult(success=False, error="empty test command")
             try:
-                proc = await asyncio.create_subprocess_shell(
-                    test_command,
+                proc = await asyncio.create_subprocess_exec(
+                    *argv,
                     cwd=str(sandbox),
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
@@ -84,6 +95,10 @@ class SandboxExecutor:
                 test_ok = proc.returncode == 0
             except asyncio.TimeoutError:
                 output = "Test command timed out"
+                test_ok = False
+            except (FileNotFoundError, OSError) as exc:
+                # A shell reported a missing binary as exit 127; exec raises.
+                output = f"Could not run test command: {exc}"
                 test_ok = False
 
         # Generate diff against project dir
