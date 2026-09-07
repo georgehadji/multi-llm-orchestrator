@@ -140,6 +140,18 @@ class TestSecurityModulesStayWired:
             "and expiry apply (T8)"
         )
 
+    def test_integrations_gateway_verifies_through_the_key_store(self) -> None:
+        source = (PACKAGE_ROOT / "integrations" / "gateway.py").read_text(encoding="utf-8")
+        assert "self.key_store.verify" in source, (
+            "integrations/gateway.py kept its own sha256-keyed dict after T8 "
+            "moved api_server.py to the KeyStore (R8) — same flaw, one module "
+            "over. It must resolve keys through the KeyStore too."
+        )
+        assert "hashlib.sha256(api_key.encode())" not in source, (
+            "a plain sha256 digest of a caller-supplied key has no pepper, "
+            "expiry or revocation — the exact T8 flaw this gate exists to catch"
+        )
+
     def test_ide_routes_check_ownership(self) -> None:
         source = (PACKAGE_ROOT / "ide_backend" / "api" / "routes.py").read_text(encoding="utf-8")
         # Every session-scoped handler goes through the one helper.

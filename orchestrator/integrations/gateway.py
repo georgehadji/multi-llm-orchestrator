@@ -22,6 +22,8 @@ import logging
 from datetime import datetime
 from typing import Any
 
+from ..safety.api_keys import get_key_store
+
 logger = logging.getLogger("orchestrator.gateway")
 
 
@@ -82,7 +84,10 @@ class APIGateway:
         self.rate_limit_default = rate_limit_default
         self.rate_window_seconds = rate_window_seconds
         self.rate_limits: dict[str, RateLimitInfo] = {}  # client_id -> RateLimitInfo
-        self.api_keys: dict[str, dict[str, Any]] = {}  # hashed_key -> {user_id, permissions, etc}
+        # Shared KeyStore (safety/api_keys.py): HMAC digest under a
+        # server-side pepper, plus expiry/revocation — same store api_server.py
+        # uses, never a caller-supplied raw key hashed with plain sha256.
+        self.key_store = get_key_store()
         self.routes: dict[str, str] = {}  # path_pattern -> target_service
         self.middlewares: list[callable] = []
         self.request_log: list[tuple[APIRequest, APIResponse]] = []
@@ -103,30 +108,21 @@ class APIGateway:
         self.middlewares.append(middleware_func)
         logger.info(f"Added middleware: {middleware_func.__name__}")
 
-    def register_api_key(self, api_key: str, user_id: str, permissions: list[str] = None) -> str:
+    def register_api_key(self, user_id: str, permissions: list[str] = None) -> str:
         """
-        Register a new API key.
+        Mint a new API key for a user via the shared KeyStore.
 
         Args:
-            api_key: The API key to register
-            user_id: The user ID associated with the key
-            permissions: List of permissions for the key
+            user_id: The user ID the key is issued to
+            permissions: List of permission strings for the key
 
         Returns:
-            str: Hashed version of the API key
+            str: The raw key. Shown once here and never stored — deliver it
+            to the user out of band; verify_api_key checks it by digest.
         """
-        # Hash the API key for security
-        hashed_key = hashlib.sha256(api_key.encode()).hexdigest()
-
-        self.api_keys[hashed_key] = {
-            "user_id": user_id,
-            "permissions": permissions or [],
-            "created_at": datetime.now(),
-            "last_used": None,
-        }
-
+        raw_key, _record = self.key_store.issue(user_id, permissions or [])
         logger.info(f"Registered API key for user: {user_id}")
-        return hashed_key
+        return raw_key
 
     def verify_api_key(self, api_key: str) -> dict[str, Any] | None:
         """
@@ -138,15 +134,13 @@ class APIGateway:
         Returns:
             Dict with user info if valid, None if invalid
         """
-        hashed_key = hashlib.sha256(api_key.encode()).hexdigest()
-        user_info = self.api_keys.get(hashed_key)
-
-        if user_info:
-            # Update last used timestamp
-            user_info["last_used"] = datetime.now()
-            return user_info
-
-        return None
+        principal = self.key_store.verify(api_key)
+        if principal is None:
+            return None
+        return {
+            "user_id": principal.id,
+            "permissions": sorted(p.value for p in principal.permissions),
+        }
 
     async def authenticate_request(self, request: APIRequest) -> bool:
         """
@@ -461,7 +455,7 @@ class APIGateway:
             "error_requests": error_requests,
             "requests_per_minute": round(requests_per_minute, 2),
             "active_rate_limits": len(self.rate_limits),
-            "registered_api_keys": len(self.api_keys),
+            "registered_api_keys": self.key_store.active_key_count(),
             "routes_count": len(self.routes),
         }
 
