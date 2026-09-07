@@ -19,10 +19,18 @@ The five below are ranked by **dissolution power**: how many independent, alread
 defects stop being possible once the cause is removed. A problem that is merely large but
 generates nothing else ranks lower than a small one that keeps producing bugs.
 
-Three defect hunts (T0–T22, V4 P1–P2, V4 P3–P11/T23–T24) have now found ~130 verified defects
-in this repository. Sorted by cause rather than by symptom, **the overwhelming majority trace
-to five origins**, and two of those five are each responsible for a defect shape that has now
-been "fixed" three separate times without converging.
+Three defect hunts have now found ~117 verified defects in this repository — 102 from T0–T22
+plus V4 waves P1–P2 (`2026-09-06-outstanding-remediation-plan.md` §1), plus ~15 from this
+session's P3–P11/T23–T24. Sorted by cause rather than by symptom, **the overwhelming majority
+trace to five origins**, and two of those five are each responsible for a defect shape that has
+now been "fixed" three separate times without converging.
+
+**A caveat on that framing, stated up front.** Three of the five (RC1, RC3, RC5) are
+*generative* — they actively produce defects. Two (RC2, RC4) are *detection* failures: they do
+not create bugs, they let bugs persist and recur. Ranking both kinds in one list by
+"dissolution power" is defensible, because a detection gap that permits three rounds of the
+same defect is as costly as the cause itself — but they are not the same kind of thing, and the
+remedies differ (a gate versus a redesign).
 
 ---
 
