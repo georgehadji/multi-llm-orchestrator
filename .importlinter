@@ -1,6 +1,40 @@
 [importlinter]
 root_package = orchestrator
 
+# ═════════════════════════════════════════════════════════════════════════════
+# READ THIS BEFORE EDITING — why several contracts set allow_indirect_imports
+#
+# Until 2026-09-07, orchestrator/infrastructure/ had no __init__.py.  It worked
+# at runtime (PEP 420 implicit namespace package) but grimp's static graph
+# builder never registered the package or anything under it, so every contract
+# below naming `orchestrator.infrastructure` in forbidden_modules could never
+# find an edge into it — violating or not.  Contracts 1, 2, 4 and 5 reported
+# KEPT vacuously for their whole existence.  Proven by planting a deliberate
+# violation (orchestrator/domain/__zz_probe.py importing infrastructure.
+# llm_client) and watching Domain-purity report KEPT against it.
+#
+# Adding that __init__.py switched all four on for the first time.  Contracts
+# 2, 4 and 5 then reported violations that are ALL transitive-only: no module
+# under orchestrator.application or orchestrator.engine_core.stages imports
+# orchestrator.infrastructure.* directly.  Every chain routes through a
+# root-level backward-compat shim (orchestrator.cache -> orchestrator.
+# infrastructure.cache) or through the composition root (engine.py,
+# engine_core/container.py), which wire infrastructure by design.
+#
+# So `allow_indirect_imports = true` is set where the rule is about direct
+# coupling — which is what each of those contracts says in its own name and
+# docstring ("must not import infrastructure DIRECTLY"; "may import from the
+# root orchestrator package but must not reach into concrete adapters").  With
+# transitive checking on, those contracts forbid the application layer from
+# importing the orchestrator at all, which is not the rule anyone wrote down.
+# This is a first-time semantics choice, not a relaxation of a working gate:
+# these contracts had never once run.
+#
+# Whether the transitive shape is ALSO worth enforcing (a `layers` contract
+# over root shim -> infrastructure) is a separate design question, deliberately
+# not answered here.
+# ═════════════════════════════════════════════════════════════════════════════
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Contract 1: Domain purity
 #
@@ -11,6 +45,9 @@ root_package = orchestrator
 # NOTE: orchestrator.models is included here because it is the primary
 # domain module (Model/TaskType/Task enums and dataclasses) and must stay
 # free of concrete infrastructure or application-layer imports.
+#
+# Left on the strictest setting (transitive checking) deliberately: the domain
+# is genuinely clean under it, so there is no reason to weaken it.
 # ─────────────────────────────────────────────────────────────────────────────
 [importlinter:contract:domain-purity]
 name = Domain layer must not import application or infrastructure
@@ -32,6 +69,10 @@ forbidden_modules =
 # root orchestrator package (models, exceptions, domain ports, budget,
 # resilience, etc.) but must NOT reach into concrete infrastructure adapters
 # under orchestrator.infrastructure.
+#
+# allow_indirect_imports: see the header note.  Zero direct edges exist today,
+# so this contract is kept with an empty allowlist — a new
+# `from orchestrator.infrastructure.X import ...` inside application/ fails it.
 # ─────────────────────────────────────────────────────────────────────────────
 [importlinter:contract:application-no-concrete-infra]
 name = Application layer must not import concrete infrastructure adapters
@@ -40,6 +81,7 @@ source_modules =
     orchestrator.application
 forbidden_modules =
     orchestrator.infrastructure
+allow_indirect_imports = true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Contract 3: All application services stay independent of engine.py
@@ -71,6 +113,12 @@ ignore_imports =
 # The pipeline, runner, planner, and coordinator modules are pure orchestration
 # logic and must depend only on domain ports and models.  The container module
 # is intentionally excluded — it IS the composition root and wires infrastructure.
+#
+# allow_indirect_imports: see the header note.  Zero direct edges exist today.
+# The transitive chains this used to hide all ran through the root ara_pipelines
+# shim, engine_core/validator.py -> api_clients, and validators.py ->
+# quality.validators — i.e. through modules that are themselves fenced by
+# contracts 5 and 6 at their own boundary, which is where they belong.
 # ─────────────────────────────────────────────────────────────────────────────
 [importlinter:contract:engine-core-no-loose-infra]
 name = engine_core pipeline modules must not import infrastructure directly
@@ -84,6 +132,7 @@ source_modules =
     orchestrator.engine_core.stages
 forbidden_modules =
     orchestrator.infrastructure
+allow_indirect_imports = true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Contract 5: Root modules must go through ports or subpackages
@@ -92,6 +141,27 @@ forbidden_modules =
 # shims) must not import directly from orchestrator.infrastructure.
 # Infrastructure access should flow through domain ports or be delegated to
 # subpackage modules under orchestrator/<subpackage>/.
+#
+# source_modules = orchestrator covers the whole package, so this is the
+# catch-all: anything not fenced by contracts 1/2/4/6 lands here.  Two
+# consequences worth knowing:
+#
+#   * It structurally contains its own forbidden target.  With the default
+#     (transitive) setting grimp raises "Modules have shared descendants" and
+#     the contract crashes outright — a latent bug that could not surface while
+#     infrastructure was invisible.  allow_indirect_imports = true avoids the
+#     chain-finder entirely, and matches what the contract says it checks.
+#   * Imports WITHIN infrastructure/ therefore register as violations.  The
+#     single wildcard entry below excludes them permanently, rather than
+#     baselining 24 internal edges that would fail CI on any legitimate
+#     refactor inside the package.
+#
+# Everything else below is today's real inventory, listed explicitly and
+# shrink-only: CI passes because each current edge is named; a NEW root ->
+# infrastructure edge fails until someone reviews it and either routes it
+# through a port or adds it here deliberately.  Removing an edge from the
+# codebase also fails until its line here is deleted, which keeps the list
+# honest.
 # ─────────────────────────────────────────────────────────────────────────────
 [importlinter:contract:root-modules-no-infra]
 name = Root modules must not import infrastructure directly (shims excepted)
@@ -100,5 +170,104 @@ source_modules =
     orchestrator
 forbidden_modules =
     orchestrator.infrastructure
+allow_indirect_imports = true
 ignore_imports =
+    # ── Structural: infrastructure/ importing itself is not a layering breach.
+    orchestrator.infrastructure.** -> orchestrator.infrastructure.**
 
+    # ── Backward-compat shims: orchestrator/X.py re-exports
+    #    orchestrator/infrastructure/X.py.  The shim IS the indirection that
+    #    lets everything above import the root name instead of the adapter;
+    #    this is the pattern the contract's docstring excepts by name.
+    orchestrator.audit -> orchestrator.infrastructure.audit
+    orchestrator.bm25_search -> orchestrator.infrastructure.bm25_search
+    orchestrator.cache -> orchestrator.infrastructure.cache
+    orchestrator.cache_optimizer -> orchestrator.infrastructure.cache_optimizer
+    orchestrator.caching -> orchestrator.infrastructure.caching
+    orchestrator.hybrid_search_pipeline -> orchestrator.infrastructure.hybrid_search_pipeline
+    orchestrator.monitoring -> orchestrator.infrastructure.monitoring
+    orchestrator.secure_cache -> orchestrator.infrastructure.secure_cache
+    orchestrator.semantic_cache -> orchestrator.infrastructure.semantic_cache
+    orchestrator.state -> orchestrator.infrastructure.state
+    orchestrator.streaming_optimizer -> orchestrator.infrastructure.streaming_optimizer
+    orchestrator.streaming_resilient -> orchestrator.infrastructure.streaming_resilient
+    orchestrator.telemetry -> orchestrator.infrastructure.telemetry
+    orchestrator.token_budget -> orchestrator.infrastructure.token_budget
+    orchestrator.token_optimizer -> orchestrator.infrastructure.token_optimizer
+    orchestrator.tracing -> orchestrator.infrastructure.tracing
+
+    # ── Composition root: container.py wires adapters by design (contract 4's
+    #    docstring excludes it for exactly this reason).  engine.py's single
+    #    edge is the same role.
+    orchestrator.engine -> orchestrator.infrastructure.telemetry_snapshotter
+    orchestrator.engine_core.container -> orchestrator.infrastructure.cache
+    orchestrator.engine_core.container -> orchestrator.infrastructure.constitution_loader
+    orchestrator.engine_core.container -> orchestrator.infrastructure.lsp_validator
+    orchestrator.engine_core.container -> orchestrator.infrastructure.nexusscope
+    orchestrator.engine_core.container -> orchestrator.infrastructure.nexusscope.pipeline_hook
+    orchestrator.engine_core.container -> orchestrator.infrastructure.skill_store_adapter
+    orchestrator.engine_core.container -> orchestrator.infrastructure.telemetry_snapshotter
+    orchestrator.engine_core.container -> orchestrator.infrastructure.verification_checks
+
+    # ── Root kernel: api_clients.py IS the provider-adapter facade
+    #    (UnifiedClient); llm_client is its concrete backing.
+    orchestrator.api_clients -> orchestrator.infrastructure.llm_client
+
+    # ── Application-tier packages.  These same edges are fenced at their own
+    #    boundary by contract 6; they appear here only because this contract's
+    #    source is the whole package.  Fix them there, not here.
+    orchestrator.generators.website_generator -> orchestrator.infrastructure.image_client
+    orchestrator.generators.website_generator -> orchestrator.infrastructure.video_client
+    orchestrator.quality.auto_error_fix -> orchestrator.infrastructure.llm_client
+    orchestrator.quality.run_tests -> orchestrator.infrastructure.test_runners
+    orchestrator.quality.screenshot_diagnoser -> orchestrator.infrastructure.llm_client
+    orchestrator.quality.validators -> orchestrator.infrastructure.lsp_validator
+    orchestrator.reasoning.ara_integration -> orchestrator.infrastructure.cache
+    orchestrator.reasoning.ara_pipelines -> orchestrator.infrastructure.cache
+
+    # ── Subpackage modules reaching an adapter directly.  Unlike the groups
+    #    above these have no stated justification — they are baselined as
+    #    today's truth, not endorsed.  Each is a candidate for routing through
+    #    a port; none is urgent enough to change under this plan's scope.
+    orchestrator.commands.nexusscope -> orchestrator.infrastructure.nexusscope
+    orchestrator.entrypoints.cli_dispatch -> orchestrator.infrastructure.file_reader
+    orchestrator.integrations.mcp_server -> orchestrator.infrastructure.snapshot_store
+    orchestrator.operations.diagnostics -> orchestrator.infrastructure.llm_client
+    orchestrator.state_mgmt.state -> orchestrator.infrastructure.state
+    orchestrator.supervisor.store -> orchestrator.infrastructure.path_provider
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Contract 6: Application-tier packages must not grow new concrete-infra edges
+#
+# quality/, reasoning/, generators/ and nash/ hold use-case logic and are
+# therefore application-tier by the same layer test contract 2 applies to
+# orchestrator.application — but contract 2's source_modules only covers that
+# one package, so nothing has fenced these four even though they hold the same
+# kind of logic.
+#
+# Today's 8 real edges are listed below as a shrink-only allowlist, the same
+# shape contracts 3 and 5 use.  nash is included with zero entries: it has no
+# edge into orchestrator.infrastructure at all (nash/infrastructure_v2.py is a
+# same-named but unrelated LOCAL module — a placement smell this contract does
+# not address), so it starts fenced clean.
+# ─────────────────────────────────────────────────────────────────────────────
+[importlinter:contract:application-tier-packages-no-concrete-infra]
+name = Application-tier packages (quality/reasoning/generators/nash) must not import concrete infrastructure adapters
+type = forbidden
+source_modules =
+    orchestrator.quality
+    orchestrator.reasoning
+    orchestrator.generators
+    orchestrator.nash
+forbidden_modules =
+    orchestrator.infrastructure
+allow_indirect_imports = true
+ignore_imports =
+    orchestrator.generators.website_generator -> orchestrator.infrastructure.image_client
+    orchestrator.generators.website_generator -> orchestrator.infrastructure.video_client
+    orchestrator.quality.auto_error_fix -> orchestrator.infrastructure.llm_client
+    orchestrator.quality.run_tests -> orchestrator.infrastructure.test_runners
+    orchestrator.quality.screenshot_diagnoser -> orchestrator.infrastructure.llm_client
+    orchestrator.quality.validators -> orchestrator.infrastructure.lsp_validator
+    orchestrator.reasoning.ara_integration -> orchestrator.infrastructure.cache
+    orchestrator.reasoning.ara_pipelines -> orchestrator.infrastructure.cache
