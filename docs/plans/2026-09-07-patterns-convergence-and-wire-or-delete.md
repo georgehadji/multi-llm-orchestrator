@@ -355,6 +355,34 @@ files.
   assert liveness/deadness for a module adjacent to the one actually being changed without
   running the grep.
 
+- **Correction (found executing S7): §1.3's "11 leaking edges" is wrong; there are 8.**
+  VERIFIED by re-running the per-package grep without the `^\s*` anchor and resolving each
+  import's actual relative-dot depth: `quality` 4 (as stated), `generators` 2 (as stated),
+  `reasoning` 2 not 3 — the third was `brainstorming.py`'s `TYPE_CHECKING`-only import at the
+  wrong dot depth, resolving to a module that does not exist, so it is not an edge into
+  `orchestrator.infrastructure` at all — and `nash` 0 not 2, because the plan read
+  `nash/infrastructure_v2.py` (a same-named but unrelated *local* module) as this package.
+  The contract added in S7 is seeded with the verified 8. `nash` is still in its
+  `source_modules`, fenced clean at zero.
+- **Correction (found executing S7): the contract proposal was not "one more gate on top of
+  five working ones" — four of the five were not running.** `orchestrator/infrastructure/`
+  had no `__init__.py`, so grimp never registered the package or its 36 modules, and every
+  contract naming `orchestrator.infrastructure` in `forbidden_modules` reported KEPT
+  vacuously since it was written. PROVEN with a planted probe
+  (`orchestrator/domain/__zz_probe.py` importing `infrastructure.llm_client`), which
+  Domain-purity reported KEPT against. This also silently exempted all 36 infrastructure
+  modules from `tests/unit/test_import_integrity.py`, hiding a real
+  `ModuleNotFoundError` in `infrastructure/provisioned_throughput.py`. Both fixed in S7,
+  with `tests/unit/test_import_contract_visibility.py` added so the blind spot cannot
+  return unnoticed. **The measured layer edges throughout §1.3 remain correct — they were
+  taken by grep, not from the contracts.** What was wrong was the assumption that a green
+  `lint-imports` meant the boundaries were being enforced.
+- **VERIFIED (S7), worth recording because it is good news:** with the contracts actually
+  running, `domain/`, `application/` and `engine_core/stages/` have **zero** direct imports
+  of `orchestrator.infrastructure`. Every violation that appeared was transitive, through a
+  root backward-compat shim or the composition root. The direct-coupling rule the contracts
+  state was being honoured on merit, not by the checker's silence.
+
 ---
 
 ## 7. Reproducing the measurements
