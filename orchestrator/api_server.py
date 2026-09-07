@@ -46,6 +46,7 @@ else:
 
 from .crosscutting.config import flags
 from .domain.security import Permission, Principal, parse_permissions
+from .safety.api_keys import KeyStoreError, get_key_store
 
 logger = logging.getLogger("orchestrator.api_server")
 
@@ -159,8 +160,10 @@ class APIServer:
         self.runner: web.AppRunner | None = None
         self.site: web.TCPSite | None = None
 
-        # API keys: hashed_key -> {user_id, permissions, created_at}
-        self.api_keys: dict[str, dict[str, Any]] = {}
+        # API keys. Records hold an HMAC digest under a server-side pepper,
+        # plus expiry and revocation — never the raw token. Persistent when
+        # ORCHESTRATOR_API_KEY_STORE is set, in-memory otherwise (T8).
+        self.key_store = get_key_store()
 
         # Rate limiter
         self.rate_limiter = TokenBucketRateLimiter(
@@ -227,6 +230,8 @@ class APIServer:
 
         # Auth
         self.app.router.add_post("/register_key", self.register_api_key)
+        self.app.router.add_post("/revoke_key", self.revoke_api_key)
+        self.app.router.add_post("/rotate_key", self.rotate_api_key)
 
         # Supervisor
         if self.supervisor is not None:
@@ -1209,23 +1214,33 @@ class APIServer:
 
             permissions = data.get("permissions", ["read", "execute"])
 
-            # Generate a cryptographically random API key
-            import secrets as _secrets
+            ttl_seconds = data.get("ttl_seconds")
+            if ttl_seconds is not None:
+                try:
+                    ttl_seconds = float(ttl_seconds)
+                except (TypeError, ValueError):
+                    self._update_request_stats(success=False)
+                    return web.json_response({"error": "ttl_seconds must be a number"}, status=400)
+                if ttl_seconds <= 0:
+                    self._update_request_stats(success=False)
+                    return web.json_response({"error": "ttl_seconds must be positive"}, status=400)
 
-            raw_key = f"orchestrator_{_secrets.token_urlsafe(32)}"
-            hashed_key = hashlib.sha256(raw_key.encode()).hexdigest()
-
-            # Store the API key
-            self.api_keys[hashed_key] = {
-                "user_id": user_id,
-                "permissions": permissions,
-                "created_at": datetime.now().isoformat(),
-                "last_used": None,
-            }
+            try:
+                raw_key, record = self.key_store.issue(user_id, permissions, ttl_seconds)
+            except KeyStoreError as exc:
+                self._update_request_stats(success=False)
+                return web.json_response({"error": str(exc)}, status=409)
 
             self._update_request_stats(success=True)
+            # The raw key is shown exactly once — the store keeps only its
+            # digest, so it cannot be recovered later, only rotated.
             return web.json_response(
-                {"api_key": raw_key, "message": "API key registered successfully"}
+                {
+                    "api_key": raw_key,
+                    "key_id": record.key_id,
+                    "expires_at": record.expires_at,
+                    "message": "API key registered. Store it now; it is not recoverable.",
+                }
             )
 
         except json.JSONDecodeError:
@@ -1235,6 +1250,69 @@ class APIServer:
             logger.error(f"Error registering API key: {e}")
             self._update_request_stats(success=False)
             return web.json_response({"error": "Internal server error"}, status=500)
+
+    async def revoke_api_key(self, request: web.Request) -> web.Response:
+        """Revoke a key by ID. Admin only, same gate as registration."""
+        self._update_request_stats()
+
+        denied = self._require_admin(request)
+        if denied:
+            self._update_request_stats(success=False)
+            return denied
+
+        try:
+            data = await request.json()
+        except json.JSONDecodeError:
+            self._update_request_stats(success=False)
+            return web.json_response({"error": "Invalid JSON in request body"}, status=400)
+
+        key_id = str(data.get("key_id", "")).strip()
+        if not key_id:
+            self._update_request_stats(success=False)
+            return web.json_response({"error": "key_id required"}, status=400)
+
+        revoked = self.key_store.revoke(key_id)
+        self._update_request_stats(success=True)
+        # 200 either way: whether an unknown key_id exists is not something an
+        # admin-authenticated caller needs, and 404 here is a probing oracle.
+        return web.json_response({"revoked": revoked, "key_id": key_id})
+
+    async def rotate_api_key(self, request: web.Request) -> web.Response:
+        """Replace a key, keeping its principal and permissions. Admin only."""
+        self._update_request_stats()
+
+        denied = self._require_admin(request)
+        if denied:
+            self._update_request_stats(success=False)
+            return denied
+
+        try:
+            data = await request.json()
+        except json.JSONDecodeError:
+            self._update_request_stats(success=False)
+            return web.json_response({"error": "Invalid JSON in request body"}, status=400)
+
+        key_id = str(data.get("key_id", "")).strip()
+        if not key_id:
+            self._update_request_stats(success=False)
+            return web.json_response({"error": "key_id required"}, status=400)
+
+        try:
+            raw_key, record = self.key_store.rotate(key_id)
+        except KeyStoreError as exc:
+            self._update_request_stats(success=False)
+            return web.json_response({"error": str(exc)}, status=409)
+
+        self._update_request_stats(success=True)
+        return web.json_response(
+            {
+                "api_key": raw_key,
+                "key_id": record.key_id,
+                "replaces": key_id,
+                "expires_at": record.expires_at,
+                "message": "Key rotated. The previous key is revoked.",
+            }
+        )
 
     # ─────────────────────────────────────────────
     # Stats
@@ -1262,7 +1340,7 @@ class APIServer:
             ),
             "uptime": str(uptime),
             "server_time": datetime.now().isoformat(),
-            "registered_api_keys": len(self.api_keys),
+            "registered_api_keys": self.key_store.active_key_count(),
             "active_projects": len(self._active_projects),
         }
 
@@ -1495,22 +1573,12 @@ class APIServer:
     def _verify_api_key(self, api_key: str) -> Principal | None:
         """Recover the `Principal` behind an API key, or ``None``.
 
-        Constant-time comparison to prevent timing attacks. Returns the
-        principal rather than a bool so callers can enforce the permissions the
-        key was actually registered with (SEC-006).
+        Returns the principal rather than a bool so callers can enforce the
+        permissions the key was actually registered with (SEC-006). Expiry and
+        revocation are checked by the store (T8), and comparison is
+        constant-time there.
         """
-        import hmac as _hmac
-
-        hashed_key = hashlib.sha256(api_key.encode()).hexdigest()
-        for stored_key, meta in self.api_keys.items():
-            if _hmac.compare_digest(stored_key, hashed_key):
-                meta["last_used"] = datetime.now().isoformat()
-                return Principal(
-                    id=str(meta.get("user_id", "unknown")),
-                    key_id=stored_key[:12],
-                    permissions=parse_permissions(meta.get("permissions")),
-                )
-        return None
+        return self.key_store.verify(api_key)
 
     def _require_admin(self, request: web.Request) -> web.Response | None:
         """Return 403 Response if not admin, None if OK. Use for key registration."""

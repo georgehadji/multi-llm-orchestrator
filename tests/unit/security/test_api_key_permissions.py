@@ -8,9 +8,6 @@ supervisor access — whatever it was registered with.
 
 from __future__ import annotations
 
-import hashlib
-from datetime import datetime
-
 import pytest
 
 from orchestrator.api_server import APIServer
@@ -20,8 +17,17 @@ from orchestrator.domain.security import (
     parse_permissions,
     principal_has_permission,
 )
+from orchestrator.safety.api_keys import reset_key_store
 
 pytestmark = pytest.mark.unit
+
+
+@pytest.fixture(autouse=True)
+def _fresh_key_store():
+    """`get_key_store()` is process-wide; keys must not leak between tests."""
+    reset_key_store()
+    yield
+    reset_key_store()
 
 
 class _StubRequest:
@@ -40,14 +46,7 @@ class _StubRequest:
 
 def _server_with_key(permissions: list[str]) -> tuple[APIServer, str]:
     server = APIServer(auth_required=True)
-    raw = "orchestrator_test_key_value"
-    hashed = hashlib.sha256(raw.encode()).hexdigest()
-    server.api_keys[hashed] = {
-        "user_id": "test-user",
-        "permissions": permissions,
-        "created_at": datetime.now().isoformat(),
-        "last_used": None,
-    }
+    raw, _ = server.key_store.issue("test-user", permissions)
     return server, raw
 
 
