@@ -100,7 +100,6 @@ BASELINE: set[str] = {
     "cost.py",
     "cost_analytics.py",
     "cost_tracker.py",
-    "cross_project_learning.py",
     "dashboard.py",
     "dashboard_bridge.py",
     "data_sources.py",

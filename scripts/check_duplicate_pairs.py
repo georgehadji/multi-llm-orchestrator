@@ -70,7 +70,6 @@ BASELINE: set[str] = {
     "infrastructure/reranker.py",
     "infrastructure/streaming.py",
     "integrations/tenancy.py",
-    "learning/cross_project_learning.py",
     "learning/knowledge_graph.py",
     "learning/log_config.py",
     "meta/config.py",
