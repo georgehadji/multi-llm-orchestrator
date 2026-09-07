@@ -171,6 +171,15 @@ source_modules =
 forbidden_modules =
     orchestrator.infrastructure
 allow_indirect_imports = true
+# `allow_indirect_imports = true` narrows the graph to DIRECT edges, so the
+# shim entries below — which describe indirect re-export chains — match
+# nothing.  At the default alerting level (`error`) that aborted the run
+# before this contract could report at all: `lint-imports` and the pre-commit
+# gate both exited 1 on a clean tree from 2026-09-07, the day
+# orchestrator/infrastructure/__init__.py first put these modules in the
+# graph.  `warn` lets the contract report; the unmatched entries still print
+# every run and should be pruned as the shim-removal work lands.
+unmatched_ignore_imports_alerting = warn
 ignore_imports =
     # ── Structural: infrastructure/ importing itself is not a layering breach.
     orchestrator.infrastructure.** -> orchestrator.infrastructure.**
@@ -262,6 +271,10 @@ source_modules =
 forbidden_modules =
     orchestrator.infrastructure
 allow_indirect_imports = true
+# Same reason as root-modules-no-infra above: with only direct edges in the
+# graph, four of the entries below match nothing, and the default `error`
+# alerting aborted the run before this contract could report.
+unmatched_ignore_imports_alerting = warn
 ignore_imports =
     orchestrator.generators.website_generator -> orchestrator.infrastructure.image_client
     orchestrator.generators.website_generator -> orchestrator.infrastructure.video_client
