@@ -22,7 +22,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from .base import AgentBase, AgentTask, AgentTaskResult
+from typing import Any
+
+from .base import AgentBase, AgentRole, AgentTask, AgentTaskResult
 
 logger = logging.getLogger("orchestrator.agents.investigator")
 
@@ -58,6 +60,12 @@ class CodebaseInvestigatorAgent(AgentBase):
                                     Defaults to ["architecture", "quality"].
         budget_usd (float):         Max LLM spend. Defaults to 1.0.
     """
+
+    def __init__(self, **kwargs: Any) -> None:
+        # Every sibling agent binds its own role here; this class did not, so it
+        # alone required the caller to pass role=AgentRole.INVESTIGATOR and could
+        # silently be constructed under the wrong role.
+        super().__init__(role=AgentRole.INVESTIGATOR, **kwargs)
 
     @property
     def system_prompt(self) -> str:
