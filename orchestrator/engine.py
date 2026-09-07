@@ -687,6 +687,19 @@ class Orchestrator:
         if self._telemetry_store is not None:
             await self._telemetry_store.drain_queue()
 
+        # Refuse to start while the kill switch is active. safety/guardrails.py
+        # was imported by nothing at all until now, so its file-based emergency
+        # stop had no effect on any run (P3-GUARD0). Wiring the check here, beside
+        # the other lifecycle wiring, is the smallest honest use of it: a run that
+        # has not begun is the cheapest one to stop.
+        from .safety.guardrails import get_guardrails
+
+        if get_guardrails().check_kill_switch():
+            raise RuntimeError(
+                "Kill switch is active — refusing to start. Remove the kill-switch "
+                "file (or call deactivate_kill_switch()) to resume."
+            )
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
