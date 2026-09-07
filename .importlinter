@@ -192,7 +192,6 @@ ignore_imports =
     orchestrator.bm25_search -> orchestrator.infrastructure.bm25_search
     orchestrator.cache -> orchestrator.infrastructure.cache
     orchestrator.cache_optimizer -> orchestrator.infrastructure.cache_optimizer
-    orchestrator.caching -> orchestrator.infrastructure.caching
     orchestrator.hybrid_search_pipeline -> orchestrator.infrastructure.hybrid_search_pipeline
     orchestrator.monitoring -> orchestrator.infrastructure.monitoring
     orchestrator.secure_cache -> orchestrator.infrastructure.secure_cache

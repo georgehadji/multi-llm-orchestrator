@@ -379,9 +379,13 @@ judge's consistency.
 
 ### 7.4 Related but NOT the same thing
 
-- `orchestrator/infrastructure/caching.py` — a generic multi-layer framework
-  (`InMemoryCache` L1 / `RedisCache` L2 / `DiskCache` backend L3, `MultiLayerCache`,
-  lines 148/272/390/595) with real per-entry TTLs. Separate from the response cache.
+- `orchestrator/infrastructure/caching.py` — **deleted 2026-09-07 (SEC-002)**. It
+  was a generic multi-layer framework (`InMemoryCache` / `RedisCache` /
+  `MultiLayerCache`) that `pickle.loads`'d cache blobs. It had zero importers and
+  raised `AttributeError` on every write (`datetime.now(datetime.timezone.utc)()`),
+  so nothing was cached and there was nothing to migrate. Do not confuse it with
+  `orchestrator/infrastructure/cache.py`, the live response cache above.
+  Guard: `tests/unit/security/test_no_pickle_deserialization.py`.
 - Semantic cache (`semantic_cache_threshold=0.85`, `crosscutting/config.py:125`) —
   **not wired into the call path** as of the 2026-06-25 cost audit (locked by
   `tests/unit/test_cost_reduction.py`). Same audit: `use_provider_sorting` is a
