@@ -140,8 +140,11 @@ tests/.pytest_cache/
 tests/*.log
 .reasonix/
 
-# graphify: generated graph artifacts (large; regenerate with /graphify)
+# graphify: generated graph artifacts (large; regenerate with /graphify).
 graphify-out/graph.json
 graphify-out/graph.html
 graphify-out/manifest.json
-orchestrator/graphify-out/
+# Separate cache dir, moved 2026-09-08 from orchestrator/graphify-out/ (R9) --
+# it is local tool cache, not a package, and its 48MB of hash-named cache
+# files made every repo-wide grep/bandit run crawl it.
+.graphify-out/

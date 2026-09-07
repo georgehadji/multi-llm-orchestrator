@@ -176,7 +176,6 @@ jobs:
           bandit -r orchestrator/ \
             --severity-level high \
             --confidence-level medium \
-            -x orchestrator/graphify-out \
             -f txt
         # continue-on-error removed — all HIGH findings fixed or justified (#nosec)
 

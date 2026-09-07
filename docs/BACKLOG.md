@@ -6,10 +6,13 @@ Items deferred from the V7 refactoring scope guard. Tackle these after Phases 0�
 
 ## P4-3 Orphaned Package Findings
 
-### `orchestrator/graphify-out/` — Delete or relocate
+### `orchestrator/graphify-out/` — Delete or relocate (done 2026-09-08)
 - **Finding:** Not a Python package (no `__init__.py`). Contains only JSON cache files.
 - **Imports:** None — nothing in `orchestrator/` imports it.
-- **Action:** Move to project root or add to `.gitignore`. Safe to delete the cache files; the graphify skill will regenerate them.
+- **Action taken:** Moved to `.graphify-out/` at project root, added to `.gitignore`
+  there, and dropped the now-unneeded `bandit -x orchestrator/graphify-out` from CI
+  (bandit only scans `orchestrator/`). Its 48MB of hash-named cache files had made
+  every repo-wide grep/bandit run crawl it (test_suite_remediation_plan.md R9).
 
 ### `orchestrator/runtime/` — Test-only; evaluate for removal
 - **Finding:** Contains `sandbox.py`. Only imported from `tests/test_capabilities_5_10.py`.
