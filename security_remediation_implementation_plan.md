@@ -14,7 +14,7 @@
 | T2 | SEC-005 path traversal | **done** | `46c716a6` |
 | T3 | SEC-003 shell execution | **done** | `3b820994` |
 | T4 | SEC-006 permission enforcement | **done** | `3ae363d6` |
-| T5 | SEC-002 pickle cache | **done** — module deleted, not re-coded | `PENDING` |
+| T5 | SEC-002 pickle cache | **done** — module deleted, not re-coded | `5580d037` |
 | T6 | SEC-004 SSRF | **done** | `53b83b20` |
 | T7–T10 | IDE auth/ownership, key lifecycle, legacy entry point, CI gates | **open** | — |
 
