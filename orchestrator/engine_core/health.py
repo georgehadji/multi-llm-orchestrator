@@ -40,7 +40,7 @@ import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -214,7 +214,7 @@ class HealthMonitor:
                 status=status,
                 check_type=check_type,
                 response_time_ms=elapsed,
-                timestamp=datetime.now(datetime.timezone.utc)(),
+                timestamp=datetime.now(timezone.utc),
                 message="Check passed" if status == HealthStatus.HEALTHY else "Check failed",
             )
 
@@ -225,7 +225,7 @@ class HealthMonitor:
                 status=HealthStatus.UNHEALTHY,
                 check_type=check_type,
                 response_time_ms=elapsed,
-                timestamp=datetime.now(datetime.timezone.utc)(),
+                timestamp=datetime.now(timezone.utc),
                 message=f"Check timed out after {timeout}s",
                 error="timeout",
             )
@@ -236,7 +236,7 @@ class HealthMonitor:
                 status=HealthStatus.UNHEALTHY,
                 check_type=check_type,
                 response_time_ms=elapsed,
-                timestamp=datetime.now(datetime.timezone.utc)(),
+                timestamp=datetime.now(timezone.utc),
                 message=f"Check failed: {str(e)}",
                 error=str(e),
             )
@@ -263,7 +263,7 @@ class HealthMonitor:
         """
         # Check if we can use cached result
         if use_cache and self._cache_timestamp:
-            age = (datetime.now(datetime.timezone.utc)() - self._cache_timestamp).total_seconds()
+            age = (datetime.now(timezone.utc) - self._cache_timestamp).total_seconds()
             if age < self.check_interval:
                 checks = list(self._cache.values())
                 return self._build_report(checks)
@@ -274,7 +274,7 @@ class HealthMonitor:
         # Update cache
         for check in checks:
             self._cache[check.name] = check
-        self._cache_timestamp = datetime.now(datetime.timezone.utc)()
+        self._cache_timestamp = datetime.now(timezone.utc)
 
         return self._build_report(checks)
 
@@ -297,7 +297,7 @@ class HealthMonitor:
         return HealthReport(
             overall_status=overall,
             checks=checks,
-            timestamp=datetime.now(datetime.timezone.utc)(),
+            timestamp=datetime.now(timezone.utc),
             uptime_seconds=uptime,
         )
 
@@ -398,7 +398,7 @@ class KubernetesProbes:
         is_alive = await self.monitor.is_alive()
         return {
             "status": "alive" if is_alive else "dead",
-            "timestamp": datetime.now(datetime.timezone.utc)().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     async def readiness_probe(self) -> dict[str, Any]:
@@ -406,7 +406,7 @@ class KubernetesProbes:
         is_ready = await self.monitor.is_ready()
         return {
             "status": "ready" if is_ready else "not_ready",
-            "timestamp": datetime.now(datetime.timezone.utc)().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     async def startup_probe(self) -> dict[str, Any]:
@@ -414,7 +414,7 @@ class KubernetesProbes:
         is_started = await self.monitor.is_started()
         return {
             "status": "started" if is_started else "starting",
-            "timestamp": datetime.now(datetime.timezone.utc)().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     async def health_check(self) -> tuple[dict[str, Any], int]:

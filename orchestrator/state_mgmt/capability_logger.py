@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from pathlib import Path
 from threading import Lock
@@ -90,7 +90,7 @@ class CapabilityEvent:
     ) -> CapabilityEvent:
         """Factory method to create an event with current timestamp."""
         return cls(
-            timestamp=datetime.now(datetime.timezone.utc)().isoformat() + "Z",
+            timestamp=datetime.now(timezone.utc).isoformat() + "Z",
             capability=capability.name,
             task_type=task_type,
             model=model,

@@ -25,7 +25,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
@@ -90,7 +90,7 @@ class PipelineEvent:
 
     type: PipelineEventType
     project_id: str
-    timestamp: datetime = field(default_factory=lambda: datetime.now(datetime.timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     data: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
