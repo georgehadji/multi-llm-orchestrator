@@ -53,7 +53,10 @@ def graph():
 def _declared_modules(field: str) -> list[tuple[str, str]]:
     """(contract name, module) pairs for every module listed under `field`."""
     parser = configparser.ConfigParser()
-    parser.read(_CONFIG)
+    # Explicit encoding: configparser otherwise decodes with the platform
+    # default, and on a cp1252 Windows shell that raises UnicodeDecodeError
+    # here at collection time, aborting the entire unit suite.
+    parser.read(_CONFIG, encoding="utf-8")
 
     pairs = []
     for section in parser.sections():
