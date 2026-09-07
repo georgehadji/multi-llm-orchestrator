@@ -17,7 +17,7 @@ cp .env.example .env  # add at least one provider API key
 4. `mypy orchestrator/domain/ orchestrator/application/ orchestrator/engine_core/container.py --ignore-missing-imports --no-strict-optional` — strict on domain+app layers; rest is informational
 5. `pytest -m "not slow and not requires_api and not stress and not e2e" --tb=short -q --cov=orchestrator --cov-report=xml --cov-fail-under=6` — unit+integration tests
 6. `pytest tests/contracts/ -v --tb=short --no-cov` — contract tests (run with empty API keys)
-7. `bandit -r orchestrator/ --severity-level high --confidence-level medium -x orchestrator/graphify-out` — security (currently warn-only)
+7. `bandit -r orchestrator/ --severity-level high --confidence-level medium` — security (currently warn-only)
 
 ## Architecture: 5 Import Boundary Contracts
 

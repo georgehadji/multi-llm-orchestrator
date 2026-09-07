@@ -28,7 +28,7 @@ evidence.
 | 3 | Import-boundary contracts | `lint-imports` | Yes (CI `architecture` job) |
 | 4 | Root-module freeze | `python scripts/check_new_root_files.py --baseline origin/master` | Yes (CI `architecture` job) |
 | 5 | mypy on gated layers | `mypy orchestrator/domain/ orchestrator/application/ orchestrator/engine_core/container.py --ignore-missing-imports --no-strict-optional --python-version=3.12` | Yes (CI `typecheck` job; full-codebase mypy is informational only) |
-| 6 | bandit HIGH | `bandit -r orchestrator/ --severity-level high --confidence-level medium -x orchestrator/graphify-out -f txt` | Yes (CI `security` job) |
+| 6 | bandit HIGH | `bandit -r orchestrator/ --severity-level high --confidence-level medium -f txt` | Yes (CI `security` job) |
 | 7 | black + ruff | `black --check orchestrator/ tests/` and `ruff check orchestrator/ tests/` | Yes (CI `lint` job; black pinned to `26.1.0` in CI so a floating local version can disagree — trust CI's pin) |
 | 8 | Model-id audit | `python scripts/audit_openrouter_models.py` | Blocking on dead ids; exit code 2 (network unreachable) is tolerated as a warning |
 
