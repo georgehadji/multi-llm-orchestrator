@@ -9,7 +9,7 @@ Async: Yes — for I/O-bound operations
 Layer: L3 Agents
 
 Usage:
-    from orchestrator.gateway import APIGateway
+    from orchestrator.integrations.gateway import APIGateway
     gateway = APIGateway()
     await gateway.route_request(request_data, target_service="orchestrator")
 """

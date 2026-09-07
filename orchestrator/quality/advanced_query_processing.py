@@ -9,7 +9,7 @@ Advanced query processing features:
 - Result summarization
 
 Usage:
-    from orchestrator.advanced_query_processing import (
+    from orchestrator.quality.advanced_query_processing import (
         LLMQueryExpander,
         LearningClassifier,
         ResultSummarizer,

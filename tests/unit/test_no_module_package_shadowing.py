@@ -23,15 +23,17 @@ import pytest
 
 ORCHESTRATOR = Path(__file__).resolve().parents[2] / "orchestrator"
 
-# Known collisions awaiting a wire-or-delete decision. Each holds an
-# implementation that differs from its shadowing package, so deleting it would
-# lose code rather than remove a duplicate:
-#   gateway.py — APIGateway/APIRequest/APIResponse/RateLimitInfo, against the
-#                package's OrchestratorGateway/GatewaySession
-#   agents.py  — TaskChannel/AgentPool, against the package's
-#                AgentBase/AgentOrchestrator framework
+# Known collisions awaiting a wire-or-delete decision. An entry belongs here only
+# when the shadowed module holds an implementation that differs from its package,
+# so deleting it would lose code rather than remove a duplicate:
+#   agents.py — TaskChannel/AgentPool, against the package's
+#               AgentBase/AgentOrchestrator framework. Slated to move to
+#               agents/pool.py, which will empty this list.
+# gateway.py was removed from this list rather than resolved by a move: it turned
+# out to be byte-identical to integrations/gateway.py, so its APIGateway was never
+# at risk and deleting the shadowed copy lost nothing.
 # Removing an entry here (by resolving it) must never be accompanied by adding one.
-PENDING_DISPOSITION = {"gateway", "agents"}
+PENDING_DISPOSITION = {"agents"}
 
 
 def _collisions() -> set[str]:
