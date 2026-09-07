@@ -12,10 +12,9 @@ Tiers:
 - Tier 4: DevOps Optimizations (Security + DX)
 
 Usage:
-    from orchestrator.operations.optimization import PromptCacher, BatchClient, TokenBudget
+    from orchestrator.operations.optimization import PromptCacher, TokenBudget
 
     cacher = PromptCacher()
-    batch = BatchClient()
     budget = TokenBudget()
 """
 
@@ -51,10 +50,7 @@ class OptimizationMetrics:
     cache_misses: int = 0
     cache_hit_rate: float = 0.0
 
-    # Batch API
-    batch_calls: int = 0
     realtime_calls: int = 0
-    batch_savings: float = 0.0
 
     # Token budget
     input_tokens_saved: int = 0
@@ -72,9 +68,7 @@ class OptimizationMetrics:
             "cache_hits": self.cache_hits,
             "cache_misses": self.cache_misses,
             "cache_hit_rate": self.cache_hit_rate,
-            "batch_calls": self.batch_calls,
             "realtime_calls": self.realtime_calls,
-            "batch_savings": self.batch_savings,
             "input_tokens_saved": self.input_tokens_saved,
             "output_tokens_saved": self.output_tokens_saved,
             "estimated_cost_savings": self.estimated_cost_savings,
@@ -223,7 +217,6 @@ from ..tdd_config import (
 )
 
 # Import optimization modules for convenience
-from .batch_client import BatchClient, BatchMetrics, BatchStatus, batch_call
 from .dependency_context import (
     ContextMetrics,
     DependencyContext,
@@ -284,11 +277,6 @@ __all__ = [
     "CacheMetrics",
     "warm_prompt_cache",
     "warm_codebase_cache",
-    # Tier 1: Batch processing
-    "BatchClient",
-    "BatchStatus",
-    "BatchMetrics",
-    "batch_call",
     # Tier 1: Token budget
     "TokenBudget",
     "TokenUsage",

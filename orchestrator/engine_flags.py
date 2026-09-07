@@ -74,7 +74,6 @@ FEATURE_IMPORTS: dict[str, tuple[str, list[str], Any]] = {
             "TokenBudget",
             "SpeculativeGenerator",
             "PromptCacher",
-            "BatchClient",
             "AdaptiveTemperatureController",
             "StreamingValidator",
             "DependencyContextInjector",

@@ -182,7 +182,6 @@ if flags.cost_optimization_enabled:
     try:
         from .cost_optimization import (
             AdaptiveTemperatureController,
-            BatchClient,
             DependencyContextInjector,
             EvalDatasetBuilder,
             ModelCascader,
@@ -201,7 +200,6 @@ if flags.cost_optimization_enabled:
         OptimizationConfig = None
         get_optimization_config = None
         AdaptiveTemperatureController = None
-        BatchClient = None
         DependencyContextInjector = None
         EvalDatasetBuilder = None
         ModelCascader = None
@@ -217,7 +215,6 @@ else:
     OptimizationConfig = None
     get_optimization_config = None
     AdaptiveTemperatureController = None
-    BatchClient = None
     DependencyContextInjector = None
     EvalDatasetBuilder = None
     ModelCascader = None
