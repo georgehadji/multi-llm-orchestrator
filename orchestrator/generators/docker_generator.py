@@ -10,7 +10,7 @@ Paradigm: OOP with Functional utilities
 Patterns: Builder, Template Method, Factory Method, Strategy
 
 Usage:
-    from orchestrator.docker_generator import DockerfileBuilder
+    from orchestrator.generators.docker_generator import DockerfileBuilder
 
     dockerfile = (DockerfileBuilder()
         .for_node("18-alpine")
