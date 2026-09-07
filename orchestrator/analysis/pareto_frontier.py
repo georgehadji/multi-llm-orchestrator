@@ -446,7 +446,7 @@ class CostQualityFrontier:
         task_type: TaskType,
     ) -> tuple[float, int]:
         """Get prediction from benchmarks."""
-        summary = self.leaderboard._summaries.get(model)
+        summary = self.leaderboard.summary_for(model)
         if not summary:
             return 0.5, 0
 
@@ -475,7 +475,7 @@ class CostQualityFrontier:
         }
 
         # Check if we have actual measurements
-        summary = self.leaderboard._summaries.get(model)
+        summary = self.leaderboard.summary_for(model)
         if summary and summary.avg_latency_ms > 0:
             return summary.avg_latency_ms
 

@@ -143,7 +143,6 @@ BASELINE: set[str] = {
     "issue_tracking.py",
     "knowledge_base.py",
     "knowledge_graph.py",
-    "leaderboard.py",
     "learning_aggregator.py",
     "log_config.py",
     "logging.py",

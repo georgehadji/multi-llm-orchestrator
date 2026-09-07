@@ -47,7 +47,6 @@ BASELINE: set[str] = {
     "agents/product_manager.py",
     "agents/rate_limiter.py",
     "analysis/assumption_gate.py",
-    "analysis/leaderboard.py",
     "analysis/metrics.py",
     "analysis/progress.py",
     "analysis/progress_writer.py",
