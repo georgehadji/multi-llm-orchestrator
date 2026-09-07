@@ -99,6 +99,11 @@ class CircuitBreaker:
         self.total_successes: int = 0
         self.trip_count: int = 0
 
+        # Holds the fire-and-forget trip-event publish task so asyncio can't
+        # garbage-collect it mid-flight (a task with no other referent is only
+        # weakly held by the loop).
+        self._pending_event_tasks: set[asyncio.Task] = set()
+
     # ─────────────────────────────────────────────────────
     # Public interface
     # ─────────────────────────────────────────────────────
@@ -244,21 +249,26 @@ class CircuitBreaker:
             cause_str,
             self.reset_timeout,
         )
-        # Publish trip event for alerting subscribers
+        # Publish trip event for alerting subscribers. publish() is a
+        # coroutine; _open() runs synchronously inside record_failure's
+        # running event loop, so schedule it as a task rather than block.
         try:
-            from .events import get_event_bus
+            from .unified_events.core import DomainEvent, EventType, get_event_bus_sync
 
-            bus = get_event_bus()
-            if bus is not None:
-                bus.publish(
-                    "circuit_breaker.tripped",
-                    {
-                        "name": self.name,
-                        "failures": self._state.failures,
-                        "reset_timeout": self.reset_timeout,
-                    },
-                )
-        except Exception:
+            bus = get_event_bus_sync()
+            event = DomainEvent(
+                event_type=EventType.CIRCUIT_BREAKER_OPEN,
+                aggregate_id=f"circuit_breaker:{self.name}",
+                metadata={
+                    "name": self.name,
+                    "failures": self._state.failures,
+                    "reset_timeout": self.reset_timeout,
+                },
+            )
+            task = asyncio.get_running_loop().create_task(bus.publish(event))
+            self._pending_event_tasks.add(task)
+            task.add_done_callback(self._pending_event_tasks.discard)
+        except (ImportError, RuntimeError):
             pass
 
     def _close(self) -> None:
