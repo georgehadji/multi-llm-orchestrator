@@ -45,6 +45,7 @@ else:
     import aiohttp.web as web
 
 from .crosscutting.config import flags
+from .domain.security import Permission, Principal, parse_permissions
 
 logger = logging.getLogger("orchestrator.api_server")
 
@@ -340,7 +341,7 @@ class APIServer:
 
     async def execute_task(self, request: web.Request) -> web.Response:
         """Legacy backward-compat endpoint. Auto-detects format and routes."""
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.EXECUTE)
         if auth_error is not None:
             return auth_error
 
@@ -373,7 +374,7 @@ class APIServer:
         Body: {project_description, success_criteria, budget, ...}
         Returns: 202 Accepted with project_id
         """
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.EXECUTE)
         if auth_error is not None:
             return auth_error
 
@@ -392,7 +393,7 @@ class APIServer:
         Body: {tasks: [{id, type, prompt, ...}], budget, ...}
         Returns: 202 Accepted with project_id
         """
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.EXECUTE)
         if auth_error is not None:
             return auth_error
 
@@ -419,7 +420,7 @@ class APIServer:
         Body: {spec_dir, budget, max_concurrency, output_dir}
         Returns: 202 Accepted with project_id and task_count
         """
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.EXECUTE)
         if auth_error is not None:
             return auth_error
 
@@ -835,7 +836,7 @@ class APIServer:
         GET /projects/{project_id}
         Returns current ProjectState from the background execution or StateManager.
         """
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.READ)
         if auth_error is not None:
             return auth_error
 
@@ -931,7 +932,7 @@ class APIServer:
         GET /projects/{project_id}/stream
         Returns text/event-stream with PipelineEvent JSON.
         """
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.READ)
         if auth_error is not None:
             return auth_error
 
@@ -1047,7 +1048,7 @@ class APIServer:
 
         DELETE /projects/{project_id}
         """
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.PROJECT_CANCEL)
         if auth_error is not None:
             return auth_error
 
@@ -1078,7 +1079,7 @@ class APIServer:
 
         GET /status/{task_id} — backward compat, wraps project status.
         """
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.READ)
         if auth_error is not None:
             return auth_error
 
@@ -1122,7 +1123,7 @@ class APIServer:
 
     async def list_models(self, request: web.Request) -> web.Response:
         """List available models from the routing table."""
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.READ)
         if auth_error is not None:
             return auth_error
 
@@ -1243,7 +1244,7 @@ class APIServer:
         """Get server statistics."""
         self._update_request_stats()
 
-        denied = self._require_auth(request)
+        denied = self._require_auth(request, Permission.READ)
         if denied:
             self._update_request_stats(success=False)
             return denied
@@ -1273,7 +1274,7 @@ class APIServer:
 
     async def supervisor_directive(self, request: web.Request) -> web.Response:
         """Accept an inbound agent directive and hand it to the Supervisor."""
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.SUPERVISOR_EXECUTE)
         if auth_error is not None:
             return auth_error
 
@@ -1343,7 +1344,7 @@ class APIServer:
 
     async def list_supervisor_sessions(self, request: web.Request) -> web.Response:
         """List supervisor sessions."""
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.SUPERVISOR_READ)
         if auth_error is not None:
             return auth_error
         if self.supervisor is None:
@@ -1367,7 +1368,7 @@ class APIServer:
 
     async def get_supervisor_session(self, request: web.Request) -> web.Response:
         """Get a single supervisor session."""
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.SUPERVISOR_READ)
         if auth_error is not None:
             return auth_error
         if self.supervisor is None:
@@ -1391,7 +1392,7 @@ class APIServer:
 
     async def get_supervisor_lessons(self, request: web.Request) -> web.Response:
         """Get lessons for a supervisor session."""
-        auth_error = self._require_auth(request)
+        auth_error = self._require_auth(request, Permission.SUPERVISOR_READ)
         if auth_error is not None:
             return auth_error
         if self.supervisor is None:
@@ -1449,11 +1450,19 @@ class APIServer:
         except Exception as exc:
             logger.error("Event-bus SSE error for %s: %s", project_id, exc)
 
-    def _require_auth(self, request: web.Request) -> web.Response | None:
-        """Enforce Bearer auth when ``auth_required``.
+    def _require_auth(
+        self,
+        request: web.Request,
+        permission: Permission | None = None,
+    ) -> web.Response | None:
+        """Enforce Bearer auth, and `permission` when given.
 
-        Returns a 401 response if the header is missing/invalid, else ``None``.
-        Shared by all endpoints so read endpoints can't bypass auth.
+        Returns a 401 response if the header is missing/invalid, a 403 if the
+        authenticated principal lacks `permission`, else ``None``. Shared by all
+        endpoints so read endpoints can't bypass auth.
+
+        The permission comes from the route, never from the request: a caller
+        cannot name the permission it would like to be checked against.
         """
         if not self.auth_required:
             return None
@@ -1461,21 +1470,47 @@ class APIServer:
         if not auth_header or not auth_header.startswith("Bearer "):
             self._update_request_stats(success=False)
             return web.json_response({"error": "Authorization header required"}, status=401)
-        if not self._verify_api_key(auth_header[7:]):
+
+        principal = self._verify_api_key(auth_header[7:])
+        if principal is None:
             self._update_request_stats(success=False)
             return web.json_response({"error": "Invalid API key"}, status=401)
+
+        # Make the principal available to handlers without re-authenticating.
+        request["principal"] = principal
+
+        if permission is not None and not principal.has(permission):
+            self._update_request_stats(success=False)
+            logger.warning(
+                "authorization denied: principal=%s key=%s required=%s",
+                principal.id,
+                principal.key_id,
+                permission.value,
+            )
+            return web.json_response(
+                {"error": f"Permission '{permission.value}' required"}, status=403
+            )
         return None
 
-    def _verify_api_key(self, api_key: str) -> bool:
-        """Verify an API key using constant-time comparison to prevent timing attacks."""
+    def _verify_api_key(self, api_key: str) -> Principal | None:
+        """Recover the `Principal` behind an API key, or ``None``.
+
+        Constant-time comparison to prevent timing attacks. Returns the
+        principal rather than a bool so callers can enforce the permissions the
+        key was actually registered with (SEC-006).
+        """
         import hmac as _hmac
 
         hashed_key = hashlib.sha256(api_key.encode()).hexdigest()
         for stored_key, meta in self.api_keys.items():
             if _hmac.compare_digest(stored_key, hashed_key):
                 meta["last_used"] = datetime.now().isoformat()
-                return True
-        return False
+                return Principal(
+                    id=str(meta.get("user_id", "unknown")),
+                    key_id=stored_key[:12],
+                    permissions=parse_permissions(meta.get("permissions")),
+                )
+        return None
 
     def _require_admin(self, request: web.Request) -> web.Response | None:
         """Return 403 Response if not admin, None if OK. Use for key registration."""
