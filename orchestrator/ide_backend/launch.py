@@ -21,7 +21,14 @@ if parent_dir not in sys.path:
 
 def main():
     parser = argparse.ArgumentParser(description="AI Orchestrator IDE Server")
-    parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help=(
+            "Host to bind to (default: loopback). Binding a non-loopback host "
+            "also requires ORCHESTRATOR_IDE_ALLOW_REMOTE=true and authentication."
+        ),
+    )
     parser.add_argument("--port", type=int, default=8765, help="Port to bind to")
     parser.add_argument("--frontend", action="store_true", default=True, help="Serve frontend")
     parser.add_argument(

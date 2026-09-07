@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 from .api.routes import router as api_router
 from .integration.orchestrator_bridge import get_orchestrator_bridge
+from .security import allowed_origins, remote_allowed, validate_bind_target
 from .session_manager import get_session_manager
 from .websocket.handlers import setup_websocket_handlers
 from .websocket_manager import get_connection_manager
@@ -41,10 +42,12 @@ def create_app(
         version="1.0.0",
     )
 
-    # CORS middleware
+    # CORS middleware. An explicit allowlist, never "*": the app sends
+    # credentials, and wildcard-plus-credentials makes every site the user
+    # visits a same-origin client of this API (SEC-001).
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Configure appropriately for production
+        allow_origins=allowed_origins(),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -110,25 +113,37 @@ def create_app(
     # Health check endpoint
     @app.get("/health")
     async def health_check():
-        return {
-            "status": "healthy",
-            "sessions": len(session_manager._sessions),
-            "connections": sum(len(conns) for conns in connection_manager._connections.values()),
-        }
+        # Liveness only. Session and connection counts used to be returned here
+        # unauthenticated, which told an anonymous caller whether the instance
+        # was in use and how heavily — reconnaissance for SEC-001. Expose those
+        # through an authenticated metrics route instead.
+        return {"status": "healthy"}
 
     logger.info("FastAPI app created successfully")
     return app
 
 
 def run_ide_server(
-    host: str = "0.0.0.0",
+    host: str = "127.0.0.1",
     port: int = 8765,
     orchestrator: Any | None = None,
     frontend_path: Path | None = None,
     reload: bool = False,
+    auth_required: bool = False,
 ):
-    """Run the IDE server."""
+    """Run the IDE server.
+
+    Binds loopback by default. Exposing the IDE on another interface requires
+    both ``ORCHESTRATOR_IDE_ALLOW_REMOTE=true`` and authentication; anything
+    else raises `InsecureBindError` before the socket is opened (SEC-001).
+    """
     import uvicorn
+
+    validate_bind_target(
+        host,
+        allow_remote=remote_allowed(),
+        auth_required=auth_required,
+    )
 
     app = create_app(orchestrator=orchestrator, frontend_path=frontend_path)
 

@@ -225,9 +225,11 @@ ignore_imports =
     orchestrator.engine_core.container -> orchestrator.infrastructure.test_runners
 
     # ── Artifact assembly: assembler.py is the composition root for generated
-    #    output — it picks the emitter that writes the shipped Dockerfile
-    #    (Phase 7 P-4), the same wiring role container.py plays for services.
-    orchestrator.project_mgmt.assembler -> orchestrator.infrastructure.artifact_emitters.docker_emitter
+    #    output — it picks which emitters write the shipped Dockerfile, CI
+    #    workflow and observability config (Phase 7 P-4/P-5/P-6), the same
+    #    wiring role container.py plays for services. Scoped to the emitter
+    #    package so adding an emitter does not reopen this contract.
+    orchestrator.project_mgmt.assembler -> orchestrator.infrastructure.artifact_emitters.**
 
     # ── Root kernel: api_clients.py IS the provider-adapter facade
     #    (UnifiedClient); llm_client is its concrete backing.
