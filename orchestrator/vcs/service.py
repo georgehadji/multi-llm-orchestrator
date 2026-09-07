@@ -15,9 +15,23 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import StrEnum
+
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    # pyproject.toml declares `requires-python = ">=3.10"`, but enum.StrEnum
+    # is stdlib only from 3.11 onward. Backport with the same __str__
+    # behavior (plain value, not "ClassName.MEMBER") rather than adding a
+    # dependency for one class.
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        def __str__(self) -> str:
+            return str(self.value)
+
 
 logger = logging.getLogger("orchestrator.git")
 

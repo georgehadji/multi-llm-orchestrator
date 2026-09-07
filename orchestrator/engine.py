@@ -85,7 +85,7 @@ CacheOptimizer = _feat.get("CacheOptimizer")
 CacheConfig = _feat.get("CacheConfig")
 HAS_CACHE_OPTIMIZER = CacheOptimizer is not None
 
-from .policy import JobSpec, Policy, PolicySet
+from .policy import JobSpec, PolicySet
 from .state import StateManager
 
 # Test validation for reliable test generation
@@ -1159,10 +1159,6 @@ class Orchestrator:
     async def _record_failure(self, model: Model, error: Exception | None = None) -> None:
         """Record a failed API call — delegates to ModelHealthTracker (P3-2)."""
         await self._health_tracker.record_failure(model, error)
-
-    def _get_active_policies(self, task_id: str = "") -> list[Policy]:
-        """Return merged global + node-level policies for the given task."""
-        return self._active_policies.policies_for(task_id)
 
     def _should_exit_early(
         self,

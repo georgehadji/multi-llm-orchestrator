@@ -186,57 +186,82 @@ class SystemDiagnostic:
         """Test API key validity."""
         logger.debug("Checking API key validity...")
 
-        # FIXED: from ..api_clients import UnifiedClient
-        from ..api_clients import UnifiedClient
+        from ..infrastructure.llm_client import UnifiedClient
 
-        test_models = [
-            (Model.GPT_4O_MINI, "OpenAI"),
-            (Model.DEEPSEEK_V4_FLASH, "DeepSeek"),
-            (Model.GEMINI_FLASH, "Google"),
-        ]
+        # Must match _check_environment()'s provider set (hunt T8, C6):
+        # OpenAI/Google/Anthropic keys are never read by UnifiedClient —
+        # branded models route through OpenRouter, with DeepSeek/XAI as
+        # direct-key fallbacks. This used to construct UnifiedClient(model)
+        # (model has no such constructor parameter — it silently became
+        # cost_service) and call a nonexistent .generate() method; both
+        # errors were swallowed by the narrow except below because neither
+        # message matched "authentication"/"api key"/"rate limit", so this
+        # check always failed with zero explanation regardless of real key
+        # validity.
+        if not (os.getenv("OPENROUTER_API_KEY") or os.getenv("DEEPSEEK_API_KEY")):
+            self.issues.append(
+                Issue(
+                    component="api:openrouter",
+                    description=(
+                        "Neither OPENROUTER_API_KEY nor DEEPSEEK_API_KEY is set "
+                        "(UnifiedClient requires one of the two)."
+                    ),
+                    severity=Severity.ERROR,
+                    suggested_fix="Set OPENROUTER_API_KEY (recommended) or DEEPSEEK_API_KEY.",
+                    error_code="API001",
+                )
+            )
+            self.checks_failed += 1
+            return
 
-        working_providers = []
-
-        for model, provider_name in test_models:
-            try:
-                client = UnifiedClient(model)
-                # Simple test call
-                await client.generate("Hello", max_tokens=5)
-                working_providers.append(provider_name)
-            except Exception as e:
-                if "authentication" in str(e).lower() or "api key" in str(e).lower():
-                    self.issues.append(
-                        Issue(
-                            component=f"api:{provider_name}",
-                            description=f"{provider_name} API key invalid or expired.",
-                            severity=Severity.ERROR,
-                            suggested_fix=f"Check {provider_name.upper()}_API_KEY environment variable.",
-                            error_code="API001",
-                        )
-                    )
-                elif "rate limit" in str(e).lower():
-                    self.issues.append(
-                        Issue(
-                            component=f"api:{provider_name}",
-                            description=f"{provider_name} rate limit hit.",
-                            severity=Severity.WARNING,
-                            suggested_fix="Wait before retrying or upgrade plan.",
-                        )
-                    )
-
-        if working_providers:
+        try:
+            client = UnifiedClient()
+            await client.call(Model.GPT_4O_MINI, "Hello", max_tokens=5)
             self.checks_passed += 1
-        else:
+        except Exception as e:
+            msg = str(e).lower()
+            if "authentication" in msg or "api key" in msg:
+                self.issues.append(
+                    Issue(
+                        component="api:openrouter",
+                        description="Configured API key invalid or expired.",
+                        severity=Severity.ERROR,
+                        suggested_fix="Check OPENROUTER_API_KEY / DEEPSEEK_API_KEY.",
+                        error_code="API001",
+                    )
+                )
+            elif "rate limit" in msg:
+                self.issues.append(
+                    Issue(
+                        component="api:openrouter",
+                        description="Rate limit hit.",
+                        severity=Severity.WARNING,
+                        suggested_fix="Wait before retrying or upgrade plan.",
+                    )
+                )
+            else:
+                self.issues.append(
+                    Issue(
+                        component="api:openrouter",
+                        description=f"API check failed: {e}",
+                        severity=Severity.ERROR,
+                        suggested_fix="Investigate the underlying error.",
+                    )
+                )
             self.checks_failed += 1
 
     async def _check_network(self):
         """Check network connectivity."""
         logger.debug("Checking network connectivity...")
 
+        # Must match UnifiedClient's real hosts (hunt T8, C6 / this fix):
+        # OpenRouter is the primary path, DeepSeek/XAI are the direct-key
+        # fallbacks it actually supports — OpenAI/Google are never called
+        # directly.
         hosts_to_check = [
-            ("api.openai.com", 443),
+            ("openrouter.ai", 443),
             ("api.deepseek.com", 443),
-            ("generativelanguage.googleapis.com", 443),
+            ("api.x.ai", 443),
         ]
 
         for host, port in hosts_to_check:

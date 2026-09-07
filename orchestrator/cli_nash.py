@@ -67,7 +67,7 @@ async def _show_status(output_format: str):
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        raise click.Exit(1)
+        raise click.exceptions.Exit(1)
 
 
 def _print_status_table(report: dict):
@@ -189,7 +189,7 @@ async def _create_backup(name: str | None, encrypt: bool, compress: bool):
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        raise click.Exit(1)
+        raise click.exceptions.Exit(1)
 
 
 async def _list_backups():
@@ -217,7 +217,7 @@ async def _list_backups():
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        raise click.Exit(1)
+        raise click.exceptions.Exit(1)
 
 
 async def _restore_backup(path: str):
@@ -228,7 +228,7 @@ async def _restore_backup(path: str):
         backup_path = Path(path)
         if not backup_path.exists():
             click.echo(f"Error: Backup not found: {path}", err=True)
-            raise click.Exit(1)
+            raise click.exceptions.Exit(1)
 
         click.confirm("This will overwrite current data. Continue?", abort=True)
 
@@ -243,11 +243,11 @@ async def _restore_backup(path: str):
             if result.errors:
                 for error in result.errors:
                     click.echo(f"  - {error}", err=True)
-            raise click.Exit(1)
+            raise click.exceptions.Exit(1)
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        raise click.Exit(1)
+        raise click.exceptions.Exit(1)
 
 
 def _show_backup_value():
@@ -271,7 +271,7 @@ def _show_backup_value():
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        raise click.Exit(1)
+        raise click.exceptions.Exit(1)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -339,7 +339,7 @@ def _show_tuning_status():
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        raise click.Exit(1)
+        raise click.exceptions.Exit(1)
 
 
 def _manual_tune(param_name: str, value: float):
@@ -352,7 +352,7 @@ def _manual_tune(param_name: str, value: float):
 
         if not param:
             click.echo(f"Error: Unknown parameter: {param_name}", err=True)
-            raise click.Exit(1)
+            raise click.exceptions.Exit(1)
 
         old_value = param.current_value
         param.current_value = max(param.min_value, min(param.max_value, value))
@@ -363,7 +363,7 @@ def _manual_tune(param_name: str, value: float):
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        raise click.Exit(1)
+        raise click.exceptions.Exit(1)
 
 
 def _reset_parameter(param_name: str):
@@ -379,7 +379,7 @@ def _reset_parameter(param_name: str):
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        raise click.Exit(1)
+        raise click.exceptions.Exit(1)
 
 
 def _check_drift():
@@ -428,7 +428,7 @@ async def _compare_models(model_a: str, model_b: str, task_type: str, output_for
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        raise click.Exit(1)
+        raise click.exceptions.Exit(1)
 
 
 def _print_comparison_table(comparison: dict, model_a: str, model_b: str):
@@ -519,7 +519,7 @@ def _show_events(event_type: str | None, limit: int):
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        raise click.Exit(1)
+        raise click.exceptions.Exit(1)
 
 
 def _follow_events(event_type: str | None):

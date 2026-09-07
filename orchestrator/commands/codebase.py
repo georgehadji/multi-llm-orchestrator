@@ -26,8 +26,14 @@ async def _run_modify(repo, objective: str, dry_run: bool, budget: float = 10.0)
     from ..budget import Budget
     from ..engine import Orchestrator
 
+    orch = Orchestrator(budget=Budget(max_usd=budget))
+    if not hasattr(orch, "modify_codebase"):
+        return (
+            "Modification failed: codebase modification is not implemented yet "
+            "(Orchestrator.modify_codebase does not exist)."
+        )
+
     try:
-        orch = Orchestrator(budget=Budget(max_usd=budget))
         state = await orch.modify_codebase(
             repo_path=repo,
             objective=objective,
