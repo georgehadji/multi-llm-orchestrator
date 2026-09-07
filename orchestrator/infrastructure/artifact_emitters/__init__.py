@@ -7,7 +7,8 @@ from __future__ import annotations
 
 from .cicd_emitter import CicdEmitter
 from .docker_emitter import DockerEmitter
+from .observability_emitter import ObservabilityEmitter
 
-ALL_EMITTERS = (DockerEmitter(), CicdEmitter())
+ALL_EMITTERS = (DockerEmitter(), CicdEmitter(), ObservabilityEmitter())
 
-__all__ = ["ALL_EMITTERS", "CicdEmitter", "DockerEmitter"]
+__all__ = ["ALL_EMITTERS", "CicdEmitter", "DockerEmitter", "ObservabilityEmitter"]
