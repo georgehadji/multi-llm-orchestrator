@@ -411,7 +411,7 @@ COST_TABLE: dict[Model, CostDict] = {
     # ------------------------------------------------
     Model.GPT_OSS_120B: {"input": 0.037, "output": 0.17},
     Model.GPT_OSS_20B: {"input": 0.03, "output": 0.13},
-    Model.QWEN_NEXT_80B: {"input": 0.1, "output": 1.1},
+    Model.QWEN_NEXT_80B: {"input": 0.09, "output": 1.1},
     Model.GLM_4_7_FLASH: {"input": 0.06, "output": 0.40},
     Model.MINIMAX_M2_5: {"input": 0.15, "output": 0.90},
     Model.DEVSTRAL_2512: {"input": 0.40, "output": 2.00},  # DEPRECATED
@@ -446,13 +446,13 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.DEEPSEEK_V4_FLASH: {"input": 0.14, "output": 0.28},
     Model.LLAMA_4_MAVERICK: {"input": 0.2, "output": 0.8},
     Model.LLAMA_4_SCOUT: {"input": 0.1, "output": 0.3},
-    Model.LLAMA_3_3_70B: {"input": 0.13, "output": 0.4},
+    Model.LLAMA_3_3_70B: {"input": 0.1, "output": 0.32},
     Model.LLAMA_3_1_405B: {"input": 2.00, "output": 2.00},
     Model.PHI_4: {"input": 0.07, "output": 0.14},
     Model.GEMMA_3_27B: {"input": 0.08, "output": 0.45},
     Model.HERMES_3_LLAMA_3_1_70B: {"input": 0.7, "output": 0.7},
     Model.MOONSHOT_KIMI_K2_7_CODE: {"input": 0.73, "output": 3.5},
-    Model.MOONSHOT_KIMI_K2_6: {"input": 0.6, "output": 3.41},
+    Model.MOONSHOT_KIMI_K2_6: {"input": 0.589, "output": 2.48},
     Model.MOONSHOT_KIMI_K2: {"input": 0.57, "output": 2.3},
     Model.STEPFUN_STEP_3_5_FLASH: {"input": 0.10, "output": 0.30},
     Model.ZHIPU_GLM_5_2: {"input": 0.7601, "output": 2.3888},
@@ -462,7 +462,7 @@ COST_TABLE: dict[Model, CostDict] = {
     Model.QWEN_3_7_MAX: {"input": 1.475, "output": 4.425},
     Model.QWEN_3_7_FLASH: {"input": 0.03, "output": 0.13},
     Model.QWEN_3_6_FLASH: {"input": 0.1875, "output": 1.125},
-    Model.MINIMAX_M2_7: {"input": 0.25, "output": 1.00},
+    Model.MINIMAX_M2_7: {"input": 0.27, "output": 1.08},
     Model.XIAOMI_MIMO_V2_FLASH: {"input": 0.14, "output": 0.28},
     Model.XIAOMI_MIMO_V2_5_PRO: {"input": 0.44, "output": 0.87},
     # ------------------------------------------------
