@@ -43,6 +43,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
+
+from orchestrator.safety.outbound import OutboundPolicyError, fetch_json
 
 logger = logging.getLogger("orchestrator.api_builder")
 
@@ -547,16 +550,21 @@ class {model_name}:
         return {}
 
     async def _load_openapi_spec(self, spec_url: str) -> dict:
-        """Load OpenAPI spec from URL or file."""
+        """Load OpenAPI spec from URL or file.
 
-        if spec_url.startswith("http"):
-            # Fetch from URL
-            import httpx
-
-            async with httpx.AsyncClient() as client:
-                response = await client.get(spec_url)
-                response.raise_for_status()
-                return response.json()
+        Remote specs go through the outbound policy (SEC-004). The old check
+        was ``spec_url.startswith("http")`` followed by an unrestricted GET,
+        which let a caller point the importer at cloud metadata, loopback
+        admin services or any internal endpoint.
+        """
+        scheme = urlparse(spec_url).scheme.lower()
+        if scheme in {"http", "https"}:
+            return await fetch_json(spec_url)
+        if scheme and len(scheme) > 1:
+            # Not a local path either — refuse rather than fall through to
+            # open() with something like "file://" or "gopher://". A
+            # single-character scheme is a Windows drive letter, not a scheme.
+            raise OutboundPolicyError(f"unsupported spec URL scheme: {scheme!r}")
         else:
             # Load from file
             path = Path(spec_url)
