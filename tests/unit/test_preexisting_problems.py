@@ -119,37 +119,10 @@ def test_hierarchy_ids_survive_removal():
     assert h.nodes[t2.id].name == "Sales", "Existing node was silently overwritten"
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Problem P5 [FIXED]: BatchClient waited on result truthiness, not completion.
-#   File: orchestrator/cost_optimization/batch_client.py
-#   The poll loop did `if request.result:` — a legitimately falsy result
-#   (empty string, empty dict/list, 0) was treated as "not ready" and the call
-#   blocked until the 300s timeout instead of returning the real result.
-#   FIX: poll gates on `request.status == BatchStatus.COMPLETED` (explicit
-#   completion signal) and returns the real result even when falsy.
-#   This is now a regression guard (no longer xfail).
-# ──────────────────────────────────────────────────────────────────────────────
-@pytest.mark.unit
-def test_batch_result_falsy_is_recognized_as_complete():
-    from orchestrator.cost_optimization.batch_client import (
-        BatchRequest,
-        BatchStatus,
-        OptimizationPhase,
-    )
-
-    # A request that completed with a valid-but-falsy result (empty string).
-    req = BatchRequest(
-        id="r1",
-        model="m",
-        prompt="p",
-        phase=list(OptimizationPhase)[0],
-    )
-    req.result = ""  # falsy but valid
-    req.status = BatchStatus.COMPLETED
-
-    # The fixed wait predicate keys on status, not truthiness of result.
-    ready = req.status == BatchStatus.COMPLETED
-    assert ready is True, (
-        "A falsy-but-valid result must be recognized as complete; "
-        "the wait loop must test the completion status, not result truthiness"
-    )
+# Its regression guard (test_batch_result_falsy_is_recognized_as_complete) was
+# removed along with orchestrator/cost_optimization/batch_client.py in
+# docs/plans/2026-09-07-patterns-convergence-and-wire-or-delete.md S6 — the
+# module could never provide real batching over the OpenRouter adapter
+# (no live object exposes .batches), so the fix it guarded no longer has
+# any code to regress.

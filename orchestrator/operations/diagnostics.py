@@ -409,7 +409,11 @@ class ProjectDiagnostic:
         from ..state import StateManager
 
         state_mgr = StateManager()
-        state = state_mgr.load_state(self.project_id)
+        # PX-DIAG1: this called state_mgr.load_state(), which StateManager has
+        # never defined (it has load_project / load_latest_checkpoint /
+        # load_circuit_breaker_state), so every diagnose() raised AttributeError.
+        # load_project is async, so the await is part of the fix.
+        state = await state_mgr.load_project(self.project_id)
 
         if not state:
             return {"error": f"Project {self.project_id} not found"}

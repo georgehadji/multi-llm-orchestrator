@@ -98,7 +98,6 @@ except (ImportError, TimeoutError):
 try:
     from .cost_optimization import (
         AdaptiveTemperatureController,
-        BatchClient,
         DependencyContextInjector,
         EvalDatasetBuilder,
         ModelCascader,
@@ -119,7 +118,6 @@ except (ImportError, TimeoutError):
     get_optimization_config = None
     # Set all others to None too
     AdaptiveTemperatureController = None
-    BatchClient = None
     DependencyContextInjector = None
     EvalDatasetBuilder = None
     ModelCascader = None

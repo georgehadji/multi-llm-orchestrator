@@ -329,6 +329,12 @@ markers = [
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::UserWarning",
+    # RC3/RC4: a coroutine object is truthy and carries no runtime marker, so an
+    # un-awaited async call degrades silently rather than failing -- the shape
+    # behind P1-5, P2-S2-2/2b, P3-TE3 and PX-BUS1's eight sites. Python already
+    # detects it; the suite was discarding the evidence. Promoting it to an error
+    # is the cheapest gate available for the class.
+    "error:coroutine .* was never awaited:RuntimeWarning",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

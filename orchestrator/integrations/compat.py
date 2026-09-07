@@ -9,18 +9,18 @@ from __future__ import annotations
 
 # Import compatibility aliases
 try:
-    from .streaming import ProjectEventBus
+    from ..streaming import ProjectEventBus
 except ImportError:
     ProjectEventBus = None
 
 try:
-    from .streaming import PipelineEvent as StreamEvent
+    from ..streaming import PipelineEvent as StreamEvent
 except ImportError:
     StreamEvent = None
 
 # Event aliases — consolidated into unified_events.core
 try:
-    from .unified_events.core import (
+    from ..unified_events.core import (
         ProjectCompletedEvent as ProjectCompleted,
         ProjectStartedEvent as ProjectStarted,
         TaskCompletedEvent as TaskCompleted,
@@ -33,7 +33,7 @@ except ImportError:
     ProjectCompleted = None
 
 # Dashboard aliases — all consolidated into dashboard_core/mission_control.py
-from .dashboard_core.mission_control import (
+from ..dashboard_core.mission_control import (
     MissionControlView as DashboardView,
     create_view as run_dashboard,
 )

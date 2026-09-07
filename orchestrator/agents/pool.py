@@ -1,7 +1,12 @@
 """
-Agents — AgentPool meta-controller and TaskChannel inter-task messaging.
-========================================================================
+AgentPool meta-controller and TaskChannel inter-task messaging.
+==============================================================
 Author: Georgios-Chrysovalantis Chatzivantsidis
+
+Moved here from ``orchestrator/agents.py``, which was shadowed by this package and
+therefore unimportable by construction (P3-SHADOW1) — ``engine.py:158`` has been
+doing ``from .agents import TaskChannel`` and silently binding ``None`` via its
+``except ImportError`` fallback for the lifetime of the file.
 
 AgentPool
     Meta-controller that manages multiple Orchestrator instances and can
@@ -27,10 +32,16 @@ TaskChannel
     dependency context string.
 
     Usage:
-        ch = orch.get_channel("artifacts")
+        ch = TaskChannel()
         await ch.put({"type": "schema", "content": schema_json})
         # Later, in a downstream task handler:
         msgs = ch.peek_all()
+
+    NOTE: this class previously documented ``orch.get_channel(name)`` as the way
+    to obtain a channel. No such method exists on Orchestrator and none ever has
+    (verified repo-wide), so callers must construct channels directly. Adding a
+    channel registry is new behaviour and belongs in a service module rather than
+    in engine.py, per this repo's Mediator rule.
 """
 
 from __future__ import annotations
@@ -40,11 +51,11 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .engine import Orchestrator
-    from .models import Model, ProjectState, TaskResult
-    from .policy import JobSpec, ModelProfile
+    from ..engine import Orchestrator
+    from ..models import Model, ProjectState, TaskResult
+    from ..policy import JobSpec, ModelProfile
 
-logger = logging.getLogger("orchestrator.agents")
+logger = logging.getLogger("orchestrator.agents.pool")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -56,8 +67,7 @@ class TaskChannel:
     """
     asyncio.Queue wrapper for inter-task messaging within a single run.
 
-    Messages are plain dicts — no schema enforcement. Channels are named and
-    obtained via Orchestrator.get_channel(name), which creates them lazily.
+    Messages are plain dicts — no schema enforcement.
 
     peek_all() is non-destructive: it drains the queue and immediately
     re-enqueues the same messages, so subsequent calls see the same data.
@@ -85,6 +95,11 @@ class TaskChannel:
 
         Drains the queue into a list, then re-enqueues all messages in the
         same order. O(N) time and memory.
+
+        Not atomic: a concurrent put() between the drain and the re-enqueue
+        would be ordered after the peeked messages rather than before them.
+        Callers needing a consistent snapshot under concurrency should hold
+        their own lock.
         """
         items: list[dict] = []
         while not self._queue.empty():
@@ -106,6 +121,25 @@ class TaskChannel:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def _agent_profiles(agent: Orchestrator) -> dict | None:
+    """Return an agent's live ModelProfile dict, or None if it exposes none.
+
+    The profiles live at ``orchestrator._c.planner._profiles`` (see
+    ``engine.py:788``). The original code here read ``agent._profiles``, an
+    attribute Orchestrator does not define, so its ``hasattr`` guard was always
+    False and merge_telemetry() could only ever return default profiles — a
+    70-line aggregation that never aggregated anything.
+    """
+    container = getattr(agent, "_c", None)
+    planner = getattr(container, "planner", None)
+    profiles = getattr(planner, "_profiles", None)
+    if profiles:
+        return dict(profiles)
+    # Objects that expose profiles directly (test doubles, future refactors).
+    direct = getattr(agent, "_profiles", None)
+    return dict(direct) if direct else None
+
+
 class AgentPool:
     """
     Meta-controller for multiple Orchestrator instances.
@@ -115,9 +149,10 @@ class AgentPool:
     Exceptions from individual agents are logged but do not cancel other agents.
 
     merge_telemetry() aggregates live ModelProfile data across all agents:
-    - EMA fields (avg_latency_ms, quality_score, avg_cost_usd, trust_factor): averaged
+    - EMA fields (avg_latency_ms, quality_score, avg_cost_usd, trust_factor):
+      averaged, weighted by call_count
     - Counter fields (call_count, failure_count, validator_fail_count): summed
-    - success_rate: re-computed as failure_count / call_count
+    - success_rate: re-computed from the merged counters
     """
 
     def __init__(self) -> None:
@@ -146,16 +181,30 @@ class AgentPool:
         Returns
         -------
         dict mapping agent_name → ProjectState for agents that completed.
-        Agents that raised exceptions are omitted from the result (exception
-        is logged at ERROR level).
+        Agents that raised are omitted from the result (logged at ERROR level),
+        as are assignments naming an agent that was never registered.
         """
-        names = list(assignments.keys())
+        # An unregistered name used to raise KeyError while *building* the coros,
+        # so a single bad assignment prevented every other agent from running at
+        # all — the opposite of this method's documented isolation guarantee.
+        names = []
+        for name in assignments:
+            if name in self._agents:
+                names.append(name)
+            else:
+                logger.error("AgentPool: no agent registered as %r — skipping its assignment", name)
+        if not names:
+            return {}
+
         coros = [self._agents[name].run_job(assignments[name]) for name in names]
         results_raw = await asyncio.gather(*coros, return_exceptions=True)
 
         results: dict[str, ProjectState] = {}
         for name, outcome in zip(names, results_raw, strict=False):
-            if isinstance(outcome, Exception):
+            # BaseException, not Exception: gather(return_exceptions=True) also
+            # returns CancelledError, which is a BaseException and would
+            # otherwise be recorded as a successful ProjectState.
+            if isinstance(outcome, BaseException):
                 logger.error(
                     "AgentPool: agent %r raised during run_job: %s",
                     name,
@@ -199,22 +248,29 @@ class AgentPool:
         Aggregate ModelProfile data from all registered agents into one dict.
 
         For each model:
-        - EMA fields are averaged across agents that have data
-        - Counter fields (call_count, failure_count, validator_fail_count) are summed
+        - EMA fields are averaged, weighted by call_count
+        - Counter fields are summed
         - success_rate is re-derived from the merged failure/call counts
 
-        Returns a fresh dict[Model, ModelProfile] (does not mutate any agent's profiles).
+        Returns a fresh dict (does not mutate any agent's profiles). Falls back
+        to default profiles when no agent exposes live ones.
         """
+        from ..application.model_profile_builder import build_default_profiles
+
         if not self._agents:
             return {}
 
-        # Collect per-model lists of profiles
-        from .application.model_profile_builder import build_default_profiles
-
         all_profile_dicts: list[dict[Model, ModelProfile]] = [
-            agent._profiles for agent in self._agents.values() if hasattr(agent, "_profiles")
+            profiles
+            for profiles in (_agent_profiles(agent) for agent in self._agents.values())
+            if profiles
         ]
         if not all_profile_dicts:
+            logger.warning(
+                "AgentPool.merge_telemetry: none of the %d registered agents exposed live "
+                "model profiles — returning defaults, so the merge is a no-op",
+                len(self._agents),
+            )
             return build_default_profiles()
 
         # Start with the union of all model keys
@@ -223,7 +279,6 @@ class AgentPool:
             all_models |= set(pd.keys())
 
         merged: dict[Model, ModelProfile] = {}
-        build_default_profiles()
 
         for model in all_models:
             contributing = [pd[model] for pd in all_profile_dicts if model in pd]
@@ -243,10 +298,12 @@ class AgentPool:
             # merged estimate. Falls back to simple average if all counts are 0.
             weight_sum = total_calls or len(contributing)  # avoid division by zero
 
-            def _wavg(attr: str) -> float:
-                if total_calls == 0:
-                    return sum(getattr(p, attr) for p in contributing) / len(contributing)
-                return sum(getattr(p, attr) * p.call_count for p in contributing) / weight_sum
+            def _wavg(
+                attr: str, _c: list = contributing, _t: int = total_calls, _w: int = weight_sum
+            ) -> float:
+                if _t == 0:
+                    return sum(getattr(p, attr) for p in _c) / len(_c)
+                return sum(getattr(p, attr) * p.call_count for p in _c) / _w
 
             avg_latency = _wavg("avg_latency_ms")
             lat_p95 = _wavg("latency_p95_ms")

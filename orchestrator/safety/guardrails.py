@@ -6,12 +6,17 @@ Author: Senior Distributed Systems Architect
 CRITICAL: Production safety mechanisms that prevent catastrophic failures.
 
 FEATURES:
-1. Budget enforcement (hard limit, never exceeded)
-2. Rate limit enforcement
-3. Memory monitoring
+1. Budget overrun detection (reports after the fact — see ProductionGuardrails)
+2. Rate limit configuration
+3. Memory monitoring (requires psutil, which is not a declared dependency)
 4. Error rate monitoring
-5. Kill switch (file-based emergency stop)
+5. Kill switch (file-based emergency stop, latching)
 6. Configuration drift detection
+
+Wired at Orchestrator.__aenter__, which refuses to start a run while the kill
+switch is active. Per-operation enforcement (all_checks_pass on each task) is not
+wired: it needs a seam on the task loop rather than the lifecycle hook, and adding
+one is behaviour that belongs in a service module rather than in engine.py.
 
 USAGE:
     from orchestrator.safety.guardrails import ProductionGuardrails, get_guardrails
@@ -41,6 +46,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("orchestrator.safety.guardrails")
 
+# Kill-switch files live beside the rest of this project's local state rather than
+# in world-writable /tmp. Resolved at import so GuardrailConfig's field defaults
+# are plain strings, as they were before.
+_STATE_DIR = Path.home() / ".orchestrator_cache"
+
 
 @dataclass
 class GuardrailConfig:
@@ -67,10 +77,14 @@ class GuardrailConfig:
     max_error_rate: float = 0.10  # 10%
     error_rate_window: int = 100  # Check last N requests
 
-    # Kill switch
+    # Kill switch.
+    # P3-GUARD3: these used to default under /tmp, which is world-writable and
+    # whose paths are predictable — so any local user could halt the orchestrator,
+    # and KillSwitch.check_and_exit() answers the force file with os._exit(1).
+    # The state directory this project already owns is not world-writable.
     enable_kill_switch: bool = True
-    kill_switch_file: str = "/tmp/orchestrator_kill"
-    force_kill_file: str = "/tmp/orchestrator_force_kill"
+    kill_switch_file: str = str(_STATE_DIR / "orchestrator_kill")
+    force_kill_file: str = str(_STATE_DIR / "orchestrator_force_kill")
 
     # Drift detection
     enable_drift_detection: bool = True
@@ -79,25 +93,37 @@ class GuardrailConfig:
 
 @dataclass
 class GuardrailStatus:
-    """Status of a single guardrail check."""
+    """Status of a single guardrail check.
+
+    ``checked`` distinguishes "this check ran and passed" from "this check did not
+    run". Conflating the two is what made the memory guardrail fail open: it
+    returned ``passed=True`` both when memory was healthy and when ``psutil`` was
+    absent or the throttle window had not elapsed, so ``all_checks_pass()`` counted
+    a check that never executed as a passing one (P3-GUARD1).
+    """
 
     name: str
     passed: bool
     value: Any
     threshold: Any
     message: str
+    checked: bool = True
 
 
 class ProductionGuardrails:
     """
     Production safety mechanisms.
 
-    GUARANTEES:
-    1. Budget never exceeded (hard limit)
-    2. Kill switch respected (immediate shutdown)
-    3. Error rate monitored (alert on degradation)
-    4. Memory monitored (prevent OOM)
-    5. Configuration drift detected
+    WHAT THIS ACTUALLY PROVIDES (P3-GUARD4 — the previous "GUARANTEES" list
+    overstated every item; these are the honest versions):
+    1. Budget overrun *detected* — check_budget() reports failure once
+       spent > max_budget, i.e. after the overspend. It is a monitor, not a
+       preventer; the hard pre-flight limit is BudgetHierarchy.can_afford_job().
+    2. Kill switch respected, latching, within one 5s polling window.
+    3. Error rate monitored over a rolling window (alert on degradation).
+    4. Memory monitored *when psutil is installed* — it is not a declared
+       dependency, and its absence is reported rather than passed over.
+    5. Configuration drift detected against a caller-supplied baseline.
 
     USAGE:
         guardrails = ProductionGuardrails()
@@ -122,7 +148,9 @@ class ProductionGuardrails:
         # Timing
         self._start_time = time.monotonic()
         self._kill_switch_checked = 0.0
+        self._kill_switch_active = False
         self._memory_checked = 0.0
+        self._warned_memory_unavailable = False
 
         # Drift detection
         self._drift_baseline: dict[str, Any] = {}
@@ -201,21 +229,33 @@ class ProductionGuardrails:
         """
         Check if kill switch is activated.
 
+        Latches: once activated, stays activated until deactivate_kill_switch().
+        The sibling KillSwitch class in this module has always latched; this one
+        did not, so a caller re-checking during shutdown saw the switch flip back
+        off (P3-GUARD2).
+
         Returns:
             True if kill switch is activated (should terminate)
         """
         if not self.config.enable_kill_switch:
             return False
 
-        # Only check every 5 seconds to avoid I/O overhead
+        # Latched: an activation already observed stays observed.
+        if self._kill_switch_active:
+            return True
+
+        # Only hit the filesystem every 5 seconds to avoid I/O overhead. Return
+        # the last known answer rather than False: reporting "not activated" for a
+        # check that did not run is the permissive answer to a safety question.
         now = time.monotonic()
         if now - self._kill_switch_checked < 5.0:
-            return False
+            return self._kill_switch_active
         self._kill_switch_checked = now
 
         # Check force kill first
         force_file = Path(self.config.force_kill_file)
         if force_file.exists():
+            self._kill_switch_active = True
             logger.critical(f"FORCE KILL SWITCH ACTIVATED: {force_file}")
             if self._on_kill_switch:
                 self._on_kill_switch(force=True)
@@ -224,6 +264,7 @@ class ProductionGuardrails:
         # Check normal kill
         kill_file = Path(self.config.kill_switch_file)
         if kill_file.exists():
+            self._kill_switch_active = True
             logger.critical(f"KILL SWITCH ACTIVATED: {kill_file}")
             if self._on_kill_switch:
                 self._on_kill_switch(force=False)
@@ -239,6 +280,7 @@ class ProductionGuardrails:
             force: If True, create force kill file (immediate termination)
         """
         target = Path(self.config.force_kill_file if force else self.config.kill_switch_file)
+        target.parent.mkdir(parents=True, exist_ok=True)
         target.touch()
         logger.warning(f"Kill switch activated: {target}")
 
@@ -247,6 +289,7 @@ class ProductionGuardrails:
         for path in [Path(self.config.kill_switch_file), Path(self.config.force_kill_file)]:
             if path.exists():
                 path.unlink()
+        self._kill_switch_active = False
         logger.info("Kill switch deactivated")
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -329,6 +372,7 @@ class ProductionGuardrails:
                 value=0,
                 threshold=self.config.max_memory_mb,
                 message="Memory check skipped (recently checked)",
+                checked=False,
             )
         self._memory_checked = now
 
@@ -362,12 +406,27 @@ class ProductionGuardrails:
             )
 
         except ImportError:
+            # psutil is not a declared dependency of any extra, so on a default
+            # install this is the *normal* path — which is exactly why returning a
+            # silent passed=True made the documented "memory monitored (prevent
+            # OOM)" guarantee vacuous. Still non-blocking (an absent optional
+            # dependency must not halt a run), but no longer silent, and no longer
+            # counted as a check that ran.
+            if not self._warned_memory_unavailable:
+                self._warned_memory_unavailable = True
+                logger.warning(
+                    "Memory guardrail inactive: psutil is not installed, so the "
+                    "max_memory_mb=%.0f limit is not being enforced. "
+                    "Install psutil to enable it.",
+                    self.config.max_memory_mb,
+                )
             return GuardrailStatus(
                 name="memory",
                 passed=True,
                 value=0,
                 threshold=self.config.max_memory_mb,
                 message="psutil not available, memory check skipped",
+                checked=False,
             )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -450,12 +509,21 @@ class ProductionGuardrails:
         if check_kill_switch:
             # Kill switch is special - returns True if should terminate
             if self.check_kill_switch():
+                # P3-GUARD4: name it, so the log says which guardrail stopped the
+                # run. The early return used to skip the summary below entirely.
+                logger.critical("GUARDRAIL FAILURES: ['kill_switch']")
                 return False
 
-        failed = [c for c in checks if not c.passed]
+        failed = [c for c in checks if c.checked and not c.passed]
 
         if failed:
             logger.critical(f"GUARDRAIL FAILURES: {[c.name for c in failed]}")
+
+        # Checks that did not run are reported but never counted as passing --
+        # see GuardrailStatus.checked.
+        skipped = [c.name for c in checks if not c.checked]
+        if skipped:
+            logger.debug("Guardrails not evaluated this cycle: %s", skipped)
 
         return len(failed) == 0
 
@@ -549,6 +617,7 @@ class KillSwitch:
     def activate(self, force: bool = False) -> None:
         """Activate kill switch."""
         target = self.force_file if force else self.kill_file
+        target.parent.mkdir(parents=True, exist_ok=True)
         target.touch()
         logger.warning(f"Kill switch activated: {target}")
 

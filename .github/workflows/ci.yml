@@ -38,10 +38,13 @@ jobs:
         run: pip install -e ".[dev]" || pip install -e "." import-linter
       - name: Check import boundaries
         run: lint-imports
-        # Enforces 5 contracts: domain-purity, application-no-concrete-infra,
+        # Enforces 6 contracts: domain-purity, application-no-concrete-infra,
         # application-services-no-engine, engine-core-no-loose-infra,
-        # root-modules-no-infra.
+        # root-modules-no-infra, application-tier-packages-no-concrete-infra.
         # This job MUST pass — architecture violations block merge.
+        # tests/unit/test_import_contract_visibility.py keeps it honest: it
+        # fails if a contract names a module grimp cannot see, which is how
+        # four of these passed vacuously until 2026-09-07.
       - name: Fetch baseline branch
         run: git fetch --no-tags origin master:refs/remotes/origin/master
       - name: Check root module freeze

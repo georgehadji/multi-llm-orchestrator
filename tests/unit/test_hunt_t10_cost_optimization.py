@@ -15,7 +15,11 @@ C3 — cost_optimization/cost_optimization_integration.py's
      Tier1OptimizationMixin used a same-package-depth relative import
      (`from .log_config import get_logger`) one dot short for its actual
      depth (orchestrator/cost_optimization/), raising ModuleNotFoundError
-     unconditionally at import time.
+     unconditionally at import time. The module was deleted outright in
+     docs/plans/2026-09-07-patterns-convergence-and-wire-or-delete.md S6
+     (TEST-ONLY, and the batch client it wrapped could never provide real
+     batching over the OpenRouter adapter) — its C3 regression test below
+     went with it.
 C4 — cost_optimization/docker_sandbox.py::DockerSandbox.execute() wrote
      caller-supplied `code_files` filenames straight into the sandbox
      workspace with no path-containment check — an absolute path or a
@@ -52,19 +56,6 @@ def test_c2_root_provisioned_throughput_is_canonical():
     )
 
     assert via_root is canonical
-
-
-# --- C3 -----------------------------------------------------------------
-
-
-def test_c3_cost_optimization_integration_imports_cleanly():
-    # Pre-fix this raised ModuleNotFoundError at import time (one dot short
-    # for orchestrator/cost_optimization/'s actual package depth).
-    from orchestrator.cost_optimization.cost_optimization_integration import (
-        Tier1OptimizationMixin,
-    )
-
-    assert Tier1OptimizationMixin is not None
 
 
 # --- C4 -----------------------------------------------------------------

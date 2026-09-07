@@ -42,7 +42,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from .log_config import get_logger
+from ..log_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -58,10 +58,10 @@ except ImportError:
     Server = None
 
 # Import orchestrator components
-from .memory_tier import MemoryTierManager, MemoryType
-from .persona import PersonaManager, PersonaMode
-from .session_watcher import SessionWatcher
-from .token_optimizer import TokenOptimizer
+from ..memory_tier import MemoryTierManager, MemoryType
+from ..persona import PersonaManager, PersonaMode
+from ..session_watcher import SessionWatcher
+from ..token_optimizer import TokenOptimizer
 from ..domain.ports import NullSnapshotStore
 from ..infrastructure.snapshot_store import GitSnapshotStore, default_snapshot_dir
 

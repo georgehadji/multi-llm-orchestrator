@@ -12,5 +12,4 @@ from .progress import *  # noqa: F401, F403
 from .progress_collector import *  # noqa: F401, F403
 from .progress_writer import *  # noqa: F401, F403
 from .progressive_output import *  # noqa: F401, F403
-from .projections import *  # noqa: F401, F403
 from .visualization import *  # noqa: F401, F403

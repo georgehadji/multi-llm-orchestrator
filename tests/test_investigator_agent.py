@@ -20,7 +20,7 @@ from orchestrator.agents.coordinator import AgentOrchestrator
 
 @pytest.fixture
 def agent() -> CodebaseInvestigatorAgent:
-    return CodebaseInvestigatorAgent(role=AgentRole.INVESTIGATOR)
+    return CodebaseInvestigatorAgent()
 
 
 def _make_task(goal: str = "understand auth flow", ctx: dict | None = None) -> AgentTask:

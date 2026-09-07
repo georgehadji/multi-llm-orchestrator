@@ -14,7 +14,7 @@ Features:
 - Export to dashboard/API
 
 Usage:
-    from orchestrator.leaderboard import ModelLeaderboard, BenchmarkSuite
+    from orchestrator.analysis.leaderboard import ModelLeaderboard, BenchmarkSuite
 
     suite = BenchmarkSuite()
     lb = ModelLeaderboard(suite)
@@ -678,7 +678,11 @@ class ModelLeaderboard:
 
             self._summaries[model] = summary
 
-    def get_leaderboard(self, task_type: TaskType | None = None) -> list[LeaderboardEntry]:
+    def summary_for(self, model: Model) -> ModelBenchmarkSummary | None:
+        """Return the stored benchmark summary for a model, or None if unbenchmarked."""
+        return self._summaries.get(model)
+
+    def get_leaderboard(self) -> list[LeaderboardEntry]:
         """Generate leaderboard entries."""
         entries = []
 
@@ -703,7 +707,7 @@ class ModelLeaderboard:
             )
 
             # Determine best task types for this model
-            entry.recommended_for = self._get_recommended_tasks(model, summary)
+            entry.recommended_for = self._get_recommended_tasks(summary)
 
             entries.append(entry)
 
@@ -718,7 +722,6 @@ class ModelLeaderboard:
 
     def _get_recommended_tasks(
         self,
-        model: Model,
         summary: ModelBenchmarkSummary,
     ) -> list[TaskType]:
         """Determine which task types this model is best for."""

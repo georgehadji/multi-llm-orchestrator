@@ -36,12 +36,12 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, TypeVar
 from uuid import uuid4
 
-from .unified_events.core import (
+from ..unified_events.core import (
     DomainEvent,
     EventBus,
-    get_event_bus,
+    get_event_bus_sync,
 )
-from .log_config import get_logger
+from ..log_config import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -389,7 +389,7 @@ class Saga:
         self.saga_type = saga_type
         self.saga_id = str(uuid4())[:8]
         self.state = SagaState.PENDING
-        self.event_bus = event_bus or get_event_bus()
+        self.event_bus = event_bus or get_event_bus_sync()
 
     async def execute(self, initial_context: dict[str, Any] | None = None) -> SagaResult:
         """

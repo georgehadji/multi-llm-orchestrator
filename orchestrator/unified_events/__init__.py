@@ -21,6 +21,7 @@ from .core import (
     UnifiedEventBus,
     get_current_project,
     get_event_bus,
+    get_event_bus_sync,
     log_capability_use,
     set_current_project,
 )
@@ -28,6 +29,7 @@ from .core import (
 __all__ = [
     "UnifiedEventBus",
     "get_event_bus",
+    "get_event_bus_sync",
     "DomainEvent",
     "EventType",
     "ProjectStartedEvent",

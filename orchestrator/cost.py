@@ -177,6 +177,11 @@ class BudgetHierarchy:
         self._reserved_usd: float = 0.0
         self._team_reserved: dict[str, float] = {}
         self._reservations: dict[str, float] = {}  # job_id → reserved amount
+        # P3-COST3: reservations made without a job_id have no key to be released
+        # by, so they used to leak from _reserved_usd forever. Held here in call
+        # order and released FIFO, which keeps the running total exact even though
+        # individual anonymous jobs are indistinguishable.
+        self._anon_reservations: list[float] = []
 
         # SQLite persistence (optional)
         self._db_path: Path | None = Path(db_path) if db_path else None
@@ -250,7 +255,27 @@ class BudgetHierarchy:
             self._team_reserved[team] = self._team_reserved.get(team, 0.0) + estimated_cost
         if job_id:
             self._reservations[job_id] = estimated_cost
+        else:
+            self._anon_reservations.append(estimated_cost)
         return True
+
+    def _release_reserved(self, job_id: str, team: str) -> float:
+        """Release the reservation this job holds and return the amount freed.
+
+        Every reservation taken by can_afford_job() must be releasable, including
+        the anonymous ones — that symmetry is what P3-COST3 was missing.
+        """
+        if job_id:
+            reserved = self._reservations.pop(job_id, 0.0)
+        elif self._anon_reservations:
+            reserved = self._anon_reservations.pop(0)
+        else:
+            reserved = 0.0
+
+        self._reserved_usd = max(0.0, self._reserved_usd - reserved)
+        if team and reserved:
+            self._team_reserved[team] = max(0.0, self._team_reserved.get(team, 0.0) - reserved)
+        return reserved
 
     # ── Persistence ──────────────────────────────────────────────────────────
 
@@ -322,6 +347,17 @@ class BudgetHierarchy:
                 "INSERT OR REPLACE INTO budget_hierarchy (key, value) VALUES (?, ?)",
                 rows,
             )
+            # P3-COST2: the in-memory dicts are authoritative, so a key that is no
+            # longer present must be removed rather than left behind. Without this,
+            # reset_spend() only cleared memory and _load_from_db() restored the
+            # pre-reset spend on the next process start.
+            keep = {key for key, _ in rows}
+            existing = {r[0] for r in conn.execute("SELECT key FROM budget_hierarchy")}
+            stale = existing - keep
+            if stale:
+                conn.executemany(
+                    "DELETE FROM budget_hierarchy WHERE key = ?", [(k,) for k in stale]
+                )
             conn.commit()
             conn.close()
         except Exception as exc:
@@ -360,10 +396,7 @@ class BudgetHierarchy:
         Spend is persisted to DB immediately after the in-memory update.
         """
         # Release the reservation made by can_afford_job()
-        reserved = self._reservations.pop(job_id, 0.0)
-        self._reserved_usd = max(0.0, self._reserved_usd - reserved)
-        if team and reserved:
-            self._team_reserved[team] = max(0.0, self._team_reserved.get(team, 0.0) - reserved)
+        self._release_reserved(job_id, team)
 
         if amount <= 0:
             return
@@ -385,11 +418,8 @@ class BudgetHierarchy:
         ``team`` must match the value passed to can_afford_job() so that the
         team-level reservation counter is also released (mirrors charge_job).
         """
-        reserved = self._reservations.pop(job_id, 0.0)
-        self._reserved_usd = max(0.0, self._reserved_usd - reserved)
-        # Release team-level reservation to mirror the cleanup done in charge_job().
-        if team and reserved:
-            self._team_reserved[team] = max(0.0, self._team_reserved.get(team, 0.0) - reserved)
+        # Mirrors the cleanup charge_job() does, via the same helper.
+        self._release_reserved(job_id, team)
 
     def remaining(self, level: str = "org", key: str = "") -> float:
         """
@@ -414,7 +444,10 @@ class BudgetHierarchy:
         elif level == "job":
             max_v = self._job_max.get(key, self._org_max)
             spent = self._job_spent.get(key, 0.0)
-            return max(0.0, max_v - spent)
+            # P3-COST1: deduct pending reservations, as the org and team branches
+            # above both do. self._reservations already holds the per-job amount.
+            reserved = self._reservations.get(key, 0.0)
+            return max(0.0, max_v - spent - reserved)
         else:
             raise ValueError(f"Unknown budget level {level!r}. Use 'org', 'team', or 'job'.")
 

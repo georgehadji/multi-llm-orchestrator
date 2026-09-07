@@ -72,7 +72,6 @@ from ..domain.ports import (
 if TYPE_CHECKING:
     from ..cost_optimization import (
         AdaptiveTemperatureController,
-        BatchClient,
         DependencyContextInjector,
         PromptCacher,
         SpeculativeGenerator,
@@ -84,7 +83,6 @@ else:
     try:
         from ..cost_optimization import (
             AdaptiveTemperatureController,
-            BatchClient,
             DependencyContextInjector,
             PromptCacher,
             SpeculativeGenerator,
@@ -93,7 +91,6 @@ else:
         )
     except ImportError:
         AdaptiveTemperatureController = None
-        BatchClient = None
         DependencyContextInjector = None
         PromptCacher = None
         SpeculativeGenerator = None
@@ -284,7 +281,6 @@ class ServiceContainer:
     cost_predictor: Optional[CostPredictor] = None
     budget_hierarchy: Optional[BudgetHierarchy] = None
     prompt_cacher: Any = None
-    batch_client: Any = None
     token_budget: Any = None
     model_cascader: Any = None
     speculative_gen: Any = None
