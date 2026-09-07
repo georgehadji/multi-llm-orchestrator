@@ -185,28 +185,3 @@ class AdaptiveRouter:
         # Sort outside lock
         healthy.sort(key=lambda m: latencies_copy[m])
         return healthy[0]
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Module-level singleton
-# ─────────────────────────────────────────────────────────────────────────────
-# router_integration.py has always imported get_adaptive_router from here, but
-# the factory was never written — so that module raised ImportError on every
-# import and was unreachable.  Mirrors the get_outcome_router/reset_outcome_router
-# pair in engine_core/outcome_router.py, which is its direct counterpart.
-
-_adaptive_router: AdaptiveRouter | None = None
-
-
-def get_adaptive_router() -> AdaptiveRouter:
-    """Get the global adaptive router."""
-    global _adaptive_router
-    if _adaptive_router is None:
-        _adaptive_router = AdaptiveRouter()
-    return _adaptive_router
-
-
-def reset_adaptive_router() -> None:
-    """Reset the global adaptive router (for testing)."""
-    global _adaptive_router
-    _adaptive_router = None

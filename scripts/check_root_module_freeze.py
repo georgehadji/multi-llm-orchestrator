@@ -216,7 +216,6 @@ BASELINE: set[str] = {
     "resilience.py",
     "responsive_layouts.py",
     "retry_utils.py",
-    "router_integration.py",
     "sandbox.py",
     "secrets_generator.py",
     "secrets_manager.py",

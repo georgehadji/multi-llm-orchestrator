@@ -340,6 +340,20 @@ files.
   fencing them is worth the review cost is the maintainer's call.
 - **UNKNOWN: whether OpenRouter will add a batch surface.** §4.1's conclusion holds for
   the adapter as written today; the three-file alternative is the right shape regardless.
+- **Correction (found executing S4): §4.5's "both twins ORPHAN" claim for `feedback_loop.py`
+  is wrong for the root copy.** VERIFIED by grep before deletion: `orchestrator/feedback_loop.py`
+  is imported by `federated_learning.py:49`, `knowledge_graph.py:38`,
+  `nash/stable_orchestrator.py:40`, and `analysis/pareto_frontier.py:46` — the same live chain
+  that makes the leaderboard live (§4.3). It was not touched by S4 (outcome_router.py and
+  router_integration.py both independently verified at 0 importers, so their deletion is
+  unaffected), and it must **not** be treated as a delete candidate in any follow-on cleanup.
+  `orchestrator/operations/feedback_loop.py` — the other twin — genuinely has 0 importers
+  (VERIFIED) and remains what the plan said: an ORPHAN follow-on candidate, out of this
+  plan's scope. Unlike the leaderboard chain, this one was not found by a deliberate manual
+  trace — it was an unverified assumption in the original write-up that a routine
+  before-you-delete grep caught. Same lesson as the bullet above, now confirmed twice: don't
+  assert liveness/deadness for a module adjacent to the one actually being changed without
+  running the grep.
 
 ---
 
