@@ -30,5 +30,8 @@ echo.
 echo Press Ctrl+C to stop the server.
 echo.
 
-REM Run the standalone server (no orchestrator package dependency)
-python orchestrator\ide_backend\standalone_server.py
+REM Run the hardened server: loopback bind, explicit CORS allowlist (SEC-001).
+REM This used to run a standalone copy of the server that bound every interface
+REM with a wildcard CORS policy and no auth, despite the banner above saying
+REM localhost. That module has been deleted.
+python -m orchestrator.ide_backend.launch

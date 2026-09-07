@@ -64,16 +64,17 @@ def main():
     print(f"  🔄 Reload: {'Enabled' if args.reload else 'Disabled'}")
     print("=" * 60 + "\n")
 
-    # Import server module directly (avoid orchestrator package init)
-    import importlib.util
-
-    server_path = Path(__file__).parent / "server.py"
-    spec = importlib.util.spec_from_file_location("ide_server", server_path)
-    server_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(server_module)
+    # A plain package import. This used to go through
+    # importlib.util.spec_from_file_location("ide_server", ...) to "avoid
+    # orchestrator package init", but a module loaded that way has no parent
+    # package, so server.py's relative imports raised
+    # "attempted relative import with no known parent package" — this launcher
+    # could never start. That is why start-ide.bat used to run the standalone
+    # server instead, which shipped wildcard CORS and a 0.0.0.0 bind (SEC-001).
+    from orchestrator.ide_backend.server import run_ide_server
 
     try:
-        server_module.run_ide_server(
+        run_ide_server(
             host=args.host,
             port=args.port,
             frontend_path=frontend_path,

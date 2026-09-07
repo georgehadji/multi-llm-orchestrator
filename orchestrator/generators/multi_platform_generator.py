@@ -1557,6 +1557,8 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 {project_name} - {description}
 """
 
+import os
+
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -1569,10 +1571,18 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS
+# CORS: an explicit allowlist. allow_origins=["*"] together with
+# allow_credentials=True makes every site your users visit a same-origin
+# client of this API, so set CORS_ALLOWED_ORIGINS for your real front end.
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1603,7 +1613,13 @@ async def create_item(item: Item):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Loopback by default. Set HOST=0.0.0.0 deliberately, e.g. in a container
+    # that sits behind an authenticated proxy.
+    uvicorn.run(
+        app,
+        host=os.environ.get("HOST", "127.0.0.1"),
+        port=int(os.environ.get("PORT", "8000")),
+    )
 '''
 
     def _generate_fastapi_models(self) -> str:

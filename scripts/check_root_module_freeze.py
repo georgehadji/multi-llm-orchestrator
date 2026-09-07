@@ -60,7 +60,6 @@ BASELINE: set[str] = {
     "budget.py",
     "cache.py",
     "cache_optimizer.py",
-    "caching.py",
     "canary_deployment.py",
     "capability_logger.py",
     "checkpoints.py",

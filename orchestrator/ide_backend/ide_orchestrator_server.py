@@ -2099,6 +2099,8 @@ body {
         """Generate FastAPI backend."""
         files = {
             "src/main.py": f'''"""{project_name} - FastAPI Backend"""
+import os
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -2111,10 +2113,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS
+# CORS: an explicit allowlist. allow_origins=["*"] together with
+# allow_credentials=True makes every site your users visit a same-origin
+# client of this API, so set CORS_ALLOWED_ORIGINS for your real front end.
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -2160,7 +2170,13 @@ def get_item(item_id: int):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Loopback by default. Set HOST=0.0.0.0 deliberately, e.g. in a container
+    # that sits behind an authenticated proxy.
+    uvicorn.run(
+        app,
+        host=os.environ.get("HOST", "127.0.0.1"),
+        port=int(os.environ.get("PORT", "8000")),
+    )
 ''',
             "requirements.txt": """fastapi==0.109.0
 uvicorn[standard]==0.27.0
@@ -3001,91 +3017,17 @@ async def handle_file_request(session_id: str, file_path: str, websocket: WebSoc
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# FastAPI App
+# No server here — library code only
 # ═══════════════════════════════════════════════════════════════════════════════
-
-app = FastAPI(title="AI Orchestrator IDE")
-
-# CORS Middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# Add cache-busting headers
-@app.middleware("http")
-async def add_cache_headers(request, call_next):
-    response = await call_next(request)
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
-
-
-# API Routes
-@app.get("/health")
-def health():
-    return {
-        "status": "healthy",
-        "sessions": len(session_manager.sessions),
-        "orchestrator": "available",
-    }
-
-
-@app.post("/api/session")
-def create_session(config: dict[str, Any] = None):
-    config = config or {}
-    session = session_manager.create_session(config)
-    return {"session": session}
-
-
-@app.get("/api/session/{session_id}")
-def get_session(session_id: str):
-    session = session_manager.get_session(session_id)
-    if not session:
-        return {"error": "Session not found"}, 404
-    return {"session": session}
-
-
-# WebSocket
-@app.websocket("/ws/{session_id}")
-async def websocket_endpoint(websocket: WebSocket, session_id: str):
-    await handle_websocket(websocket, session_id)
-
-
-# Serve Frontend
-frontend_dist = base_path.parent.parent / "ide_frontend" / "dist"
-if frontend_dist.exists():
-    logger.info(f"Serving frontend from {frontend_dist}")
-    app.mount("/ide", StaticFiles(directory=str(frontend_dist), html=True), name="ide")
-
-    @app.get("/")
-    def root():
-        from fastapi.responses import RedirectResponse
-
-        return RedirectResponse(url="/ide")
-
-else:
-    logger.warning(f"Frontend not found at {frontend_dist}")
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Main
-# ═══════════════════════════════════════════════════════════════════════════════
-
-if __name__ == "__main__":
-    import uvicorn
-
-    print("\n" + "=" * 70)
-    print("  AI Orchestrator IDE - Full Integration")
-    print("=" * 70)
-    print("  🌐 Server: http://localhost:8765")
-    print(f"  [FE] Frontend: {'Yes' if frontend_dist.exists() else 'No'}")
-    print("  🤖 Tech Stacks: HTML/CSS/JS, React, Next.js, FastAPI")
-    print("=" * 70 + "\n")
-
-    uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info")
+#
+# This module used to end with a second FastAPI application: its own CORS
+# middleware (allow_origins=["*"] with credentials), its own /health returning
+# the live session count, its own session and WebSocket routes, and a
+# `__main__` block running uvicorn on 0.0.0.0:8765 with no authentication.
+#
+# It was a parallel implementation of orchestrator/ide_backend/server.py that
+# T1's SEC-001 hardening did not reach, and nothing launched it. The single
+# supported entry point is `python -m orchestrator.ide_backend.launch`.
+#
+# The generators, TechStackSelector, SessionManager and helpers above are still
+# imported by tests, so they stay. Guard: tests/unit/security/test_cors_and_bind_policy.py
