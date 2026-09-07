@@ -142,3 +142,24 @@ def test_gate_flags_a_new_duplicate_pair_and_accepts_a_shim(tmp_path):
     finally:
         root_probe.unlink(missing_ok=True)
         sub_probe.unlink(missing_ok=True)
+
+
+def test_gate_ignores_same_filename_with_disjoint_definitions(tmp_path):
+    """R5: `orchestrator/performance.py` (LRU cache) and
+    `orchestrator/application/refinement/operators/performance.py` (E-12
+    refinement operator) share a filename and both define things, but share
+    zero symbol names — they are unrelated modules, not a stale fork. The
+    gate must not flag a same-filename collision unless a top-level
+    class/function name is actually shared.
+    """
+    root_probe = REPO_ROOT / "orchestrator" / "__t17_gate_probe.py"
+    sub_probe = REPO_ROOT / "orchestrator" / "analysis" / "__t17_gate_probe.py"
+    try:
+        root_probe.write_text("class RootOnlyThing:\n    pass\n", encoding="utf-8")
+        sub_probe.write_text("class SubOnlyThing:\n    pass\n", encoding="utf-8")
+        result = _run_gate()
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "__t17_gate_probe.py" not in result.stdout + result.stderr
+    finally:
+        root_probe.unlink(missing_ok=True)
+        sub_probe.unlink(missing_ok=True)

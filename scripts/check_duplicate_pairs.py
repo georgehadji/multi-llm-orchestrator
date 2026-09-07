@@ -94,22 +94,40 @@ BASELINE: set[str] = {
 # >>>GENERATED-BASELINE-END<<<
 
 
+def _parse(path: str) -> ast.Module | None:
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return ast.parse(fh.read())
+    except (SyntaxError, OSError):
+        # Unparseable files are not this gate's concern; other gates cover them.
+        return None
+
+
 def _has_definitions(path: str) -> bool:
     """True when the module body declares its own classes or functions.
 
     A module whose body is only a docstring plus imports is a re-export shim,
     so it cannot diverge from the module it re-exports.
     """
-    try:
-        with open(path, encoding="utf-8", errors="replace") as fh:
-            tree = ast.parse(fh.read())
-    except (SyntaxError, OSError):
-        # Unparseable files are not this gate's concern; other gates cover them.
+    tree = _parse(path)
+    if tree is None:
         return False
     return any(
         isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
         for node in tree.body
     )
+
+
+def _defined_names(path: str) -> set[str]:
+    """Top-level class/function names a module defines."""
+    tree = _parse(path)
+    if tree is None:
+        return set()
+    return {
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+    }
 
 
 def current_pairs() -> set[str]:
@@ -130,9 +148,17 @@ def current_pairs() -> set[str]:
                 continue
             sub_path = os.path.join(dirpath, name)
             root_path = os.path.join(ORCHESTRATOR_DIR, name)
-            if _has_definitions(sub_path) and _has_definitions(root_path):
-                rel = os.path.relpath(sub_path, ORCHESTRATOR_DIR).replace(os.sep, "/")
-                pairs.add(rel)
+            if not (_has_definitions(sub_path) and _has_definitions(root_path)):
+                continue
+            # Same filename alone is not enough — common words like
+            # "config.py"/"metrics.py"/"performance.py" collide by coincidence
+            # between otherwise-unrelated modules. Only a shared top-level
+            # class/function name means one side could plausibly be a stale
+            # fork of the other.
+            if not (_defined_names(sub_path) & _defined_names(root_path)):
+                continue
+            rel = os.path.relpath(sub_path, ORCHESTRATOR_DIR).replace(os.sep, "/")
+            pairs.add(rel)
     return pairs
 
 
