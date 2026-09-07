@@ -61,7 +61,19 @@ def _used_markers() -> set[str]:
     cannot diagnose this failure.
     """
     result = subprocess.run(
-        ["grep", "-rhoE", r"pytest\.mark\.[a-zA-Z_0-9]+", str(_REPO_ROOT / "tests")],
+        # --include=*.py: without it the scan reaches __pycache__, where this
+        # module's own bytecode matches and grep answers "Binary file X
+        # matches" — parsed below as a marker named "pyc matches".
+        # [.] not \.: on Windows the backslash is stripped before MSYS grep
+        # sees it, so "." matched anything and this docstring's own words
+        # "pytest marker" came back as an undeclared marker.
+        [
+            "grep",
+            "-rhoE",
+            "--include=*.py",
+            r"pytest[.]mark[.][a-zA-Z_0-9]+",
+            str(_REPO_ROOT / "tests"),
+        ],
         capture_output=True,
         text=True,
         check=False,
