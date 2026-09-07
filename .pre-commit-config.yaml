@@ -21,7 +21,12 @@ repos:
 
       - id: import-linter
         name: import-linter (architectural contracts)
-        entry: lint-imports
+        # Invoked through `python -X utf8` rather than the `lint-imports`
+        # console script: on Windows the default cp1252 locale makes grimp's
+        # source reads die with "'charmap' codec can't decode byte 0x90",
+        # failing the hook on a clean tree. pre-commit has no per-hook env, so
+        # the encoding is forced on the interpreter.
+        entry: python -X utf8 -c "from importlinter.cli import lint_imports_command as c; c()"
         language: system
         types: [python]
         pass_filenames: false
