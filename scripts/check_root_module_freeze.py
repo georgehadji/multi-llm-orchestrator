@@ -31,7 +31,6 @@ BASELINE: set[str] = {
     "adaptive_templates.py",
     "agent_model_registry.py",
     "agent_safety.py",
-    "agents.py",
     "analyzer.py",
     "api_builder.py",
     "api_clients.py",
