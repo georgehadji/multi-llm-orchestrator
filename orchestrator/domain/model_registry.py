@@ -117,7 +117,6 @@ class ModelRegistry:
     KIMI_K2 = "moonshotai/kimi-k2"  # $0.57/$2.30, 128K ⭐ VERIFIED
     KIMI_K2_6 = "moonshotai/kimi-k2.6"  # $0.42/$2.20, visual coding SOTA
     KIMI_K3 = "moonshotai/kimi-k3"  # $3/$15, 1M context, 2.8T params, multimodal reasoning ⭐
-    QWEN_3_8_MAX = "qwen/qwen3.8-max"  # $2.00/$6.00, 1M ctx, multimodal (text+image+video)
     QWEN_3_7_MAX = "qwen/qwen3.7-max"  # Qwen 3.7 Max
     QWEN_3_7_PLUS = "qwen/qwen3.7-plus"  # Qwen 3.7 Plus
     DEEPSEEK_V3_2 = "deepseek/deepseek-v3.2"  # DeepSeek V3.2
@@ -195,6 +194,10 @@ class ModelRegistry:
         "anthropic/claude-3-5-haiku": "anthropic/claude-haiku-4-5",
         "anthropic/claude-3.5-haiku": "anthropic/claude-haiku-4.5",
         # Qwen — hyphenated/legacy ids OpenRouter no longer accepts
+        # qwen3.8-max retired 2026-09-08 — dead on the live catalogue
+        # (OpenRouter Model Audit); qwen3.7-max is the declared fallback and
+        # confirmed live by the same audit.
+        "qwen/qwen3.8-max": "qwen/qwen3.7-max",
         "qwen/qwen-3-coder-next": "qwen/qwen3-coder-next",
         "qwen/qwen-3-coder": "qwen/qwen3-coder",
         "qwen/qwen-3.5-397b-a17b": "qwen/qwen3.5-397b-a17b",
@@ -359,7 +362,6 @@ class ModelRegistry:
         GPT_5_6_LUNA_PRO: {"input": 0.10, "output": 0.60},
         GPT_5_1_CODEX_MAX: {"input": 1.25, "output": 10.00},
         QWEN_3_7_PLUS: {"input": 0.32, "output": 1.28},
-        QWEN_3_8_MAX: {"input": 2.00, "output": 6.00},
         QWEN_3_7_MAX: {"input": 1.48, "output": 4.42},
         GEMINI_3_1_PRO_PREVIEW: {"input": 2.00, "output": 12.00},
         CLAUDE_SONNET_4_6: {"input": 3.00, "output": 15.00},
@@ -434,7 +436,6 @@ class ModelRegistry:
         GPT_5_1_CODEX_MAX: 400000,
         GLM_5_1: 204800,
         QWEN_3_7_PLUS: 1000000,
-        QWEN_3_8_MAX: 1000000,
         QWEN_3_7_MAX: 1000000,
         GEMINI_3_1_PRO_PREVIEW: 1048576,
         CLAUDE_SONNET_4_6: 1000000,
