@@ -36,7 +36,7 @@ except ImportError:
     FastAPI = type("FastAPI", (), {})
     WebSocket = type("WebSocket", (), {})
 
-from .events_unified import DomainEvent, get_event_bus
+from .events_unified import DomainEvent, get_event_bus_sync
 
 if TYPE_CHECKING:
     from .models import ProjectState
@@ -168,7 +168,7 @@ class DashboardCore:
 
     def __init__(self, event_bus=None):
         self.registry = ViewRegistry()
-        self.event_bus = event_bus or get_event_bus()
+        self.event_bus = event_bus or get_event_bus_sync()
         self.context = ViewContext()
         self._websocket_clients: list[WebSocket] = []
         self._event_task: asyncio.Task | None = None

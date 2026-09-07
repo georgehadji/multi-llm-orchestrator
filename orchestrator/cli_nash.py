@@ -497,9 +497,9 @@ def nash_events(follow: bool, event_type: str | None, limit: int):
 def _show_events(event_type: str | None, limit: int):
     """Show recent events."""
     try:
-        from .unified_events.core import EventType, get_event_bus
+        from .unified_events.core import EventType, get_event_bus_sync
 
-        bus = get_event_bus()
+        bus = get_event_bus_sync()
 
         et = EventType(event_type) if event_type else None
         events = bus.get_event_history(event_type=et, limit=limit)
@@ -527,9 +527,9 @@ def _follow_events(event_type: str | None):
     import time
 
     try:
-        from .unified_events.core import get_event_bus
+        from .unified_events.core import get_event_bus_sync
 
-        bus = get_event_bus()
+        bus = get_event_bus_sync()
         seen = set()
 
         click.echo("Following events... (Press Ctrl+C to exit)\n")

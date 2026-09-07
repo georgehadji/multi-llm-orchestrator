@@ -1056,8 +1056,34 @@ class UnifiedEventBus(HookRegistry):
 
 
 async def get_event_bus() -> UnifiedEventBus:
-    """Get the global event bus instance."""
+    """Get the global event bus instance (async context).
+
+    Prefer :func:`get_event_bus_sync` from synchronous code — see its docstring
+    for why.
+    """
     return await UnifiedEventBus.get_instance()
+
+
+def get_event_bus_sync() -> UnifiedEventBus:
+    """Get the global event bus instance from synchronous code.
+
+    ``get_event_bus()`` is a coroutine function, so calling it without ``await``
+    binds a bare coroutine object rather than a bus. A coroutine is truthy and
+    has no ``publish``/``subscribe``, so the mistake survives every truthiness
+    guard and only surfaces as ``AttributeError: 'coroutine' object has no
+    attribute 'publish'`` at the first real use — or not at all, if the caller
+    swallows exceptions. That shape was fixed as P1-5 and P2-S2-2/2b and then
+    found at eight further sites by the P3-P11 sweep (PX-BUS1), which is what
+    this accessor exists to end.
+
+    Safe to do synchronously: ``UnifiedEventBus.get_instance()`` is only ``async``
+    to take an ``asyncio.Lock`` around double-checked singleton construction, and
+    the construction it guards (``cls()``) is itself synchronous with no await
+    point between the check and the assignment.
+    """
+    if UnifiedEventBus._instance is None:
+        UnifiedEventBus._instance = UnifiedEventBus()
+    return UnifiedEventBus._instance
 
 
 # Context variable for automatic event tracking

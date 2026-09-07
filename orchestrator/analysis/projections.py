@@ -7,9 +7,9 @@ These subscribe to domain events and update their state accordingly.
 
 Usage:
     from orchestrator.projections import ModelPerformanceProjection
-    from orchestrator.events import get_event_bus
+    from orchestrator.events import get_event_bus_sync
 
-    projection = ModelPerformanceProjection(get_event_bus())
+    projection = ModelPerformanceProjection(get_event_bus_sync())
 
     # Query the read model
     score = projection.get_model_score("gpt-4o", "code_gen")
@@ -606,10 +606,10 @@ def get_model_performance_projection(
     global _projections
 
     if "model_performance" not in _projections:
-        # FIXED: from .unified_events.core import get_event_bus
-        from ..unified_events.core import get_event_bus
+        # FIXED: from .unified_events.core import get_event_bus_sync
+        from ..unified_events.core import get_event_bus_sync
 
-        bus = event_bus or get_event_bus()
+        bus = event_bus or get_event_bus_sync()
         _projections["model_performance"] = ModelPerformanceProjection(bus)
 
     return _projections["model_performance"]
@@ -622,10 +622,10 @@ def get_budget_projection(
     global _projections
 
     if "budget" not in _projections:
-        # FIXED: from .unified_events.core import get_event_bus
-        from ..unified_events.core import get_event_bus
+        # FIXED: from .unified_events.core import get_event_bus_sync
+        from ..unified_events.core import get_event_bus_sync
 
-        bus = event_bus or get_event_bus()
+        bus = event_bus or get_event_bus_sync()
         _projections["budget"] = BudgetProjection(bus)
 
     return _projections["budget"]

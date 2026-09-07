@@ -79,3 +79,44 @@ def test_every_module_imports() -> None:
     assert not failures, "modules that cannot be imported:\n" + "\n".join(
         f"  {name}\n      {why}" for name, why in sorted(failures.items())
     )
+
+
+@pytest.mark.unit
+def test_no_unawaited_get_event_bus() -> None:
+    """`get_event_bus()` must never be called without `await` (PX-BUS1).
+
+    It is a coroutine function, so an un-awaited call binds a truthy coroutine
+    with no `publish`/`subscribe`. That shape was fixed as P1-5, then again as
+    P2-S2-2/2b, then found at eight further sites by the P3-P11 sweep — three
+    rounds of patching call sites without converging. Synchronous callers must
+    use `get_event_bus_sync()` instead; this gate is what makes that stick.
+    """
+    import ast
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2] / "orchestrator"
+    offenders: list[str] = []
+
+    for path in sorted(root.rglob("*.py")):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+        except SyntaxError:
+            continue
+
+        awaited = {
+            id(node.value)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Await) and isinstance(node.value, ast.Call)
+        }
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or id(node) in awaited:
+                continue
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+            if name == "get_event_bus":
+                offenders.append(f"{path.relative_to(root.parent)}:{node.lineno}")
+
+    assert not offenders, (
+        "get_event_bus() called without await — use get_event_bus_sync() from "
+        "synchronous code:\n" + "\n".join(f"  {o}" for o in offenders)
+    )
