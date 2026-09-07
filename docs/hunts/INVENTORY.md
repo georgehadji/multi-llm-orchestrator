@@ -984,3 +984,71 @@ regressions.
 
 **Next:** `docs/hunts/PRECISION_AUDIT_V4_WAVE_PLAN.md` has P3-P11 queued (9 more waves,
 ~120k more LOC) — not started; per the standing gate, only on explicit user request.
+
+## P3–P11 — V4 precision audit, waves 3–11 (closed, explicitly PARTIAL)
+
+Full detail: `docs/hunts/p3-deep-region/inventory.md` (P3, DEEP, deep-read) and
+`docs/hunts/p4-p11-region/inventory.md` (P4–P11, swept — see its §Method for the honest limit
+of that coverage claim). Run on explicit user request, per the standing gate.
+
+**Coverage, stated precisely.** P3 was deep-read at P1/P2 depth. P4–P11 (193 files, ~91k LOC)
+were **swept, not audited**: total coverage within seven AST detector shapes (un-awaited
+coroutine, `async with` over an async factory, unread parameter, unread underscore-local,
+zero-caller public method, broad-except-without-log, unraisable `try`) and **total** coverage
+of import integrity — every one of the repo's 821 modules was actually imported — but the
+remaining V4 taxonomy classes were not read. A full-depth P4–P11 would likely find more.
+
+**Headline: the gates cannot see reachability.** 5/5 import-linter contracts KEPT, ruff clean,
+black clean, 2,812 tests passing — while 12 modules cannot be imported at all and 18% of the
+backend is unreachable from any entry point.
+
+| ID | Disposition | Summary |
+|---|---|---|
+| PX-IMPORT1 | **VERIFIED — CRITICAL** | **12 modules raise on import** (`engine_core/sagas.py` 850 LOC, `integrations/mcp_server.py` 653, `website_generator.py` 584, `engine_core/outcome_router.py` 580, `agents/persona_modes.py` 443, `cli_website.py` 330, `engine_core/{modes,escalation,evaluation}.py`, `router_integration.py`, `integrations/compat.py`, `persona_modes.py`). One systematic cause for eleven: files moved into sub-packages kept single-dot relative imports, so `from .log_config import` now resolves to `orchestrator.engine_core.log_config` rather than `orchestrator.log_config`. Every intended target exists one level up (verified for all eight). `router_integration.py` differs — it imports a `get_adaptive_router` factory that has never existed. **No test imports every module** (`grep -rln "walk_packages\|iter_modules" tests/` → nothing), which is why eleven CI gates pass anyway. |
+| P3-ORPHAN0 | **VERIFIED — measurement** | Dead-module census: **179 product files / 44,449 LOC (18% of backend) unreachable** — 102 ORPHAN, 64 TEST-ONLY, 13 MAIN-ONLY, with ENTRYPOINT (6) and SHIM (94) correctly excluded. Dynamic entry-point discovery (`orchestrator.pipeline.stages`, `container.py::_FALLBACK_ENTRY_POINTS`) counted as real references. The 179 is a **floor**: the census counts a module live if anything imports it, including a re-export `__init__.py` no caller uses. |
+| P3-SHADOW1 | **VERIFIED — HIGH** | **7 modules unimportable by construction**: `orchestrator/{skills,verification,gateway,agents,workspace,connectors,plugins}.py` each collide with a same-named package, and Python resolves `orchestrator.X` to the package. Confirmed empirically for all seven. Two carry real implementations (`gateway.py` 477 LOC, `agents.py` 277 LOC); five are deprecation shims whose warnings can never fire. `verification.py` is cited by `CLAUDE.md`'s pattern table. |
+| P3-COST3 | **VERIFIED — HIGH, live money path** | `policy.py::JobSpec` declares no `job_id`/`team`, so `ProjectRunner.run_job()`'s `getattr(spec, "job_id", "")` is always `""`. `can_afford_job` then increments `_reserved_usd` **unconditionally** (`cost.py:248`) while `charge_job` releases via `_reservations.pop("")` → `0.0` (`:363`). Every `run_job()` permanently leaks `spec.budget.max_usd` from the org cap, on both success and failure paths, until the hierarchy refuses all work with a `BudgetExceededError` reporting a still-low `_org_spent`. Defeats the "cross-run budget hierarchy" capability named in `CLAUDE.md`. |
+| P3-TE3 | **VERIFIED — HIGH (shape), dormant** | `application/task_executor.py:199` omits `await` on the `async def get_dependency_context`. The resulting coroutine is always truthy, so both cache layers are skipped (`:205`, `:214`) and `_build_full_prompt` always interpolates `<coroutine object ...>` into the model prompt (`:241`) — for CODE_REVIEW, directly after "Do NOT claim the code was not provided". `TaskExecutor` is constructed only in tests, whose `MagicMock()` fixture is truthy in the same way and so cannot fail on this. |
+| PX-BUS1 | **VERIFIED — systemic** | `get_event_bus()` (an `async def`) bound un-awaited at **8 sites in 5 files** — `projections.py` ×2, `analysis/projections.py` ×2, `engine_core/sagas.py`, `dashboard_core/core.py`, `cli_nash.py` ×2. Same shape as P1-5 and P2-S2-2/2b, now 11 occurrences across four waves: patching call sites is not converging. The `event_bus or get_event_bus()` idiom hides it, since any test that injects a bus passes. |
+| P3-GUARD0..4 | **VERIFIED — HIGH (wiring) + 4 dormant defects** | `safety/guardrails.py` (590 LOC, "CRITICAL: Production safety mechanisms", five stated GUARANTEES) is imported by **nothing**. Wiring it unchanged would be worse than leaving it dead: the memory check returns `passed=True` on `ImportError` and `psutil` is **not a declared dependency**; the kill switch returns "not activated" for 5s after any check and does not latch; `/tmp/orchestrator_kill` is world-writable and `check_and_exit()` answers it with `os._exit(1)`; "budget never exceeded" is detection after the fact, not prevention. |
+| P3-BATCH0..4 | **VERIFIED — HIGH (wiring) + 4 dormant defects** | The batch-API subsystem is reachable only via `cost_optimization_integration.py`, which nothing imports; `container.py` imports `BatchClient` solely to set it to `None`. It cannot deliver its advertised 50% saving: requests hang the full 300s unless a 10th arrives (`_batch_task` never assigned, `BATCH_WINDOW_SECONDS` never read), and real polling retrieves a locally-generated id the provider never issued, with the failure swallowed by `except Exception: pass`. Savings metric inflated ~1000× (per-1M prices applied as per-1K). |
+| T23-AGENT1 | **VERIFIED — HIGH (wiring)** | `AgentOrchestrator` is constructed only in tests, always with `agents={}` or one mock. `agents/__init__.py` exports 3 of 10 roles; 9 agent modules are exported and imported by nothing — including `investigator.py`, whose role `_decompose_goal` actually targets, so that task would silently fail even for a correctly-wired caller. A second agent subsystem (`orchestrator/agents.py`, 277 LOC) is unimportable by construction. |
+| PX-DIAG1 | **VERIFIED — dormant** | `operations/diagnostics.py:412` calls `state_mgr.load_state(...)`; `StateManager` defines `load_project` / `load_latest_checkpoint` / `load_circuit_breaker_state` and no `load_state`. The line above reads `# FIXED: from ..state import StateManager` — the import was corrected, the method name was not. Zero callers. Noted for honesty: this file was audited in P2 and edited again in R1-C2 without this being caught. |
+| P3-COST2 / P3-COST1 | **VERIFIED — MEDIUM / LOW, dormant** | `reset_spend()` is silently undone by a restart — `_save_to_db()` only `INSERT OR REPLACE`s surviving keys and there is **no `DELETE` anywhere in `cost.py`**, so reset team/job rows are restored on load. Separately, `remaining("job")` omits the reservation deduction that org and team levels both make (the latter under an explicit `# BUG-004 FIX`). |
+| P3-TE1 / P3-TE2 | **VERIFIED — MEDIUM** | TDD-first generation returns `cost_usd=0.0` ("Would need to track from TDD") and `input=0` tokens despite making real LLM calls, so its spend is invisible to both budget systems. Semantic-cache hits fabricate `score=0.85` and `deterministic_check_passed=True` without running any validator, on a *similarity* lookup. |
+| PX-ROUTER1 / P3-PROJ1 | **VERIFIED — dormant** | `router_integration.py:131,202` — un-awaited `preferred_model()` is truthy, making `or healthy[0]` unreachable and returning a coroutine where a `Model` is expected. `projections.py:610,625` + twin — un-awaited `get_event_bus()` passed to projection constructors. |
+
+**Cleared (innocent):** `plugin_isolation.py`'s `process.is_alive()` (stdlib
+`multiprocessing`); `unified_events/core.py:671`'s `handler(event)` (that file's own handlers
+are all sync `def`); MCP SDK decorator factories; `gc.collect()` / `sys.path.insert` /
+`list.insert` name collisions; `api_server.py`'s `run_fn=lambda: ...` (correctly deferred);
+`nash/monitor.py:345` (sync user callbacks, already guarded); and `orchestrator/preflight.py`
+(root) — live and correctly cited by `CLAUDE.md`, only its `quality/` twin is orphaned.
+
+**Corrections to earlier waves.** P2-UEB1 recorded `sagas.py`'s events as "silently queued
+forever" on a live path; `sagas.py` cannot be imported at all and its bus is a coroutine when
+none is injected, so the call raises before reaching a queue. The bus fix P2 shipped remains
+correct; the reachability claim is withdrawn (`ESCALATION_REGISTER.md` W1).
+
+## T23 — Remaining region depth (closed, explicitly PARTIAL)
+
+Full detail: `docs/hunts/t23-remaining-region-depth/inventory.md`. Coverage-ordered per
+`BACKEND_DEPTH_PASS_PLAN.md` §4, using the P3 census to make "reachable first" executable.
+Six of ten regions (`meta/`, `nash/`, `context_mgmt/`, `pattern_learner/`, `dashboard_core/`,
+`testing/`) are **fully referenced** — contradicting the assumption carried since T16 that
+these were the repo's dead corners. The dead weight is concentrated in `agents/` (9/14
+unreferenced) and `operations/` (13/32). Dead modules received recorded dispositions, not deep
+reads, as the method requires.
+
+## T24 — Escalation register disposition (closed)
+
+Produces `docs/hunts/ESCALATION_REGISTER.md` as specified. **18 open** (10 carried from the
+remediation plan, 8 new), **2 withdrawn**, **1 closed by R1**. Nothing is marked "decided" on
+an auditor's authority: items are **RECOMMENDED** where evidence supports one option clearly
+enough to ratify in a line, **OPEN** where the answer depends on product intent no artefact
+states. Highest-leverage item: **N8 — add a CI gate that imports every module** (~10 lines,
+no decision needed, closes the entire PX-IMPORT1 class).
+
+**Next:** `docs/plans/2026-09-07-reachability-and-remediation-plan.md` sequences the fixes.
+Phases 0–3 (reachability gate, 12 import fixes, live money-path defects, structural cleanup)
+need **no product decision** and can ship immediately.
