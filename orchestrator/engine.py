@@ -524,7 +524,7 @@ class Orchestrator:
         self._health_tracker = build_health_tracker(
             container=container,
             telemetry=self._telemetry,
-            dashboard_bridge=self._dashboard_bridge,
+            dashboard=self._dashboard_bridge,
             adaptive_router=self._adaptive_router,
             state_mgr=self.state_mgr,
             circuit_breaker_threshold=self._CIRCUIT_BREAKER_THRESHOLD,
