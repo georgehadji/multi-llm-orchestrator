@@ -13,6 +13,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from orchestrator.safety.secure_execution import PathTraversalError, SecurePath
+
 from .log_config import get_logger
 
 logger = get_logger(__name__)
@@ -91,6 +93,9 @@ class SessionState:
     """Complete session state."""
 
     id: str
+    #: Principal that created this session. Every session-scoped route checks
+    #: it before acting (T7). Empty only for sessions predating ownership.
+    owner_id: str = ""
     project_name: str = "Untitled Project"
     description: str = ""
     mode: SessionMode = SessionMode.BUILD
@@ -116,6 +121,7 @@ class SessionState:
 
         return {
             "id": self.id,
+            "owner_id": self.owner_id,
             "project": {
                 "name": self.project_name,
                 "description": self.description,
@@ -179,11 +185,16 @@ class SessionManager:
         autonomy: str = "standard",
         budget: float = 5.0,
         model: str = "auto",
+        owner_id: str = "",
     ) -> SessionState:
-        """Create a new session."""
-        session_id = str(uuid.uuid4())[:8]
+        """Create a new session owned by `owner_id`."""
+        # The whole UUID. This used to be str(uuid.uuid4())[:8] — 32 bits,
+        # which is enumerable, and session IDs were the only thing standing
+        # between a caller and someone else's project (T7).
+        session_id = str(uuid.uuid4())
         session = SessionState(
             id=session_id,
+            owner_id=owner_id,
             project_name=project_name,
             description=description,
             mode=SessionMode(mode.lower()),
@@ -301,17 +312,24 @@ class SessionManager:
                     session.terminal_lines = session.terminal_lines[-200:]
                 await self._save_session(session)
 
-    async def list_sessions(self) -> list[dict[str, Any]]:
-        """List all active sessions."""
+    async def list_sessions(self, owner_id: str | None = None) -> list[dict[str, Any]]:
+        """List sessions, optionally only those owned by `owner_id`.
+
+        Callers that pass None get everything, so ownership filtering is the
+        route's decision, not a silent default that hides sessions from an
+        admin tool.
+        """
         async with self._lock:
             return [
                 {
                     "id": s.id,
+                    "owner_id": s.owner_id,
                     "project_name": s.project_name,
                     "status": s.status,
                     "created_at": s.created_at,
                 }
                 for s in self._sessions.values()
+                if owner_id is None or s.owner_id == owner_id
             ]
 
     async def delete_session(self, session_id: str) -> bool:
@@ -320,25 +338,44 @@ class SessionManager:
             if session_id in self._sessions:
                 del self._sessions[session_id]
                 # Remove persisted file
-                session_file = self._storage_path / f"{session_id}.json"
+                try:
+                    session_file = self._session_file(session_id)
+                except PathTraversalError:
+                    logger.warning("Refused to unlink an out-of-root session file")
+                    return True
                 if session_file.exists():
                     session_file.unlink()
                 logger.info(f"Session deleted: {session_id}")
                 return True
             return False
 
+    def _session_file(self, session_id: str) -> Path:
+        """The on-disk path for `session_id`, guaranteed inside the store.
+
+        `session_id` reaches this from the network, and
+        ``storage_path / f"{session_id}.json"`` happily accepts ``../..`` —
+        the same containment failure as SEC-005, in a second place.
+        """
+        return SecurePath(self._storage_path, f"{session_id}.json").resolved
+
     async def _save_session(self, session: SessionState):
         """Persist session to disk."""
         try:
-            session_file = self._storage_path / f"{session.id}.json"
+            session_file = self._session_file(session.id)
             with open(session_file, "w") as f:
                 json.dump(session.to_dict(), f, indent=2)
+        except PathTraversalError:
+            logger.warning("Refused to save a session with an out-of-root id")
         except Exception as e:
             logger.error(f"Failed to save session {session.id}: {e}")
 
     async def load_session(self, session_id: str) -> SessionState | None:
         """Load session from disk."""
-        session_file = self._storage_path / f"{session_id}.json"
+        try:
+            session_file = self._session_file(session_id)
+        except PathTraversalError:
+            logger.warning("Refused to load a session with an out-of-root id")
+            return None
         if not session_file.exists():
             return None
 
@@ -349,6 +386,7 @@ class SessionManager:
             # Reconstruct session from dict
             session = SessionState(
                 id=data["id"],
+                owner_id=data.get("owner_id", ""),
                 project_name=data["project"]["name"],
                 description=data["project"]["description"],
                 budget=data["budget"]["total"],

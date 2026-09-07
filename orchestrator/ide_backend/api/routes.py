@@ -1,22 +1,57 @@
 """
 API Routes - REST endpoints for IDE
+
+Every session-scoped route resolves the caller (`_principal`) and then checks
+ownership before touching anything (T7). Before that, ``session_id`` was
+whatever the caller sent and the handler acted on it.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from orchestrator.domain.security import Principal
+from orchestrator.ide_backend.auth import AuthError, authenticate, require_owner
 from orchestrator.ide_backend.log_config import get_logger
 from orchestrator.ide_backend.session_manager import (
     ChatMessage,
     FileNode,
+    SessionState,
     get_session_manager,
 )
 
 logger = get_logger(__name__)
 
 router = APIRouter(tags=["IDE"])
+
+
+def _principal(request: Request) -> Principal:
+    """FastAPI dependency: who is calling, or an HTTP error.
+
+    Shared with the WebSocket handshake in server.py so there is one policy,
+    not two that drift.
+    """
+    try:
+        return authenticate(request.headers)
+    except AuthError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.code) from None
+
+
+async def _owned_session(session_id: str, principal: Principal) -> SessionState:
+    """Fetch a session the caller owns, or 404.
+
+    404 for both "no such session" and "not yours" — a 403 here would confirm
+    that a session ID exists, turning every route into an existence oracle.
+    """
+    session = await get_session_manager().get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="not_found")
+    try:
+        require_owner(principal, session.owner_id)
+    except AuthError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.code) from None
+    return session
 
 
 # Request/Response models
@@ -48,8 +83,11 @@ class TaskUpdateRequest(BaseModel):
 
 # Session endpoints
 @router.post("/sessions")
-async def create_session(request: CreateSessionRequest):
-    """Create a new IDE session."""
+async def create_session(
+    request: CreateSessionRequest,
+    principal: Principal = Depends(_principal),
+):
+    """Create a new IDE session, owned by the caller."""
     session_manager = get_session_manager()
     session = await session_manager.create_session(
         project_name=request.project_name,
@@ -58,53 +96,54 @@ async def create_session(request: CreateSessionRequest):
         autonomy=request.autonomy,
         budget=request.budget,
         model=request.model,
+        owner_id=principal.id,
     )
     return {"session": session.to_dict()}
 
 
 @router.get("/sessions")
-async def list_sessions():
-    """List all active sessions."""
+async def list_sessions(principal: Principal = Depends(_principal)):
+    """List the caller's sessions."""
     session_manager = get_session_manager()
-    sessions = await session_manager.list_sessions()
+    sessions = await session_manager.list_sessions(owner_id=principal.id)
     return {"sessions": sessions}
 
 
 @router.get("/sessions/{session_id}")
-async def get_session(session_id: str):
+async def get_session(session_id: str, principal: Principal = Depends(_principal)):
     """Get session by ID."""
-    session_manager = get_session_manager()
-    session = await session_manager.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = await _owned_session(session_id, principal)
     return {"session": session.to_dict()}
 
 
 @router.delete("/sessions/{session_id}")
-async def delete_session(session_id: str):
+async def delete_session(session_id: str, principal: Principal = Depends(_principal)):
     """Delete a session."""
-    session_manager = get_session_manager()
-    success = await session_manager.delete_session(session_id)
+    await _owned_session(session_id, principal)
+    success = await get_session_manager().delete_session(session_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="not_found")
     return {"success": True}
 
 
 # Chat endpoints
 @router.post("/chat")
-async def send_message(request: ChatRequest):
+async def send_message(request: ChatRequest, principal: Principal = Depends(_principal)):
     """Send a chat message to the session."""
     session_manager = get_session_manager()
 
-    session_id = request.session_id
-    if not session_id:
-        # Get or create default session
-        sessions = await session_manager.list_sessions()
-        if sessions:
-            session_id = sessions[0]["id"]
+    if request.session_id:
+        session = await _owned_session(request.session_id, principal)
+        session_id = session.id
+    else:
+        # No session named: continue the caller's most recent one, or start a
+        # new one for them. Never adopt whatever session happens to be first,
+        # which is what `sessions[0]["id"]` used to do.
+        mine = await session_manager.list_sessions(owner_id=principal.id)
+        if mine:
+            session_id = mine[-1]["id"]
         else:
-            session = await session_manager.create_session()
-            session_id = session.id
+            session_id = (await session_manager.create_session(owner_id=principal.id)).id
 
     # Add user message
     from datetime import datetime
@@ -132,22 +171,20 @@ async def send_message(request: ChatRequest):
 
 # File endpoints
 @router.get("/sessions/{session_id}/files")
-async def get_files(session_id: str):
+async def get_files(session_id: str, principal: Principal = Depends(_principal)):
     """Get file tree for session."""
-    session_manager = get_session_manager()
-    session = await session_manager.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = await _owned_session(session_id, principal)
     return {"files": [f.to_dict() for f in session.files]}
 
 
 @router.get("/sessions/{session_id}/files/{file_path:path}")
-async def get_file_content(session_id: str, file_path: str):
+async def get_file_content(
+    session_id: str,
+    file_path: str,
+    principal: Principal = Depends(_principal),
+):
     """Get file content."""
-    session_manager = get_session_manager()
-    session = await session_manager.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = await _owned_session(session_id, principal)
 
     # Find file in tree
     def find_file(nodes: list[FileNode], parts: list[str], depth: int = 0) -> FileNode | None:
@@ -163,47 +200,51 @@ async def get_file_content(session_id: str, file_path: str):
     file_node = find_file(session.files, path_parts)
 
     if not file_node:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(status_code=404, detail="not_found")
 
     return {"content": file_node.content or "", "language": file_node.language}
 
 
 @router.put("/sessions/{session_id}/files/{file_path:path}")
-async def update_file(session_id: str, file_path: str, request: FileUpdateRequest):
+async def update_file(
+    session_id: str,
+    file_path: str,
+    request: FileUpdateRequest,
+    principal: Principal = Depends(_principal),
+):
     """Update file content."""
-    session_manager = get_session_manager()
-    session = await session_manager.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    await _owned_session(session_id, principal)
 
-    success = await session_manager.update_file(session_id, file_path, request.content)
+    success = await get_session_manager().update_file(session_id, file_path, request.content)
     if not success:
-        raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(status_code=404, detail="not_found")
 
     return {"success": True}
 
 
 # Task endpoints
 @router.get("/sessions/{session_id}/tasks")
-async def get_tasks(session_id: str):
+async def get_tasks(session_id: str, principal: Principal = Depends(_principal)):
     """Get tasks for session."""
-    session_manager = get_session_manager()
-    session = await session_manager.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = await _owned_session(session_id, principal)
     return {"tasks": [t.__dict__ for t in session.tasks]}
 
 
 @router.put("/sessions/{session_id}/tasks/{task_id}")
-async def update_task(session_id: str, task_id: str, request: TaskUpdateRequest):
+async def update_task(
+    session_id: str,
+    task_id: str,
+    request: TaskUpdateRequest,
+    principal: Principal = Depends(_principal),
+):
     """Update task progress."""
-    session_manager = get_session_manager()
+    await _owned_session(session_id, principal)
 
     updates = {k: v for k, v in request.dict().items() if v is not None}
-    success = await session_manager.update_task(session_id, task_id, **updates)
+    success = await get_session_manager().update_task(session_id, task_id, **updates)
 
     if not success:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail="not_found")
 
     return {"success": True}
 

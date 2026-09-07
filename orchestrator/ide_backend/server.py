@@ -4,6 +4,7 @@ FastAPI Server - IDE Backend
 
 from __future__ import annotations
 
+import json
 import logging
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -20,6 +21,7 @@ logger = logging.getLogger("ide_backend")
 from typing import TYPE_CHECKING
 
 from .api.routes import router as api_router
+from .auth import AuthError, authenticate, owns
 from .integration.orchestrator_bridge import get_orchestrator_bridge
 from .security import allowed_origins, remote_allowed, validate_bind_target
 from .session_manager import get_session_manager
@@ -28,6 +30,10 @@ from .websocket_manager import get_connection_manager
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+#: Cap on a single inbound WebSocket frame. Generous for editor payloads,
+#: small enough that one client cannot queue unbounded work.
+MAX_WS_MESSAGE_BYTES = 1024 * 1024
 
 
 def create_app(
@@ -68,25 +74,47 @@ def create_app(
     # WebSocket endpoint
     @app.websocket("/ws/{session_id}")
     async def websocket_endpoint(websocket: WebSocket, session_id: str):
-        """WebSocket endpoint for real-time updates."""
+        """WebSocket endpoint for real-time updates.
+
+        Authenticated and ownership-checked *before* the accept, through the
+        same `auth` module the REST routes use — a socket that authenticates
+        differently from the routes is a second policy waiting to drift.
+        """
+        try:
+            principal = authenticate(websocket.headers)
+        except AuthError:
+            # 1008 = policy violation. Closed before accept, so an
+            # unauthenticated client never reaches the event loop.
+            await websocket.close(code=1008)
+            return
+
+        session = await session_manager.get_session(session_id)
+        if session is None:
+            session = await session_manager.create_session(owner_id=principal.id)
+            session_id = session.id
+        elif not owns(principal, session.owner_id):
+            await websocket.close(code=1008)
+            return
+
         await connection_manager.connect(websocket, session_id)
 
         # Set up event handlers for this connection
         setup_websocket_handlers(connection_manager, session_manager)
 
-        # Send initial state
-        session = await session_manager.get_session(session_id)
-        if session:
-            await connection_manager.send_to_client(websocket, "session_state", session.to_dict())
-        else:
-            # Create default session
-            session = await session_manager.create_session()
-            await connection_manager.send_to_client(websocket, "session_state", session.to_dict())
+        await connection_manager.send_to_client(websocket, "session_state", session.to_dict())
 
         try:
             while True:
                 try:
-                    data = await websocket.receive_json()
+                    raw = await websocket.receive_text()
+                    if len(raw) > MAX_WS_MESSAGE_BYTES:
+                        # Bound the work a single client can queue up.
+                        await connection_manager.send_to_client(
+                            websocket, "error", {"code": "message_too_large"}
+                        )
+                        continue
+
+                    data = json.loads(raw)
                     event = data.get("event")
                     payload = data.get("data", {})
 
@@ -94,8 +122,12 @@ def create_app(
                 except WebSocketDisconnect:
                     raise
                 except Exception as e:
+                    # Log the detail, return a code. Raw exception text on the
+                    # wire hands a caller internal paths and state.
                     logger.error(f"WebSocket message error: {e}")
-                    await connection_manager.send_to_client(websocket, "error", {"message": str(e)})
+                    await connection_manager.send_to_client(
+                        websocket, "error", {"code": "message_failed"}
+                    )
         except WebSocketDisconnect:
             await connection_manager.disconnect(websocket)
         except Exception as e:
