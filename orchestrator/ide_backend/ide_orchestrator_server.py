@@ -20,6 +20,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from orchestrator.safety.secure_execution import PathTraversalError, SecurePath
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -30,6 +32,44 @@ logger = logging.getLogger("ide_orchestrator")
 
 # Base path
 base_path = Path(__file__).parent
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Output path containment (SEC-005)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+IDE_OUTPUTS_DIRNAME = "ide_outputs"
+
+
+def _outputs_root() -> Path:
+    """The directory every session's generated output lives under."""
+    return Path.cwd() / IDE_OUTPUTS_DIRNAME
+
+
+def session_output_dir(session_id: str) -> Path:
+    """Resolve a session's output directory, contained under `ide_outputs/`.
+
+    `session_id` arrives over the WebSocket, so it is untrusted: a value of
+    ``../..`` previously escaped the output root, and one caller passes the
+    result to ``mkdir(parents=True)``.
+
+    Raises:
+        PathTraversalError: if `session_id` escapes the output root.
+    """
+    return SecurePath(_outputs_root(), session_id).resolved
+
+
+def session_file_path(session_id: str, file_path: str) -> Path:
+    """Resolve a caller-supplied file path inside its session directory.
+
+    Both segments are untrusted and both are contained. This is the primitive
+    behind the WebSocket file-read handler, where ``..`` segments previously
+    read any file the process could open.
+
+    Raises:
+        PathTraversalError: if either segment escapes its root.
+    """
+    return SecurePath(session_output_dir(session_id), file_path).resolved
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Tech Stack Selection Logic
@@ -2242,7 +2282,7 @@ async def handle_modification_request(session_id: str, message: str, websocket: 
     logger.info(f"Modification request for {session_id}: {message[:100]}...")
 
     session_manager.get_session(session_id)
-    output_dir = Path.cwd() / "ide_outputs" / session_id
+    output_dir = session_output_dir(session_id)
 
     # Send thinking state
     await session_manager.broadcast(
@@ -2638,8 +2678,9 @@ async def handle_chat_message(session_id: str, message: str, websocket: WebSocke
     else:  # backend
         files, file_tree = FileGenerators.generate_fastapi_backend(project_name, description)
 
-    # Create output directory
-    output_dir = Path.cwd() / "ide_outputs" / session_id
+    # Create output directory. Contained first: this call creates directories,
+    # so an escaping session_id would have written outside the output root.
+    output_dir = session_output_dir(session_id)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Send file creation updates
@@ -2916,8 +2957,12 @@ async def handle_file_request(session_id: str, file_path: str, websocket: WebSoc
     if not session:
         return
 
-    output_dir = Path.cwd() / "ide_outputs" / session_id
-    full_path = output_dir / file_path
+    try:
+        full_path = session_file_path(session_id, file_path)
+    except PathTraversalError:
+        # Do not echo the attempted path back to the client.
+        logger.warning("Rejected out-of-root file request for session %s", session_id)
+        return
 
     if full_path.exists():
         try:
