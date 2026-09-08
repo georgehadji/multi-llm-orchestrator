@@ -176,12 +176,15 @@ class BudgetHierarchy:
         # represent in-flight transactions that clear at job completion/abort.
         self._reserved_usd: float = 0.0
         self._team_reserved: dict[str, float] = {}
-        self._reservations: dict[str, float] = {}  # job_id → reserved amount
+        self._reservations: dict[str, float] = {}  # job_id → reserved amount (accumulated)
         # P3-COST3: reservations made without a job_id have no key to be released
         # by, so they used to leak from _reserved_usd forever. Held here in call
         # order and released FIFO, which keeps the running total exact even though
         # individual anonymous jobs are indistinguishable.
-        self._anon_reservations: list[float] = []
+        # B1-COST-3: each entry also carries the team it was reserved under, so
+        # FIFO release attributes the freed amount back to the right team even
+        # when different teams' anonymous reservations are released out of order.
+        self._anon_reservations: list[tuple[str, float]] = []
 
         # SQLite persistence (optional)
         self._db_path: Path | None = Path(db_path) if db_path else None
@@ -254,9 +257,12 @@ class BudgetHierarchy:
         if team:
             self._team_reserved[team] = self._team_reserved.get(team, 0.0) + estimated_cost
         if job_id:
-            self._reservations[job_id] = estimated_cost
+            # B1-COST-2: accumulate, don't overwrite — a second pre-flight check
+            # for a job_id already holding a reservation must add to it (matching
+            # _reserved_usd/_team_reserved above), not discard the earlier amount.
+            self._reservations[job_id] = self._reservations.get(job_id, 0.0) + estimated_cost
         else:
-            self._anon_reservations.append(estimated_cost)
+            self._anon_reservations.append((team, estimated_cost))
         return True
 
     def _release_reserved(self, job_id: str, team: str) -> float:
@@ -267,14 +273,27 @@ class BudgetHierarchy:
         """
         if job_id:
             reserved = self._reservations.pop(job_id, 0.0)
+            reserved_team = team
         elif self._anon_reservations:
-            reserved = self._anon_reservations.pop(0)
+            # B1-COST-3: an anonymous (job_id="") reservation carries no id to
+            # release by, so plain insertion-order FIFO pops whichever entry
+            # was reserved first — regardless of which team is actually
+            # settling now. When two teams both hold anonymous reservations
+            # and settle out of insertion order, that pops the WRONG team's
+            # entry. Match this call's team first (oldest entry for that
+            # team, still FIFO within it); only fall back to plain FIFO when
+            # no entry for this team exists (e.g. team="" too).
+            idx = next((i for i, (t, _) in enumerate(self._anon_reservations) if t == team), 0)
+            reserved_team, reserved = self._anon_reservations.pop(idx)
         else:
             reserved = 0.0
+            reserved_team = team
 
         self._reserved_usd = max(0.0, self._reserved_usd - reserved)
-        if team and reserved:
-            self._team_reserved[team] = max(0.0, self._team_reserved.get(team, 0.0) - reserved)
+        if reserved_team and reserved:
+            self._team_reserved[reserved_team] = max(
+                0.0, self._team_reserved.get(reserved_team, 0.0) - reserved
+            )
         return reserved
 
     # ── Persistence ──────────────────────────────────────────────────────────

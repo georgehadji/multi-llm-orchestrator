@@ -376,3 +376,68 @@ async def test_c5_run_job_charges_hierarchy_with_true_overspend_not_clamped_valu
 
     # True spend ($12) must reach the hierarchy, not the clamped $10.
     assert hierarchy.to_dict()["org"]["spent"] == pytest.approx(12.0)
+
+
+# --- B1-COST-1/2/3 (V3 precision defect audit, docs/audits/v3/T1/batch1) --------
+#
+# A separate audit campaign (docs/PRECISION_DEFECT_AUDIT_PLAN.md) found two more
+# defects in this same tier, independent of C1-C5 above.
+
+
+@pytest.mark.unit
+def test_b1_cost_1_track_usage_known_model_does_not_raise():
+    """Fires B1-COST-1 without the fix; passes with it. Violated property:
+    track_usage() must price a model already in COST_TABLE, not only run
+    the unknown-model fallback branch. CostAnalytics.track_usage() indexed
+    the string-keyed CostDict positionally (cost_entry[0]/[1])."""
+    from orchestrator.costing.analytics import CostAnalytics
+    from orchestrator.models import Model
+
+    analytics = CostAnalytics()
+    try:
+        cost = analytics.track_usage(Model.GPT_OSS_120B, input_tokens=1000, output_tokens=500)
+    except KeyError:
+        pytest.fail("defect still present: track_usage() indexed CostDict positionally")
+    assert cost > 0
+
+
+@pytest.mark.unit
+def test_b1_cost_2_repeated_preflight_same_job_id_does_not_leak_reservation():
+    """Fires B1-COST-2 without the fix; passes with it. Violated property:
+    _reserved_usd/_team_reserved must return to 0 once every reservation
+    they reflect has been released by a single settling charge_job() call.
+    can_afford_job() overwrote (not accumulated) self._reservations[job_id]
+    on a second pre-flight check for the same job_id."""
+    from orchestrator.cost import BudgetHierarchy
+
+    hier = BudgetHierarchy(org_max_usd=10.0)
+
+    assert hier.can_afford_job("job-1", "eng", 5.0) is True
+    assert hier.can_afford_job("job-1", "eng", 3.0) is True  # e.g. an overlapping retry
+
+    hier.charge_job("job-1", "eng", 7.5)  # single settle, as run_job() does
+
+    assert hier._reserved_usd == pytest.approx(0.0)
+    assert hier._team_reserved.get("eng", 0.0) == pytest.approx(0.0)
+
+
+@pytest.mark.unit
+def test_b1_cost_3_anon_reservations_release_the_correct_team():
+    """Fires B1-COST-3 without the fix; passes with it. Violated property:
+    releasing a team-scoped-but-unattributed (job_id="") reservation must
+    decrement THAT team's _team_reserved, not whichever team settles next.
+    FIFO anon-reservation release used the CALLER's team argument instead of
+    the team the reservation was actually made under."""
+    from orchestrator.cost import BudgetHierarchy
+
+    hier = BudgetHierarchy(org_max_usd=100.0)
+
+    assert hier.can_afford_job("", "team-a", 5.0) is True
+    assert hier.can_afford_job("", "team-b", 7.0) is True
+
+    hier.charge_job("", "team-b", 7.0)  # team-b finishes first — out of FIFO order
+    assert hier._team_reserved.get("team-b", 0.0) == pytest.approx(0.0)
+
+    hier.charge_job("", "team-a", 5.0)
+    assert hier._team_reserved.get("team-a", 0.0) == pytest.approx(0.0)
+    assert hier._reserved_usd == pytest.approx(0.0)

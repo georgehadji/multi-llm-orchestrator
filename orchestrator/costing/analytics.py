@@ -94,8 +94,8 @@ class CostAnalytics:
             # Use a default cost if model not found
             cost = (input_tokens * 0.01 + output_tokens * 0.03) / 1_000_000  # Default pricing
         else:
-            input_cost_per_mil = cost_entry[0]
-            output_cost_per_mil = cost_entry[1]
+            input_cost_per_mil = cost_entry["input"]
+            output_cost_per_mil = cost_entry["output"]
             cost = (
                 input_tokens * input_cost_per_mil + output_tokens * output_cost_per_mil
             ) / 1_000_000
