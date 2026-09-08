@@ -131,6 +131,6 @@ def test_push_script_pushes_the_branch_as_argv():
     """A branch name may legally contain `;`, `$()`, backticks, `&&`, `|`."""
     from pathlib import Path
 
-    source = Path("scripts/utils/push_to_github.py").read_text()
+    source = Path("scripts/utils/push_to_github.py").read_text(encoding="utf-8")
     assert 'run(f"git push origin {branch}")' not in source
     assert 'run(["git", "push", "origin", branch])' in source

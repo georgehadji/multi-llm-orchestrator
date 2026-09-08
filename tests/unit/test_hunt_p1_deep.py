@@ -238,7 +238,7 @@ class TestCandidate2AgentProfileVisibility:
         """
         import ast
 
-        src = open("orchestrator/entrypoints/cli_dispatch.py").read()
+        src = open("orchestrator/entrypoints/cli_dispatch.py", encoding="utf-8").read()
         tree = ast.parse(src)
 
         cfg_assigns = [

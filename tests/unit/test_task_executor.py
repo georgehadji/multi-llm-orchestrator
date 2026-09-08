@@ -13,13 +13,30 @@ from orchestrator.models import Task, TaskType, TaskResult, TaskStatus, Model
 # ── Mock task_handlers to avoid import-time error ──────────────────────────
 
 
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(autouse=True, scope="function")
 def _mock_task_handlers():
     mock_mod = MagicMock()
     mock_mod.get_handler = MagicMock()
     sys.modules["orchestrator.task_handlers"] = mock_mod
     yield
     sys.modules.pop("orchestrator.task_handlers", None)
+
+
+def test_mock_task_handlers_fixture_does_not_leak_into_other_files():
+    """A session-scoped autouse fixture installs ONE shared MagicMock into
+    sys.modules for the whole pytest run and pops it only at session end.
+    Tests in this file mutate its get_handler.side_effect/return_value
+    without resetting (e.g. test_handler_key_error_falls_through) — any
+    other test file that imports orchestrator.task_handlers later in random
+    test order gets this same poisoned mock instead of the real module,
+    e.g. test_hunt_t1_money.py's C4 tests failing with "TypeError: object
+    MagicMock can't be used in 'await' expression".
+    """
+    assert _mock_task_handlers._fixture_function_marker.scope == "function", (
+        "_mock_task_handlers must be function-scoped so pytest pops "
+        "sys.modules['orchestrator.task_handlers'] after every test, not "
+        "just at session end."
+    )
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
