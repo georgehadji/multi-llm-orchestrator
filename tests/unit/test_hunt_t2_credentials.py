@@ -680,3 +680,170 @@ def test_wp2_team_collaboration_still_recommends_modular_oop() -> None:
         public_distribution=False, team_size=3, complexity="complex"
     )
     assert result == "modular_oop"
+
+
+# ── Round 3: B1-CG-01/02/03, B1-GR-01, B3-GOS-06, GR-1, TG-1 ────────────────
+
+
+def test_b1_cg_01_suspicious_requires_approval() -> None:
+    """Fires B1-CG-01 without the fix; passes with it. Violated property:
+    requires_explicit_approval's own docstring — 'SUSPICIOUS and BLOCKED
+    still gate' — must hold for every allow_dangerous value."""
+    from orchestrator.safety.command_guard import (
+        RiskAssessment,
+        RiskLevel,
+        requires_explicit_approval,
+    )
+
+    suspicious = RiskAssessment(level=RiskLevel.SUSPICIOUS, rationale="test", command="curl x")
+    if requires_explicit_approval(suspicious, allow_dangerous=False) is not True:
+        pytest.fail("defect still present: SUSPICIOUS not gated with allow_dangerous=False")
+    if requires_explicit_approval(suspicious, allow_dangerous=True) is not True:
+        pytest.fail("defect still present: SUSPICIOUS not gated with allow_dangerous=True")
+
+    unknown = RiskAssessment(level=RiskLevel.SUSPICIOUS, rationale="Unknown command", command="???")
+    assert requires_explicit_approval(unknown) is True, "secure-by-default fallback must gate"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "rm -rf /",
+        "rm -fr /",
+        "rm -rfv /",
+        "rm -Rf /",
+        "rm -r -f /",
+        "rm --force --recursive /",
+        "rm -rf ~",
+    ],
+)
+def test_b1_cg_02_rm_recursive_force_blocked_regardless_of_flag_order(command: str) -> None:
+    """Fires B1-CG-02 without the fix; passes with it."""
+    from orchestrator.safety.command_guard import RiskLevel, classify_command
+
+    result = classify_command(command)
+    if result.level != RiskLevel.BLOCKED:
+        pytest.fail(f"defect still present: {command!r} classified {result.level}, not BLOCKED")
+
+
+@pytest.mark.parametrize(
+    "command", ["rm -f /tmp/x", "rm -i /tmp/x", "rm -rf /tmp/build", "rm -v /tmp/x"]
+)
+def test_b1_cg_02_non_root_or_non_recursive_rm_not_blocked(command: str) -> None:
+    """Guards against over-blocking."""
+    from orchestrator.safety.command_guard import RiskLevel, classify_command
+
+    result = classify_command(command)
+    assert result.level != RiskLevel.BLOCKED, f"{command!r} incorrectly BLOCKED"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git branch -D main",
+        "git branch -D feature/x",
+        "git remote add evil https://x",
+        "git remote set-url origin https://x",
+        "git remote remove origin",
+    ],
+)
+def test_b1_cg_03_mutating_branch_remote_not_safe(command: str) -> None:
+    """Fires B1-CG-03 without the fix; passes with it."""
+    from orchestrator.safety.command_guard import RiskLevel, classify_command
+
+    result = classify_command(command)
+    if result.level == RiskLevel.SAFE:
+        pytest.fail(f"defect still present: {command!r} classified SAFE")
+
+
+@pytest.mark.parametrize("command", ["git branch", "git remote", "git status", "git log"])
+def test_b1_cg_03_bare_readonly_forms_still_safe(command: str) -> None:
+    """Guards against over-fixing: genuinely read-only bare invocations stay SAFE."""
+    from orchestrator.safety.command_guard import RiskLevel, classify_command
+
+    assert classify_command(command).level == RiskLevel.SAFE
+
+
+def test_b1_gr_01_handle_message_denies_unauthorized_sender_by_default() -> None:
+    """Fires B1-GR-01 without the fix; passes with it. Violated property:
+    handle_message must not run a project for a sender that was never
+    authorized — today's default (no allowed_users configured) must deny.
+
+    _execute_project_spec is mocked in BOTH directions of this test (not
+    just the allowed-sender case) — pre-fix, with no gate, this method
+    would otherwise construct a real Orchestrator and attempt a real,
+    unmocked LLM call. The property under test is "was the execution path
+    reached at all", not the literal return string."""
+    from unittest.mock import AsyncMock, patch
+
+    from orchestrator.gateway.run import GatewayConfig, OrchestratorGateway
+
+    async def _run() -> tuple[str, bool]:
+        gw = OrchestratorGateway(GatewayConfig())
+        with patch.object(
+            OrchestratorGateway, "_execute_project_spec", new=AsyncMock(return_value="ok")
+        ) as mocked:
+            result = await gw.handle_message("webhook", "anyone", "build me an app")
+            return result, mocked.called
+
+    result, was_executed = asyncio.run(_run())
+    if was_executed:
+        pytest.fail(
+            "defect still present: handle_message ran a project for an "
+            f"unauthenticated sender instead of denying it; got: {result!r}"
+        )
+
+
+def test_b1_gr_01_handle_message_allows_configured_sender() -> None:
+    """Sanity check: an explicitly allowlisted sender is not blocked by the fix."""
+    from unittest.mock import AsyncMock, patch
+
+    from orchestrator.gateway.run import GatewayConfig, OrchestratorGateway
+
+    async def _run() -> str:
+        cfg = GatewayConfig(allowed_users={"webhook": frozenset({"alice"})})
+        gw = OrchestratorGateway(cfg)
+        with patch.object(
+            OrchestratorGateway, "_execute_project_spec", new=AsyncMock(return_value="ok")
+        ):
+            return await gw.handle_message("webhook", "alice", "build me an app")
+
+    assert asyncio.run(_run()) == "ok"
+
+
+def test_b3_gos_06_openai_project_key_detected() -> None:
+    """Fires B3-GOS-06 without the fix; passes with it."""
+    from orchestrator.safety.generated_output_scanner import _RULES
+
+    openai_rule = next(r for r in _RULES if r[0] == "openai-key")
+    pattern = openai_rule[2]
+
+    sample = "sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz1234567890"
+    if not pattern.search(sample):
+        pytest.fail("defect still present: hyphenated OpenAI project key not matched")
+
+
+def test_b3_gos_06_pii_masker_masks_hyphenated_key() -> None:
+    """Companion assertion for the pii_masking_etl.py XRef site."""
+    from orchestrator.safety.pii_masking_etl import PIIMaskingETL
+
+    etl = PIIMaskingETL()
+    masked = etl.transform("key=sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz1234567890")
+    if "sk-proj-" in masked:
+        pytest.fail("defect still present: hyphenated key not masked by PIIMaskingETL")
+    assert "<API_KEY_MASKED>" in masked
+
+
+def test_gr1_kill_switch_defaults_are_not_world_writable_tmp() -> None:
+    """Fires GR-1 without the fix; passes with it."""
+    from pathlib import Path
+
+    from orchestrator.safety.guardrails import KillSwitch
+
+    ks = KillSwitch()
+    home = str(Path.home())
+    if not (str(ks.kill_file).startswith(home) and str(ks.force_file).startswith(home)):
+        pytest.fail(
+            f"defect still present: kill_file={ks.kill_file!r} / "
+            f"force_file={ks.force_file!r} default outside the user's own state dir"
+        )

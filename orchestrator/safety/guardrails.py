@@ -584,8 +584,10 @@ class KillSwitch:
 
     def __init__(
         self,
-        kill_file: str = "/tmp/orchestrator_kill",
-        force_file: str = "/tmp/orchestrator_force_kill",
+        # Match GuardrailConfig's P3-GUARD3 fix: /tmp is world-writable and
+        # predictable, so any local user could forge a kill/force-kill signal.
+        kill_file: str = str(_STATE_DIR / "orchestrator_kill"),
+        force_file: str = str(_STATE_DIR / "orchestrator_force_kill"),
         audit_file: str | None = None,
     ):
         self.kill_file = Path(kill_file)

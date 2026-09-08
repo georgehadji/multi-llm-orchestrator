@@ -11,7 +11,7 @@ class PIIMaskingETL:
                 ),
                 "<IPV4_MASKED>",
             ),
-            (re.compile(r"\bsk-[a-zA-Z0-9]{20,}\b"), "<API_KEY_MASKED>"),
+            (re.compile(r"\bsk-[a-zA-Z0-9_-]{20,}\b"), "<API_KEY_MASKED>"),
             (
                 re.compile(r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b"),
                 "<PHONE_MASKED>",

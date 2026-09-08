@@ -68,8 +68,15 @@ _COMMAND_RULES: list[CommandRule] = [
         rationale="Fork bomb or shell bomb pattern detected",
     ),
     # rm -rf / or rm -rf ~
+    # Recursive and force signals are matched as independent lookaheads so
+    # flag order/combination doesn't matter: -rf, -fr, -rfv, -Rf, -r -f,
+    # --force --recursive, etc. all still require BOTH signals present
+    # before an isolated / or ~ target.
     CommandRule(
-        pattern=re.compile(r"\brm\s+(-rf|-[rR][fF]|--recursive\s+--force)\s+[/~](\s|$|;)"),
+        pattern=re.compile(
+            r"\brm\s+(?=.*(?:-[a-zA-Z]*[rR][a-zA-Z]*\b|--recursive\b))"
+            r"(?=.*(?:-[a-zA-Z]*[fF][a-zA-Z]*\b|--force\b)).*\s[/~](\s|$|;)"
+        ),
         level=RiskLevel.BLOCKED,
         rationale="Recursive forced deletion of root/home directory",
     ),
@@ -138,9 +145,16 @@ _COMMAND_RULES: list[CommandRule] = [
     ),
     # Git read-only operations
     CommandRule(
-        pattern=re.compile(r"^\s*git\s+(status|log|diff|show|branch|remote|ls-files)\b"),
+        pattern=re.compile(r"^\s*git\s+(status|log|diff|show|ls-files)\b"),
         level=RiskLevel.SAFE,
         rationale="Git read-only operation",
+    ),
+    # `branch`/`remote` with no further sub-verb just list; anything else
+    # (branch -D, remote add/set-url/remove, ...) mutates and must not be SAFE.
+    CommandRule(
+        pattern=re.compile(r"^\s*git\s+(branch|remote)\s*$"),
+        level=RiskLevel.SAFE,
+        rationale="Git read-only operation (list form, no sub-verb)",
     ),
     # List/read-only filesystem
     CommandRule(
@@ -244,5 +258,7 @@ def requires_explicit_approval(assessment: RiskAssessment, allow_dangerous: bool
     if assessment.level == RiskLevel.BLOCKED:
         return True
     if assessment.level == RiskLevel.DANGEROUS and not allow_dangerous:
+        return True
+    if assessment.level == RiskLevel.SUSPICIOUS:
         return True
     return False

@@ -140,10 +140,12 @@ class TestRequiresExplicitApproval:
         assert requires_explicit_approval(assessment)
         assert not requires_explicit_approval(assessment, allow_dangerous=True)
 
-    def test_suspicious_does_not_gate(self) -> None:
-        """SUSPICIOUS commands are permitted (logged but not blocked)."""
+    def test_suspicious_gates(self) -> None:
+        """SUSPICIOUS commands require explicit approval (B1-CG-01): this
+        function's own docstring says "SUSPICIOUS and BLOCKED still gate" —
+        this test previously asserted the opposite, which was the bug."""
         assessment = RiskAssessment(level=RiskLevel.SUSPICIOUS, rationale="test", command="test")
-        assert not requires_explicit_approval(assessment)
+        assert requires_explicit_approval(assessment)
 
     def test_safe_does_not_gate(self) -> None:
         """SAFE commands are permitted."""

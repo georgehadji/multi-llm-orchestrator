@@ -157,7 +157,7 @@ _RULES: list[tuple[str, Severity, re.Pattern, str]] = [
     (
         "openai-key",
         "CRITICAL",
-        re.compile(r"\bsk-[A-Za-z0-9]{20,}\b"),
+        re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b"),
         "Hardcoded OpenAI-style API key",
     ),
     (

@@ -46,6 +46,11 @@ class GatewayConfig:
     platforms: dict[str, dict[str, Any]] = field(default_factory=dict)
     max_active_projects: int = 3
     default_model: str = ""
+    # {platform: {user_id, ...}}. Checked by handle_message() before running
+    # anything. None/missing-platform/empty-set all deny — fail closed, since
+    # a filled-in transport (the "webhook"/"echo" adapters are stubs today)
+    # would otherwise let any external sender spend real budget unauthenticated.
+    allowed_users: dict[str, frozenset[str]] | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -149,8 +154,17 @@ class OrchestratorGateway:
         if not text:
             return "Please provide a project description."
 
+        if not self._is_authorized(platform, user_id):
+            logger.warning("Gateway: rejected unauthorized sender %s/%s", platform, user_id)
+            return "Not authorized."
+
         # Route to engine execution
         return await self._execute_project_spec(platform, user_id, text)
+
+    def _is_authorized(self, platform: str, user_id: str) -> bool:
+        """Fail closed: no allowlist configured for `platform` denies everyone on it."""
+        allowed = (self.config.allowed_users or {}).get(platform)
+        return bool(allowed) and user_id in allowed
 
     async def _execute_project_spec(
         self,
