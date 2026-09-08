@@ -104,14 +104,16 @@ class KeyRecord:
 
     @classmethod
     def from_dict(cls, data: dict) -> KeyRecord:
+        expires_at = data.get("expires_at")
+        revoked_at = data.get("revoked_at")
         return cls(
             key_id=str(data["key_id"]),
             principal_id=str(data["principal_id"]),
             permissions=parse_permissions(data.get("permissions")),
             digest=str(data["digest"]),
             created_at=float(data["created_at"]),
-            expires_at=data.get("expires_at"),
-            revoked_at=data.get("revoked_at"),
+            expires_at=None if expires_at is None else float(expires_at),
+            revoked_at=None if revoked_at is None else float(revoked_at),
         )
 
 

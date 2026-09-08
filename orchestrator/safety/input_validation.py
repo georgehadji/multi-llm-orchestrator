@@ -237,7 +237,13 @@ class ZodSchemaVisitor(SchemaVisitor):
             schema += f".regex(/{escaped_pattern}/)"
         if field.enum_values:
             values_str = ", ".join(f'"{v}"' for v in field.enum_values)
-            schema = f"z.enum([{values_str}])"
+            # z.enum() returns a distinct ZodEnum type that does not support
+            # the string-only .trim()/.toLowerCase()/.toUpperCase() methods
+            # below — return immediately instead of falling through.
+            enum_schema = f"z.enum([{values_str}])"
+            if not field.required:
+                enum_schema += ".optional()"
+            return enum_schema
 
         if field.trim:
             schema += ".trim()"
@@ -544,7 +550,11 @@ class PydanticSchemaVisitor(SchemaVisitor):
         if field.max_length < 255:
             validators.append(f"max_length={field.max_length}")
         if field.pattern:
-            validators.append(f"pattern=r'{field.pattern}'")
+            # A newline in field.pattern would otherwise terminate this '#'
+            # comment early and inject the remainder as executable Python
+            # source into the generated model file.
+            safe_pattern = field.pattern.replace("\n", "\\n").replace("\r", "\\r")
+            validators.append(f"pattern=r'{safe_pattern}'")
 
         validator_str = f" # Field({', '.join(validators)})" if validators else ""
 

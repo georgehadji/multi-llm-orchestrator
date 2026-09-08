@@ -28,6 +28,17 @@ class PIIMaskingETL:
         for k, v in data.items():
             if isinstance(v, str):
                 result[k] = self.transform(v)
+            elif isinstance(v, dict):
+                result[k] = self.process_dict(v)
+            elif isinstance(v, list):
+                result[k] = [
+                    (
+                        self.transform(item)
+                        if isinstance(item, str)
+                        else self.process_dict(item) if isinstance(item, dict) else item
+                    )
+                    for item in v
+                ]
             else:
                 result[k] = v
         return result

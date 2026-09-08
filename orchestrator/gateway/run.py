@@ -210,7 +210,7 @@ class OrchestratorGateway:
 
         except Exception as exc:
             logger.error("Gateway project execution failed: %s", exc)
-            return f"Project execution failed: {exc}"
+            return "Project execution failed. An operator has been notified."
 
     # ── Adapter factory ────────────────────────────────────────────────────
 

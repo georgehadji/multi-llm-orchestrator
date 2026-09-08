@@ -170,7 +170,8 @@ def check_destination(url: str) -> ParseResult:
     """Run the full policy chain against `url`."""
     parsed = validate_outbound_url(url)
     default_port = 443 if parsed.scheme == "https" else 80
-    resolve_and_validate_host(parsed.hostname or "", parsed.port or default_port)
+    port = parsed.port if parsed.port is not None else default_port
+    resolve_and_validate_host(parsed.hostname or "", port)
     return parsed
 
 

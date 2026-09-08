@@ -240,6 +240,16 @@ class NpmAdapter(DependencyScanner):
                 vulnerable_dependencies=0,
                 scan_time=time.time() - start_time,
             )
+        except FileNotFoundError:
+            # project_path does not exist, or the npm executable is not on
+            # PATH — mirrors PipAdapter.scan()'s handling of the same case.
+            return ScanResult(
+                project_path=project_path,
+                vulnerabilities=[],
+                total_dependencies=0,
+                vulnerable_dependencies=0,
+                scan_time=time.time() - start_time,
+            )
         except json.JSONDecodeError:
             # No vulnerabilities or invalid JSON
             return ScanResult(
@@ -271,7 +281,7 @@ class NpmAdapter(DependencyScanner):
                 if isinstance(vuln_info, dict):
                     for via in vuln_info.get("via", []):
                         if isinstance(via, dict):  # Skip string references
-                            severity_str = via.get("severity", "info").lower()
+                            severity_str = (via.get("severity") or "info").lower()
                             severity = (
                                 VulnerabilitySeverity(severity_str)
                                 if severity_str in [s.value for s in VulnerabilitySeverity]
@@ -379,7 +389,7 @@ class PipAdapter(DependencyScanner):
         if not os.path.exists(req_file):
             return 0
 
-        with open(req_file, "r") as f:
+        with open(req_file, "r", encoding="utf-8", errors="replace") as f:
             lines = [l.strip() for l in f if l.strip() and not l.startswith("#")]
             return len(lines)
 
@@ -393,7 +403,7 @@ class PipAdapter(DependencyScanner):
             for vuln in data:
                 # Safety output format
                 package = vuln.get("package_name", "")
-                severity_str = vuln.get("severity", "medium").lower()
+                severity_str = (vuln.get("severity") or "medium").lower()
                 severity = (
                     VulnerabilitySeverity(severity_str)
                     if severity_str in [s.value for s in VulnerabilitySeverity]
@@ -407,8 +417,8 @@ class PipAdapter(DependencyScanner):
                         cve_id=vuln.get("cve_id"),
                         description=vuln.get("advisory", ""),
                         fix_version=(
-                            vuln.get("remediation", "").split("->")[-1].strip()
-                            if "->" in vuln.get("remediation", "")
+                            (vuln.get("remediation") or "").split("->")[-1].strip()
+                            if "->" in (vuln.get("remediation") or "")
                             else None
                         ),
                         current_version=vuln.get("analyzed_version"),
@@ -554,9 +564,24 @@ def auto_scan_project(project_path: str) -> ScanResult:
     import os
 
     # Detect project type
-    if os.path.exists(os.path.join(project_path, "package.json")):
+    has_npm = os.path.exists(os.path.join(project_path, "package.json"))
+    has_pip = os.path.exists(os.path.join(project_path, "requirements.txt"))
+
+    if has_npm and has_pip:
+        npm_result = scan_npm_project(project_path)
+        pip_result = scan_python_project(project_path)
+        return ScanResult(
+            project_path=project_path,
+            vulnerabilities=npm_result.vulnerabilities + pip_result.vulnerabilities,
+            total_dependencies=npm_result.total_dependencies + pip_result.total_dependencies,
+            vulnerable_dependencies=(
+                npm_result.vulnerable_dependencies + pip_result.vulnerable_dependencies
+            ),
+            scan_time=npm_result.scan_time + pip_result.scan_time,
+        )
+    elif has_npm:
         return scan_npm_project(project_path)
-    elif os.path.exists(os.path.join(project_path, "requirements.txt")):
+    elif has_pip:
         return scan_python_project(project_path)
     else:
         return ScanResult(

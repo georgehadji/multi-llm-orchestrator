@@ -84,8 +84,13 @@ class GatewaySessionManager:
         Returns:
             The newly created GatewaySession.
         """
+        session_id = str(uuid.uuid4())
+        # Practically unreachable given 122 bits of entropy; fail-safe (retry)
+        # rather than fail-silent (overwrite an existing session) regardless.
+        while session_id in self._sessions:
+            session_id = str(uuid.uuid4())
         session = GatewaySession(
-            session_id=str(uuid.uuid4())[:8],
+            session_id=session_id,
             platform=platform,
             user_id=user_id,
         )

@@ -1017,3 +1017,257 @@ def test_t2b508_tests_with_no_source_does_not_score_perfect(tmp_path) -> None:
     dim = scorer._score_tests(tmp_path, files)
     if dim.score >= 12:
         pytest.fail(f"defect still present: scored {dim.score}/15 with zero source files")
+
+
+# ── Round 5: B1-GR-02/KS-05/OB-02/SS-01, B3-IV-03/IV-04/PII-01/DEP-01..04 ───
+
+
+def test_b1_gr_02_execution_failure_does_not_leak_exception_text() -> None:
+    """Fires B1-GR-02 without the fix; passes with it."""
+    from unittest.mock import AsyncMock, patch
+
+    from orchestrator.gateway.run import GatewayConfig, OrchestratorGateway
+
+    async def _run() -> str:
+        cfg = GatewayConfig(allowed_users={"webhook": frozenset({"alice"})})
+        gw = OrchestratorGateway(cfg)
+        secret_detail = "internal-path=/etc/shadow-ish-detail"
+        with patch(
+            "orchestrator.engine.Orchestrator.run_project",
+            new=AsyncMock(side_effect=RuntimeError(secret_detail)),
+        ):
+            return await gw.handle_message("webhook", "alice", "build something")
+
+    result = asyncio.run(_run())
+    if "internal-path" in result:
+        pytest.fail(f"defect still present: raw exception text leaked to caller: {result!r}")
+
+
+def test_b1_ks_05_malformed_expires_at_fails_at_load_not_at_verify() -> None:
+    """Fires B1-KS-05 without the fix; passes with it."""
+    from orchestrator.safety.api_keys import KeyRecord
+
+    bad_record = {
+        "key_id": "abc123",
+        "principal_id": "user",
+        "permissions": [],
+        "digest": "deadbeef",
+        "created_at": 1000.0,
+        "expires_at": "not-a-number",
+        "revoked_at": None,
+    }
+
+    try:
+        KeyRecord.from_dict(bad_record)
+    except (ValueError, TypeError):
+        return
+    pytest.fail(
+        "defect still present: from_dict() accepted a non-numeric expires_at; "
+        "the TypeError would instead surface later, uncaught, inside verify()"
+    )
+
+
+def test_b1_ob_02_explicit_port_zero_is_not_silently_replaced() -> None:
+    """Fires B1-OB-02 without the fix; passes with it."""
+    from unittest.mock import patch
+
+    from orchestrator.safety import outbound
+
+    seen_ports: list[int] = []
+
+    def _fake_resolve(host: str, port: int = 443) -> list[str]:
+        seen_ports.append(port)
+        return ["93.184.216.34"]
+
+    with patch.object(outbound, "resolve_and_validate_host", side_effect=_fake_resolve):
+        outbound.check_destination("https://example.com:0/spec.json")
+
+    if seen_ports and seen_ports[0] != 0:
+        pytest.fail(
+            f"defect still present: explicit port 0 was validated as {seen_ports[0]} instead"
+        )
+
+
+def test_b1_ss_01_session_ids_have_full_uuid_entropy() -> None:
+    """Fires B1-SS-01 without the fix; passes with it."""
+    from orchestrator.gateway.session import GatewaySessionManager
+
+    mgr = GatewaySessionManager()
+    session = mgr.create_session("webhook", "user-1")
+
+    if len(session.session_id) <= 10:
+        pytest.fail(
+            f"defect still present: session_id {session.session_id!r} is still "
+            "truncated to birthday-collidable entropy"
+        )
+    assert len(session.session_id) == 36
+
+
+def test_b3_iv_03_enum_output_has_no_invalid_trim_call() -> None:
+    """Fires B3-IV-03 without the fix; passes with it."""
+    from orchestrator.safety.input_validation import StringField, ZodSchemaVisitor
+
+    field = StringField(name="status", enum_values=["active", "inactive"])
+    output = ZodSchemaVisitor().visit_string(field)
+
+    if ".trim()" in output or ".toLowerCase()" in output or ".toUpperCase()" in output:
+        pytest.fail(f"defect still present: invalid method chained onto z.enum(): {output!r}")
+    assert output == 'z.enum(["active", "inactive"])'
+
+
+def test_b3_iv_04_newline_in_pattern_cannot_escape_comment() -> None:
+    """Fires B3-IV-04 without the fix; passes with it."""
+    from orchestrator.safety.input_validation import PydanticSchemaVisitor, StringField
+
+    malicious_pattern = "foo\nimport os; os.system('id')  #"
+    field = StringField(name="x", pattern=malicious_pattern)
+
+    output = PydanticSchemaVisitor().visit_string(field)
+
+    if "\n" in output:
+        pytest.fail(
+            "defect still present: a literal newline in the generated line lets "
+            "injected content escape the comment"
+        )
+    assert "\\n" in output
+
+
+def test_b3_pii_01_nested_pii_is_masked() -> None:
+    """Fires B3-PII-01 without the fix; passes with it."""
+    from orchestrator.safety.pii_masking_etl import PIIMaskingETL
+
+    etl = PIIMaskingETL()
+    payload = {
+        "user": {"email": "a@b.com", "phone": "555-123-4567"},
+        "notes": ["contact a@b.com for details"],
+    }
+
+    result = etl.process_dict(payload)
+
+    if result["user"]["email"] == "a@b.com":
+        pytest.fail("defect still present: nested dict PII is not masked")
+    if "a@b.com" in result["notes"][0]:
+        pytest.fail("defect still present: PII inside a list is not masked")
+    assert result["user"]["email"] == "<EMAIL_MASKED>"
+
+
+def test_b3_dep_01_npm_scan_handles_missing_project_path(tmp_path) -> None:
+    """Fires B3-DEP-01 without the fix; passes with it."""
+    from orchestrator.safety.dependency_scanner import NpmAdapter
+
+    adapter = NpmAdapter()
+    missing_path = str(tmp_path / "does_not_exist")
+
+    try:
+        result = adapter.scan(missing_path)
+    except FileNotFoundError:
+        pytest.fail(
+            "defect still present: scan() raises FileNotFoundError for a missing project_path"
+        )
+
+    assert result.vulnerabilities == []
+
+
+def test_b3_dep_02_null_severity_does_not_crash_npm_parser() -> None:
+    """Fires B3-DEP-02 without the fix; passes with it."""
+    import json as _json
+
+    from orchestrator.safety.dependency_scanner import NpmAdapter
+
+    payload = _json.dumps(
+        {
+            "vulnerabilities": {
+                "lodash": {
+                    "via": [{"severity": None, "cwe": "CWE-1321", "title": "proto pollution"}],
+                    "version": "4.17.0",
+                }
+            }
+        }
+    )
+
+    adapter = NpmAdapter()
+    try:
+        result = adapter.parse_results(payload)
+    except AttributeError:
+        pytest.fail("defect still present: explicit null severity crashes NpmAdapter.parse_results")
+
+    assert result[0].package == "lodash"
+
+
+def test_b3_dep_02_null_remediation_does_not_crash_pip_parser() -> None:
+    """Companion assertion for PipAdapter's severity + remediation sites."""
+    import json as _json
+
+    from orchestrator.safety.dependency_scanner import PipAdapter
+
+    payload = _json.dumps(
+        [
+            {
+                "package_name": "requests",
+                "severity": None,
+                "remediation": None,
+                "analyzed_version": "2.20.0",
+            }
+        ]
+    )
+
+    adapter = PipAdapter()
+    try:
+        result = adapter.parse_results(payload)
+    except (AttributeError, TypeError):
+        pytest.fail(
+            "defect still present: explicit null severity/remediation crashes PipAdapter.parse_results"
+        )
+
+    assert result[0].package == "requests"
+    assert result[0].fix_version is None
+
+
+def test_b3_dep_03_count_dependencies_survives_non_ascii_comment(tmp_path) -> None:
+    """Fires B3-DEP-03 without the fix; passes with it."""
+    from orchestrator.safety.dependency_scanner import PipAdapter
+
+    req_file = tmp_path / "requirements.txt"
+    req_file.write_bytes("# maintained by José\nrequests==2.31.0\n".encode())
+
+    adapter = PipAdapter()
+    try:
+        count = adapter._count_dependencies(str(tmp_path))
+    except UnicodeDecodeError:
+        pytest.fail(
+            "defect still present: non-ASCII byte in requirements.txt crashes _count_dependencies"
+        )
+
+    assert count == 1
+
+
+def test_b3_dep_04_polyglot_project_scans_both_ecosystems(tmp_path) -> None:
+    """Fires B3-DEP-04 without the fix; passes with it."""
+    from unittest.mock import patch
+
+    from orchestrator.safety.dependency_scanner import ScanResult, auto_scan_project
+
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "requirements.txt").write_text("requests==2.31.0\n", encoding="utf-8")
+
+    npm_stub = ScanResult(
+        str(tmp_path), [], total_dependencies=5, vulnerable_dependencies=0, scan_time=0.1
+    )
+    pip_stub = ScanResult(
+        str(tmp_path), [], total_dependencies=1, vulnerable_dependencies=0, scan_time=0.1
+    )
+
+    with (
+        patch(
+            "orchestrator.safety.dependency_scanner.scan_npm_project", return_value=npm_stub
+        ) as mock_npm,
+        patch(
+            "orchestrator.safety.dependency_scanner.scan_python_project", return_value=pip_stub
+        ) as mock_pip,
+    ):
+        result = auto_scan_project(str(tmp_path))
+
+    if not mock_pip.called:
+        pytest.fail("defect still present: Python dependencies never scanned in a polyglot project")
+    assert mock_npm.called
+    assert result.total_dependencies == 6
