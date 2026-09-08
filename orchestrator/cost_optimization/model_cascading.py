@@ -299,6 +299,12 @@ class ModelCascader:
                 continue
 
         # If we get here, use last result even if score is low
+        if not all_scores:
+            raise RuntimeError(
+                f"All {len(cascade_chain)} cascade tiers failed to generate a "
+                f"response for task_type={task_type!r}; see prior per-tier "
+                f"warnings for the underlying errors."
+            )
         logger.warning(
             f"Cascade completed without meeting threshold, "
             f"using last result (score={all_scores[-1] if all_scores else 0:.3f})"
@@ -380,7 +386,7 @@ class ModelCascader:
             Quality score (0-1)
         """
         # Check cache first
-        cache_key = f"{prompt[:100]}|||{response[:100]}|||{model}"
+        cache_key = f"{task_type}|||{prompt[:100]}|||{response[:100]}|||{model}"
         if cache_key in self._score_cache:
             return self._score_cache[cache_key]
 

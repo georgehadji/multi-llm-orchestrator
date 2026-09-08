@@ -353,8 +353,6 @@ class StructuredOutputEnforcer:
         Returns:
             Typed Pydantic model instance
         """
-        import re
-
         # Add JSON format instruction to prompt
         json_prompt = (
             f"{prompt}\n\n"
@@ -374,9 +372,7 @@ class StructuredOutputEnforcer:
         text = response.text if hasattr(response, "text") else str(response)
 
         # Extract JSON from response
-        json_match = re.search(r"\{.*\}", text, re.DOTALL)
-        if json_match:
-            text = json_match.group()
+        text = self._extract_json_object(text)
 
         # Parse JSON
         try:
@@ -385,6 +381,39 @@ class StructuredOutputEnforcer:
         except (json.JSONDecodeError, Exception) as e:
             logger.error(f"JSON parsing failed: {e}")
             raise ValueError(f"Failed to parse structured output: {e}")
+
+    @staticmethod
+    def _extract_json_object(text: str) -> str:
+        """Extract the JSON object from `text` by scanning every balanced,
+        top-level {...} span and returning the first one that actually
+        parses as JSON -- a greedy regex spanning first-'{' to last-'}' can
+        merge unrelated brace groups (e.g. explanatory prose containing its
+        own braces before the real JSON block) into one unparseable blob,
+        and stopping at the first balanced span isn't enough either: prose
+        can itself contain a self-contained (but non-JSON) brace group
+        before the real answer. Falls back to the first balanced span,
+        unchanged, if none of the candidates parse (existing error path)."""
+        candidates: list[str] = []
+        depth = 0
+        start = -1
+        for i, ch in enumerate(text):
+            if ch == "{":
+                if depth == 0:
+                    start = i
+                depth += 1
+            elif ch == "}" and depth > 0:
+                depth -= 1
+                if depth == 0:
+                    candidates.append(text[start : i + 1])
+
+        for candidate in candidates:
+            try:
+                json.loads(candidate)
+                return candidate
+            except json.JSONDecodeError:
+                continue
+
+        return candidates[0] if candidates else text
 
     def _is_anthropic_model(self, model: str) -> bool:
         """Check if model is Anthropic."""

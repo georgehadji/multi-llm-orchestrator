@@ -106,11 +106,11 @@ class DockerSandbox:
             cpu_quota: CPU quota (microseconds)
             timeout: Default timeout in seconds
         """
-        self.image = image or self.DEFAULT_IMAGE
-        self.memory_limit = memory_limit or self.DEFAULT_MEMORY_LIMIT
-        self.cpu_quota = cpu_quota or self.DEFAULT_CPU_QUOTA
+        self.image = image if image is not None else self.DEFAULT_IMAGE
+        self.memory_limit = memory_limit if memory_limit is not None else self.DEFAULT_MEMORY_LIMIT
+        self.cpu_quota = cpu_quota if cpu_quota is not None else self.DEFAULT_CPU_QUOTA
         self.cpu_period = self.DEFAULT_CPU_PERIOD
-        self.default_timeout = timeout or self.DEFAULT_TIMEOUT
+        self.default_timeout = timeout if timeout is not None else self.DEFAULT_TIMEOUT
         self.network_disabled = self.DEFAULT_NETWORK_DISABLED
 
         self.metrics = SandboxMetrics()
@@ -133,7 +133,10 @@ class DockerSandbox:
             logger.info("Docker is available")
             return True
         except Exception as e:
-            logger.warning(f"Docker not available: {e}, falling back to subprocess")
+            logger.warning(
+                f"Docker not available: {e}. Sandboxed execution will fail "
+                "closed (no subprocess fallback — see FIX-OPT-001a)."
+            )
             self._docker_available = False
             return False
 
@@ -165,7 +168,7 @@ class DockerSandbox:
         start_time = time.time()
 
         self.metrics.total_executions += 1
-        timeout = timeout or self.default_timeout
+        timeout = timeout if timeout is not None else self.default_timeout
 
         # Check Docker availability
         docker_available = await self._check_docker()
@@ -220,10 +223,7 @@ class DockerSandbox:
                     else:
                         self.metrics.failed_executions += 1
 
-                    self.metrics.avg_execution_time = (
-                        self.metrics.avg_execution_time * (self.metrics.total_executions - 1)
-                        + execution_time
-                    ) / self.metrics.total_executions
+                    self._record_execution_time(execution_time)
 
                     return ExecutionResult(
                         return_code=result["StatusCode"],
@@ -235,6 +235,7 @@ class DockerSandbox:
                     # Timeout or other error
                     container.kill()
                     execution_time = time.time() - start_time
+                    self._record_execution_time(execution_time)
 
                     if "timeout" in str(e).lower():
                         self.metrics.timeouts += 1
@@ -267,10 +268,13 @@ class DockerSandbox:
             except Exception as e:
                 logger.error(f"Docker execution failed: {e}")
                 self.metrics.failed_executions += 1
+                execution_time = time.time() - start_time
+                self._record_execution_time(execution_time)
                 return ExecutionResult(
                     return_code=-1,
                     output="",
                     error=f"Docker error: {str(e)}",
+                    execution_time=execution_time,
                 )
 
         else:
@@ -281,11 +285,24 @@ class DockerSandbox:
                 "Install Docker: https://docs.docker.com/get-docker/"
             )
             self.metrics.failed_executions += 1
+            execution_time = time.time() - start_time
+            self._record_execution_time(execution_time)
             return ExecutionResult(
                 return_code=-1,
                 output="",
                 error="Docker not available. Code execution requires Docker for security isolation. Please install Docker.",
+                execution_time=execution_time,
             )
+
+    def _record_execution_time(self, execution_time: float) -> None:
+        """Update the running avg_execution_time for ANY execute() exit path
+        -- total_executions increments unconditionally at the top of
+        execute(), so every exit path (success, timeout, error, docker
+        unavailable) must contribute to the average it is the denominator
+        for, not just the success path."""
+        self.metrics.avg_execution_time = (
+            self.metrics.avg_execution_time * (self.metrics.total_executions - 1) + execution_time
+        ) / self.metrics.total_executions
 
     async def _cleanup_workspace(self, workspace: Path, max_retries: int = 3) -> None:
         """

@@ -128,6 +128,13 @@ class GitHubIntegration:
         self.owner = owner or os.getenv("GITHUB_OWNER")
         self.repo = repo or os.getenv("GITHUB_REPO")
         self.base_url = base_url
+        # GitHub's REST API is served from a different host than the web UI:
+        # api.github.com for the public service, <host>/api/v3 for Enterprise Server.
+        self.api_base_url = (
+            "https://api.github.com"
+            if base_url.rstrip("/") == "https://github.com"
+            else f"{base_url.rstrip('/')}/api/v3"
+        )
 
         self.metrics = GitHubMetrics()
 
@@ -257,7 +264,10 @@ class GitHubIntegration:
                 error="GitHub token not provided",
             )
 
+        push_succeeded = True
+
         try:
+            import base64
             import subprocess
 
             # Branch name
@@ -339,7 +349,7 @@ class GitHubIntegration:
             for file_path in files_to_add:
                 rel_path = file_path.relative_to(output_dir)
                 subprocess.run(
-                    ["git", "add", str(rel_path)],
+                    ["git", "add", "--", str(rel_path)],
                     cwd=str(output_dir),
                     check=True,
                     capture_output=True,
@@ -366,18 +376,36 @@ class GitHubIntegration:
             # Push to remote
             push_url = ""
             if push_remote and self.owner and self.repo:
-                # FIX-OPT-002b: Use token via environment variable, not embedded in URL
-                # This prevents token exposure in process listings and logs
                 remote_url = (
                     f"https://{self.base_url.replace('https://', '')}/{self.owner}/{self.repo}.git"
                 )
 
-                # Configure environment for git authentication
-                # GitHub accepts personal access token as username with empty password
+                # `git init` leaves no remote configured -- point 'origin' at
+                # the target repo. Drop any stale origin first so repeated
+                # calls against the same output_dir stay idempotent.
+                subprocess.run(
+                    ["git", "remote", "remove", "origin"],
+                    cwd=str(output_dir),
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "remote", "add", "origin", remote_url],
+                    cwd=str(output_dir),
+                    check=True,
+                    capture_output=True,
+                )
+
+                # FIX-OPT-002b (corrected): authenticate via env-only git
+                # config. GIT_USERNAME/GIT_PASSWORD are not git-recognized
+                # env vars and GIT_ASKPASS=/bin/echo just echoes the prompt
+                # text back -- neither ever carried the real token. This
+                # keeps the token out of argv, the remote URL, and
+                # .git/config, same as originally intended.
+                token_b64 = base64.b64encode(f"x-access-token:{self.token}".encode()).decode()
                 env = os.environ.copy()
-                env["GIT_ASKPASS"] = "/bin/echo"  # Non-interactive
-                env["GIT_USERNAME"] = self.token  # Token as username
-                env["GIT_PASSWORD"] = ""  # Empty password (token auth)
+                env["GIT_CONFIG_COUNT"] = "1"
+                env["GIT_CONFIG_KEY_0"] = "http.extraHeader"
+                env["GIT_CONFIG_VALUE_0"] = f"AUTHORIZATION: basic {token_b64}"
 
                 try:
                     subprocess.run(
@@ -394,6 +422,19 @@ class GitHubIntegration:
                     stderr = e.stderr.decode() if e.stderr else "unknown error"
                     logger.warning(f"Push failed: {stderr}")
                     push_url = ""
+                    push_succeeded = False
+
+            if not push_succeeded:
+                self.metrics.failed_pushes += 1
+                return PushResult(
+                    success=False,
+                    branch=branch,
+                    commit_hash=commit_hash,
+                    commit_message=commit_message,
+                    files_pushed=len(files_to_add),
+                    push_url="",
+                    error="Local commit succeeded but the push to the remote failed",
+                )
 
             # Update metrics
             execution_time = time.time() - start_time
@@ -454,7 +495,7 @@ class GitHubIntegration:
         try:
             import aiohttp
 
-            url = f"{self.base_url}/repos/{self.owner}/{self.repo}/pulls"
+            url = f"{self.api_base_url}/repos/{self.owner}/{self.repo}/pulls"
             headers = {
                 "Authorization": f"token {self.token}",
                 "Accept": "application/vnd.github.v3+json",

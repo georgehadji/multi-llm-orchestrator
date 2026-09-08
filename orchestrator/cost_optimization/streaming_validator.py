@@ -122,7 +122,7 @@ class StreamingValidator:
         # Incomplete code
         r"pass  # TODO",
         r"pass  # FIXME",
-        r"\\.\\.\\.",  # Ellipsis in code
+        r"\.\.\.",  # Ellipsis in code
     ]
 
     # Model fallback chain — DEPRECATED hardcoded list.
@@ -141,11 +141,14 @@ class StreamingValidator:
 
     # Cost per 1M tokens — DEPRECATED hardcoded dict.
     # The canonical COST_TABLE is in orchestrator.models (from costs.json).
+    # Values synced to orchestrator/models.py COST_TABLE -- see
+    # test_streaming_validator_model_costs_matches_canonical_cost_table for
+    # the regression guard against this drifting again.
     MODEL_COSTS = {
-        Model.DEEPSEEK_V4_FLASH: {"input": 1.0, "output": 4.0},
-        Model.CLAUDE_SONNET_5: {"input": 3.0, "output": 15.0},
-        Model.CLAUDE_OPUS_4_8: {"input": 18.0, "output": 90.0},
-        Model.GPT_4O: {"input": 5.0, "output": 15.0},
+        Model.DEEPSEEK_V4_FLASH: {"input": 0.14, "output": 0.28},
+        Model.CLAUDE_SONNET_5: {"input": 2.00, "output": 10.00},
+        Model.CLAUDE_OPUS_4_8: {"input": 6.00, "output": 30.00},
+        Model.GPT_4O: {"input": 2.50, "output": 10.00},
     }
 
     def __init__(self, client=None):
@@ -213,7 +216,7 @@ class StreamingValidator:
                     total_tokens += len(chunk) / 4  # Estimate
 
                     # Early abort check (first N tokens)
-                    if total_tokens < early_abort_tokens / 4:
+                    if total_tokens < early_abort_tokens:
                         partial = "".join(chunks)
                         failure = self._detect_early_failure(partial, task_type)
 
@@ -235,9 +238,12 @@ class StreamingValidator:
                             break
 
                 if early_aborted:
-                    # Retry with next model in chain
-                    if attempt < len(self.FALLBACK_CHAIN) - 1:
-                        current_model = self.FALLBACK_CHAIN[attempt + 1]
+                    # Retry with the model after the one that just failed
+                    # (not the next loop index -- current_model may not be
+                    # FALLBACK_CHAIN[attempt] at all).
+                    next_model = self._next_fallback_model(current_model)
+                    if next_model is not None:
+                        current_model = next_model
                         retry_count += 1
                         self.metrics.retries += 1
                         logger.info(f"Retrying with {current_model}")
@@ -255,9 +261,10 @@ class StreamingValidator:
             except Exception as e:
                 logger.error(f"Streaming failed with {current_model}: {e}")
 
-                # Try next model
-                if attempt < len(self.FALLBACK_CHAIN) - 1:
-                    current_model = self.FALLBACK_CHAIN[attempt + 1]
+                # Try the model after the one that just failed.
+                next_model = self._next_fallback_model(current_model)
+                if next_model is not None:
+                    current_model = next_model
                     retry_count += 1
                     self.metrics.retries += 1
                     continue
@@ -266,7 +273,7 @@ class StreamingValidator:
 
         latency = time.time() - start_time
         response = "".join(chunks)
-        cost = self._estimate_cost(current_model, len(response))
+        cost = self._estimate_cost(current_model, total_tokens)
 
         return StreamingResult(
             response=response,
@@ -278,6 +285,17 @@ class StreamingValidator:
             retry_count=retry_count,
             latency_seconds=latency,
         )
+
+    def _next_fallback_model(self, current_model: Model) -> Model | None:
+        """Return the model after `current_model` in FALLBACK_CHAIN, or None
+        if `current_model` is the last entry. Falls back to chain index 0
+        if `current_model` isn't in the chain at all."""
+        try:
+            idx = self.FALLBACK_CHAIN.index(current_model)
+        except ValueError:
+            return self.FALLBACK_CHAIN[0]
+        next_idx = idx + 1
+        return self.FALLBACK_CHAIN[next_idx] if next_idx < len(self.FALLBACK_CHAIN) else None
 
     async def _stream_with_model(
         self,

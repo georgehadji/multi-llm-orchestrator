@@ -50,6 +50,7 @@ class ContextMetrics:
     """Metrics for dependency context injection."""
 
     total_injections: int = 0
+    injections_with_context: int = 0
     contexts_injected: int = 0
     avg_context_size: float = 0.0
     truncations: int = 0
@@ -60,6 +61,7 @@ class ContextMetrics:
         """Convert to dictionary."""
         return {
             "total_injections": self.total_injections,
+            "injections_with_context": self.injections_with_context,
             "contexts_injected": self.contexts_injected,
             "avg_context_size": self.avg_context_size,
             "truncations": self.truncations,
@@ -199,9 +201,10 @@ class DependencyContextInjector:
 
         # Update metrics
         self.metrics.contexts_injected += contexts_added
+        self.metrics.injections_with_context += 1
         self.metrics.avg_context_size = (
-            self.metrics.avg_context_size * (self.metrics.total_injections - 1) + total_chars
-        ) / self.metrics.total_injections
+            self.metrics.avg_context_size * (self.metrics.injections_with_context - 1) + total_chars
+        ) / self.metrics.injections_with_context
 
         logger.info(
             f"Injected context: {contexts_added} dependencies, "

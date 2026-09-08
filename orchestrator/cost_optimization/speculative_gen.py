@@ -39,6 +39,17 @@ from orchestrator.log_config import get_logger
 logger = get_logger(__name__)
 
 
+def _drain_cancelled_task(task: "asyncio.Task[str]") -> None:
+    """Retrieve a cancelled/raced task's outcome so asyncio never logs
+    'exception was never retrieved' for a premium call that finished
+    independently of (or just before) its cancellation."""
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.debug(f"Discarded premium-task outcome after cheap win: {exc!r}")
+
+
 @dataclass
 class SpeculativeMetrics:
     """Metrics for speculative generation."""
@@ -97,17 +108,17 @@ class SpeculativeGenerator:
     # Default model pairs for speculative execution
     DEFAULT_MODEL_PAIRS = {
         "code_generation": {
-            "cheap": "deepseek-chat",
+            "cheap": "deepseek/deepseek-v4-flash",
             "premium": "claude-opus-4.6",
             "threshold": 0.85,
         },
         "code_review": {
-            "cheap": "deepseek-chat",
+            "cheap": "deepseek/deepseek-v4-flash",
             "premium": "claude-sonnet-4.6",
             "threshold": 0.80,
         },
         "decomposition": {
-            "cheap": "deepseek-chat",
+            "cheap": "deepseek/deepseek-v4-flash",
             "premium": "claude-sonnet-4.6",
             "threshold": 0.90,
         },
@@ -240,6 +251,7 @@ class SpeculativeGenerator:
 
                 # Cancel premium task
                 premium_task.cancel()
+                premium_task.add_done_callback(_drain_cancelled_task)
                 self.metrics.cancellations += 1
                 self.metrics.cheap_wins += 1
 
@@ -302,7 +314,7 @@ class SpeculativeGenerator:
             logger.error(f"Speculative generation failed: {e}")
 
             # Try to get any result
-            if cheap_result:
+            if cheap_result is not None:
                 return SpeculativeResult(
                     response=cheap_result,
                     model_used=cheap,

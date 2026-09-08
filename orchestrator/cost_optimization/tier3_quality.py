@@ -287,6 +287,8 @@ class EvalDatasetBuilder:
             self.metrics.avg_score = (
                 self.metrics.avg_score * (self.metrics.total_cases - 1) + avg
             ) / self.metrics.total_cases
+        else:
+            avg = 0.0
 
         # Persist to file
         self._persist_case(test_case)

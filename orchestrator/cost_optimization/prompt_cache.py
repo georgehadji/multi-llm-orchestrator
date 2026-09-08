@@ -12,7 +12,7 @@ Features:
 - Automatic cache invalidation
 
 Usage:
-    from orchestrator.operations.optimization import PromptCacher
+    from orchestrator.cost_optimization.prompt_cache import PromptCacher
 
     cacher = PromptCacher()
     await cacher.warm_cache(system_prompt, project_context)
@@ -84,6 +84,19 @@ class PromptCacher:
         self._cache_entries: dict[str, CacheEntry] = {}
         self._system_prompt_cache: str | None = None
         self._lock = asyncio.Lock()
+
+    @staticmethod
+    def _cache_read_tokens(response: Any) -> int:
+        """Best-effort read of provider-reported cache-hit tokens (0 if
+        absent/unknown) so `hits` only counts an actual cache read, not
+        every successful call (which includes first-time cache writes)."""
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return 0
+        anthropic_val = getattr(usage, "cache_read_input_tokens", 0) or 0
+        details = getattr(usage, "prompt_tokens_details", None)
+        openai_val = (getattr(details, "cached_tokens", 0) or 0) if details else 0
+        return anthropic_val or openai_val
 
     def _compute_cache_key(self, system_prompt: str, project_context: str) -> str:
         """
@@ -221,7 +234,10 @@ class PromptCacher:
 
                 # Track metrics
                 async with self._lock:
-                    self.metrics.hits += 1
+                    if self._cache_read_tokens(response):
+                        self.metrics.hits += 1
+                    else:
+                        self.metrics.misses += 1
                     if cache_key in self._cache_entries:
                         self._cache_entries[cache_key].access_count += 1
                         self._cache_entries[cache_key].last_accessed = time.time()
@@ -233,7 +249,10 @@ class PromptCacher:
                 self.metrics.misses += 1
                 logger.warning("Client does not support caching, using fallback")
                 if self.client:
-                    return await self.client.call(model, system_prompt, **kwargs)
+                    fallback_prompt = "\n\n".join(m.get("content", "") for m in messages)
+                    return await self.client.call(
+                        model, fallback_prompt, system=system_prompt, **kwargs
+                    )
                 raise RuntimeError("No client available for caching")
 
         except Exception as e:
@@ -283,7 +302,10 @@ class PromptCacher:
                 **kwargs,
             )
 
-            self.metrics.hits += 1
+            if self._cache_read_tokens(response):
+                self.metrics.hits += 1
+            else:
+                self.metrics.misses += 1
             logger.debug(f"Anthropic cache hit (model={model})")
             return response
 
@@ -329,7 +351,10 @@ class PromptCacher:
                 **kwargs,
             )
 
-            self.metrics.hits += 1
+            if self._cache_read_tokens(response):
+                self.metrics.hits += 1
+            else:
+                self.metrics.misses += 1
             logger.debug(f"OpenAI cache hit (model={model})")
             return response
 
@@ -357,9 +382,9 @@ class PromptCacher:
     async def clear_cache(self) -> None:
         """Clear all cached entries."""
         async with self._lock:
+            self.metrics.evictions += len(self._cache_entries)
             self._cache_entries.clear()
             self._system_prompt_cache = None
-            self.metrics.evictions += len(self._cache_entries)
             self.metrics.total_size_tokens = 0
 
         logger.info("Cache cleared")
