@@ -156,23 +156,38 @@ class SafeCommand:
                     f"Argument {i} contains shell metacharacters: {repr(arg[:50])}"
                 )
 
-        # Validate executable exists and is not a shell
-        dangerous_executables = {"sh", "bash", "zsh", "cmd", "powershell", "python"}
+        # Validate executable exists and is not a shell/interpreter
+        dangerous_executables = {
+            "sh",
+            "bash",
+            "zsh",
+            "cmd",
+            "powershell",
+            "pwsh",
+            "python",
+            "python3",
+            "node",
+            "perl",
+            "ruby",
+            "php",
+        }
         executable_name = Path(executable).name.lower()
+        if executable_name.endswith(".exe"):
+            executable_name = executable_name[: -len(".exe")]
 
-        # Don't allow direct shell execution
+        # Don't allow direct shell/interpreter execution with inline code.
+        # NOTE: scanning the "-c"/"/c" script argument for _SHELL_METACHARACTERS
+        # (as this block previously did) is not sufficient — the general loop
+        # above already rejects any argument containing a metacharacter, so a
+        # metacharacter-only re-check here can never fire, and an inline script
+        # can reach os.system()/subprocess/etc. without a single metacharacter
+        # (e.g. "__import__('os').system('id')"). Reject "-c"/"/c" outright.
         if executable_name in dangerous_executables and len(self.args) > 1:
             if "-c" in self.args or "/c" in self.args:
-                # Check the script content
-                script_idx = (
-                    self.args.index("-c") + 1 if "-c" in self.args else self.args.index("/c") + 1
+                raise CommandInjectionError(
+                    f"Direct inline-code execution via '{executable_name} -c' "
+                    "is not allowed; write the script to a file and pass its path"
                 )
-                if script_idx < len(self.args):
-                    script = self.args[script_idx]
-                    if any(c in script for c in self._SHELL_METACHARACTERS):
-                        raise CommandInjectionError(
-                            "Shell script contains dangerous metacharacters"
-                        )
 
     def to_list(self) -> list[str]:
         """Return command as list (for subprocess)."""
@@ -192,6 +207,13 @@ class SecureSubprocess:
 
     DEFAULT_TIMEOUT = 300  # 5 minutes
     MAX_OUTPUT_SIZE = 10 * 1024 * 1024  # 10MB
+
+    @classmethod
+    def _truncate(cls, text: str | None) -> str | None:
+        """Cap captured output at MAX_OUTPUT_SIZE (declared, previously unused)."""
+        if text is not None and len(text) > cls.MAX_OUTPUT_SIZE:
+            return text[: cls.MAX_OUTPUT_SIZE] + "\n...[truncated]"
+        return text
 
     @classmethod
     def run(
@@ -250,6 +272,9 @@ class SecureSubprocess:
             **kwargs,
         )
 
+        if capture_output:
+            result.stdout = cls._truncate(result.stdout)
+            result.stderr = cls._truncate(result.stderr)
         return result
 
     @classmethod
@@ -295,8 +320,8 @@ class SecureSubprocess:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
             return (
                 proc.returncode,
-                stdout.decode("utf-8", errors="replace"),
-                stderr.decode("utf-8", errors="replace"),
+                cls._truncate(stdout.decode("utf-8", errors="replace")),
+                cls._truncate(stderr.decode("utf-8", errors="replace")),
             )
         except asyncio.TimeoutError:
             proc.kill()
@@ -353,7 +378,13 @@ class InputValidator:
         # Limit length
         if len(filename) > cls.MAX_FILENAME_LENGTH:
             name, ext = os.path.splitext(filename)
-            filename = name[: cls.MAX_FILENAME_LENGTH - len(ext)] + ext
+            if len(ext) >= cls.MAX_FILENAME_LENGTH:
+                # Extension alone already meets/exceeds the cap — no budget
+                # left for `name`; keep the tail of `ext` instead of letting
+                # a negative slice silently produce an over-length result.
+                filename = ext[-cls.MAX_FILENAME_LENGTH :]
+            else:
+                filename = name[: cls.MAX_FILENAME_LENGTH - len(ext)] + ext
 
         # Ensure not empty after sanitization (whitespace-only becomes empty)
         if not filename:

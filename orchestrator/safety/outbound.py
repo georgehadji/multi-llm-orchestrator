@@ -186,6 +186,8 @@ async def fetch_json(
     Redirects are followed manually so each hop is re-validated; httpx's own
     redirect handling would follow a 302 into the perimeter unchecked.
     """
+    import json
+
     import httpx
 
     current = url
@@ -193,33 +195,37 @@ async def fetch_json(
         check_destination(current)
 
         async with httpx.AsyncClient(follow_redirects=False, timeout=timeout) as client:
-            response = await client.get(current)
+            async with client.stream("GET", current) as response:
+                if response.is_redirect:
+                    location = response.headers.get("location")
+                    if not location:
+                        raise OutboundPolicyError("redirect without a Location header")
+                    # Resolve relative redirects against the current URL, then
+                    # re-run the whole policy on the next iteration.
+                    current = str(httpx.URL(current).join(location))
+                    continue
 
-            if response.is_redirect:
-                location = response.headers.get("location")
-                if not location:
-                    raise OutboundPolicyError("redirect without a Location header")
-                # Resolve relative redirects against the current URL, then
-                # re-run the whole policy on the next iteration.
-                current = str(httpx.URL(current).join(location))
-                continue
+                response.raise_for_status()
 
-            response.raise_for_status()
+                declared = response.headers.get("content-length")
+                if declared is not None and declared.isdigit() and int(declared) > max_bytes:
+                    raise OutboundPolicyError(
+                        f"response declares {declared} bytes, over the {max_bytes} cap"
+                    )
 
-            declared = response.headers.get("content-length")
-            if declared is not None and declared.isdigit() and int(declared) > max_bytes:
-                raise OutboundPolicyError(
-                    f"response declares {declared} bytes, over the {max_bytes} cap"
-                )
+                # Stream and stop as soon as the cap is crossed — a declared or
+                # absent content-length can still lie; this bounds memory even
+                # against a dishonest or chunked/unbounded response.
+                chunks: list[bytes] = []
+                total = 0
+                async for chunk in response.aiter_bytes():
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise OutboundPolicyError(
+                            f"response exceeded the {max_bytes}-byte cap while streaming"
+                        )
+                    chunks.append(chunk)
 
-            body = response.content
-            if len(body) > max_bytes:
-                # Catches a lying or absent content-length, and decompression
-                # bombs, since httpx has already decompressed by here.
-                raise OutboundPolicyError(
-                    f"response is {len(body)} bytes, over the {max_bytes} cap"
-                )
-
-            return response.json()
+                return json.loads(b"".join(chunks))
 
     raise OutboundPolicyError(f"exceeded {max_redirects} redirects")

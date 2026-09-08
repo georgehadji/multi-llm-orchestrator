@@ -196,6 +196,13 @@ class OutputOrganizer:
             if self.run_tests and self.fix_tests and TestFixer is not None:
                 await self._fix_failing_tests()
 
+            # Step 4c: Re-run the security scan. Step 4b can rewrite arbitrary
+            # source files via AutonomousDebugger._apply_fix(), which would
+            # otherwise silently invalidate step 3c's "no blocking findings"
+            # result without the delivered report ever reflecting it.
+            if self.security_scan and self.fix_tests:
+                await self._security_scan()
+
             # Step 5: Organize test files
             await self._organize_test_files()
 

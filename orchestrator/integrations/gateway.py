@@ -240,6 +240,11 @@ class APIGateway:
                 sanitized_headers[key] = value
         request.headers = sanitized_headers
 
+        # The raw key already did its job in authenticate_request(); nothing
+        # downstream (forwarding, logging) needs it, and holding onto it lets
+        # get_request_logs()/request_log retain a live credential indefinitely.
+        request.api_key = None
+
         return request
 
     async def transform_response(self, response: APIResponse, target_service: str) -> APIResponse:

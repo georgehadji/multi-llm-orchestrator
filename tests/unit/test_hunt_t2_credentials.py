@@ -1,212 +1,277 @@
 """
-T2 (credentials & trust boundary) proof-of-defect and no-regression tests.
+V3 precision-audit, tier T2 (credentials & trust boundary): 6 batches across
+security/, safety/, api_clients.py, gateway/, integrations/gateway.py.
 
-Two VERIFIED DEFECTs from docs/hunts/t2-credentials/inventory.md:
-
-C1 — orchestrator/generators/secrets_generator.py was self-referential:
-     `from ..generators.secrets_generator import *` — evaluated from within
-     orchestrator.generators — resolves to orchestrator.generators.
-     secrets_generator, i.e. itself. Since the module was still being
-     initialized (nothing defined yet), `import *` picked up nothing, so
-     the module silently ended up completely empty (zero public names)
-     despite "succeeding". The real 745-line implementation lives at
-     orchestrator/secrets_generator.py (root).
-
-C2 — orchestrator/codebase_writer.py (root) and orchestrator/codebase/
-     writer.py (subpackage) were two independently-diverged copies of the
-     same modification-gate logic. The subpackage version gained
-     SearchReplaceBlock (Aider-style patch parsing) and a pre-destructive-
-     operation snapshot safety net that the root version never got —
-     existing tests import DiffEngine/VerificationResult/CodebaseWriter/
-     ModificationGate from BOTH paths, so picking the "wrong" one silently
-     gave you the weaker, snapshot-less rollback behavior.
-
-C3 — ModificationGate._check_secrets() (orchestrator/codebase/writer.py, the
-     canonical, actually-wired path) appended detected hardcoded-secret
-     patterns to VerificationResult.warnings, but apply() only ever checks
-     .errors to decide whether to block a write — a detected hardcoded
-     password/api_key/secret/token never actually stopped the file from
-     being written. The old message also embedded up to 20 raw characters
-     of the matched secret into the (silently-discarded) warning text.
-
-C4 — Tenant.to_dict() (orchestrator/tenancy.py and the byte-identical
-     orchestrator/integrations/tenancy.py) never serialized the tenant's
-     api_key, so TenantManager._save_tenants() persisted every tenant
-     without its key; _load_tenants() then defaulted it back to "" on
-     restart, silently losing every tenant's real key and colliding every
-     restored tenant onto the same empty-string entry in self.api_keys.
-
-C5 — Found while writing C4's test: orchestrator/integrations/tenancy.py
-     did `from .log_config import get_logger` — correct if evaluated from
-     orchestrator/ (where the byte-identical root tenancy.py actually
-     lives), but this file sits in orchestrator/integrations/, where one
-     dot resolves to the nonexistent orchestrator.integrations.log_config.
-     "Byte-identical" text does not mean "identical behavior" once a
-     single-dot relative import is involved — the same line is only
-     correct at one of the two package depths. Root tenancy.py's own
-     docstring even recommends importing from this broken path.
+Each test proves the defect for the exact predicted reason (RED against the
+pre-fix source) before the fix restores it (GREEN). Sections mirror the
+batch/finding IDs in docs/audits/v3/T2/*.md and docs/audits/v3/LEDGER.md.
 """
 
 from __future__ import annotations
+
+import asyncio
+from unittest.mock import AsyncMock
 
 import pytest
 
 pytestmark = pytest.mark.unit
 
 
-# --- C1 -----------------------------------------------------------------
+# ── Batch 2 (sandbox/execution isolation): SC-1, SC-2, SC-3 ────────────────
 
 
-@pytest.mark.unit
-def test_c1_generators_secrets_generator_is_not_empty():
-    import orchestrator.generators.secrets_generator as mod
+def test_sc1_safecommand_blocks_python_dash_c_reproducer() -> None:
+    """Fires SC-1 without the fix; passes with it. Violated property: SafeCommand
+    must reject interpreter '-c'/'/c' inline-code execution, not merely scan the
+    script text for shell metacharacters."""
+    from orchestrator.safety.secure_execution import CommandInjectionError, SafeCommand
 
-    public_names = [n for n in dir(mod) if not n.startswith("_")]
-    assert public_names, "orchestrator.generators.secrets_generator is empty"
-
-
-@pytest.mark.unit
-def test_c1_generators_secrets_generator_exposes_canonical_classes():
-    from orchestrator.generators.secrets_generator import EnvFileBuilder, SecretsGenerator
-    from orchestrator.secrets_generator import EnvFileBuilder as canonical_efb
-    from orchestrator.secrets_generator import SecretsGenerator as canonical_sg
-
-    assert SecretsGenerator is canonical_sg
-    assert EnvFileBuilder is canonical_efb
+    payload = ["python", "-c", "__import__('os').system('id')"]
+    with pytest.raises(CommandInjectionError):
+        SafeCommand(payload)
 
 
-@pytest.mark.unit
-def test_c1_secrets_generator_still_masks_no_hardcoded_defaults():
-    """No-regression sanity check on the real generator this shim now exposes:
-    generated secrets must not be a fixed, guessable string."""
-    from orchestrator.generators.secrets_generator import SecretsGenerator
+def test_sc1_safecommand_blocks_python3_and_exe_suffix() -> None:
+    """Covers the two secondary bypasses folded into the same fix: executable
+    name matching didn't account for 'python3' or a Windows '.exe' suffix."""
+    from orchestrator.safety.secure_execution import CommandInjectionError, SafeCommand
 
-    a = SecretsGenerator.create_generic_secret(32)
-    b = SecretsGenerator.create_generic_secret(32)
-    assert a != b
-    assert len(a) > 0
+    for exe in ("python3", "python.exe", "PYTHON.EXE"):
+        with pytest.raises(CommandInjectionError):
+            SafeCommand([exe, "-c", "__import__('os').system('id')"])
 
 
-# --- C2 -------------------------------------------------------------------
+def test_sc2_secure_subprocess_caps_output_reproducer(tmp_path) -> None:
+    """Fires SC-2 without the fix; passes with it. Violated property:
+    SecureSubprocess.MAX_OUTPUT_SIZE must actually bound returned output.
+    Uses a real script file (not -c) so this is independent of SC-1's fix."""
+    from orchestrator.safety.secure_execution import SecureSubprocess
+
+    big = SecureSubprocess.MAX_OUTPUT_SIZE + 1000
+    script = tmp_path / "big_output.py"
+    script.write_text(f"print('x' * {big})", encoding="utf-8")
+    # Pass a bare relative filename + cwd, not the absolute path: a native
+    # Windows absolute path contains '\', which SafeCommand's own
+    # _SHELL_METACHARACTERS blacklist rejects (a separate, pre-existing bug —
+    # see the spawned follow-up task) and that would fail this test for the
+    # wrong reason.
+    result = SecureSubprocess.run(["python", script.name], cwd=tmp_path, timeout=60)
+    assert len(result.stdout) <= SecureSubprocess.MAX_OUTPUT_SIZE + len("\n...[truncated]")
 
 
-@pytest.mark.unit
-def test_c2_root_codebase_writer_modification_gate_is_canonical():
-    from orchestrator.codebase.writer import ModificationGate as canonical
-    from orchestrator.codebase_writer import ModificationGate as via_root
+def test_sc3_sanitize_filename_never_exceeds_cap_reproducer() -> None:
+    """Fires SC-3 without the fix; passes with it. Violated property:
+    sanitize_filename's output must never exceed MAX_FILENAME_LENGTH."""
+    from orchestrator.safety.secure_execution import InputValidator
 
-    assert via_root is canonical
-
-
-@pytest.mark.unit
-def test_c2_root_codebase_writer_exposes_search_replace_support():
-    """No-regression: SearchReplaceBlock (only ever defined in the subpackage
-    version) must now be reachable via the root import path too."""
-    from orchestrator.codebase_writer import SearchReplaceBlock
-
-    block = SearchReplaceBlock(search="old", replace="new", target_file="f.py")
-    assert block.search == "old"
-    assert block.replace == "new"
+    dirty = "a." + "x" * 300  # extension alone (301 chars) exceeds the 255 cap
+    clean = InputValidator.sanitize_filename(dirty)
+    assert len(clean) <= InputValidator.MAX_FILENAME_LENGTH
 
 
-@pytest.mark.unit
-def test_c2_root_codebase_writer_still_exposes_pre_existing_names():
-    """No-regression: the names existing tests already import from the root
-    path must still resolve after the shim conversion."""
-    import orchestrator.codebase_writer as mod
-
-    for name in ("DiffEngine", "VerificationResult", "CodebaseWriter", "ModificationGate"):
-        assert hasattr(mod, name), f"{name} missing from codebase_writer shim"
+# ── Batch 3 (input/output validation & scanning): B3-GOS-01, B3-GOS-04, B3-WIRE-01 ──
 
 
-# --- C3 -------------------------------------------------------------------
+def test_b3_gos_01_dotenv_files_are_scanned(tmp_path) -> None:
+    """Fires B3-GOS-01 without the fix; passes with it. Violated property:
+    every file whose type is declared scannable (.env is explicitly listed
+    in _SCAN_SUFFIXES) is actually scanned before delivery."""
+    from orchestrator.safety.generated_output_scanner import scan_output_dir
+
+    (tmp_path / ".env").write_text('DB_PASSWORD="supersecret123"\n', encoding="utf-8")
+    (tmp_path / ".env.production").write_text('API_KEY="AKIAABCDEFGHIJKLMNOP"\n', encoding="utf-8")
+
+    report = scan_output_dir(tmp_path)
+
+    if report.files_scanned == 0:
+        pytest.fail("defect still present: .env files are never scanned")
+    assert report.files_scanned >= 2
+    assert any(f.rule == "aws-access-key" for f in report.findings)
 
 
-@pytest.mark.unit
-def test_c3_detected_secret_blocks_via_errors_not_warnings():
-    """The core defect: a hardcoded secret must land in .errors (which apply()
-    checks), not .warnings (which apply() never reads)."""
-    from orchestrator.codebase.writer import ModificationGate, VerificationResult
+def test_b3_gos_04_real_secret_in_example_file_is_still_flagged(tmp_path) -> None:
+    """Fires B3-GOS-04 without the fix; passes with it. Violated property: a
+    real (non-placeholder) secret must be flagged regardless of which file
+    it is found in, including *.example files."""
+    from orchestrator.safety.generated_output_scanner import scan_output_dir
 
-    result = VerificationResult()
-    gate = ModificationGate()
-
-    gate._check_secrets('api_key = "sk-realsecretvalue1234567890"', result)
-
-    assert result.errors, "hardcoded secret must be recorded as a blocking error"
-    assert not result.warnings, "must not also land in warnings (apply() never reads them)"
-
-
-@pytest.mark.unit
-def test_c3_detected_secret_message_does_not_echo_the_value():
-    """No further leakage: the error message must not contain the actual
-    secret value, only that one was found."""
-    from orchestrator.codebase.writer import ModificationGate, VerificationResult
-
-    secret_value = "sk-realsecretvalue1234567890"
-    result = VerificationResult()
-    gate = ModificationGate()
-
-    gate._check_secrets(f'api_key = "{secret_value}"', result)
-
-    assert all(secret_value not in msg for msg in result.errors)
-
-
-@pytest.mark.unit
-def test_c3_clean_content_has_no_errors_or_warnings():
-    """No-regression: content with no secret-shaped strings must pass clean."""
-    from orchestrator.codebase.writer import ModificationGate, VerificationResult
-
-    result = VerificationResult()
-    gate = ModificationGate()
-
-    gate._check_secrets("def handler(): return {'status': 'ok'}", result)
-
-    assert not result.errors
-    assert not result.warnings
-
-
-# --- C4 -------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "module_path", ["orchestrator.tenancy", "orchestrator.integrations.tenancy"]
-)
-@pytest.mark.unit
-def test_c4_tenant_to_dict_includes_api_key(module_path):
-    import importlib
-
-    mod = importlib.import_module(module_path)
-    tenant = mod.Tenant(
-        id="t1", name="Acme", plan=mod.PLANS[mod.PlanTier.FREE], api_key="real-key-123"
+    (tmp_path / ".env.example").write_text(
+        'db_password = "actualRealSecretValue123"\n', encoding="utf-8"
     )
 
-    d = tenant.to_dict()
+    report = scan_output_dir(tmp_path)
 
-    assert d.get("api_key") == "real-key-123"
-
-
-@pytest.mark.unit
-def test_c5_integrations_tenancy_module_actually_imports():
-    """The core defect: orchestrator.integrations.tenancy must import
-    cleanly, not raise ModuleNotFoundError on its own log_config import."""
-    import orchestrator.integrations.tenancy  # noqa: F401
+    if not any(f.rule == "hardcoded-secret-assignment" for f in report.findings):
+        pytest.fail("defect still present: real secret in *.example file went unflagged")
 
 
-@pytest.mark.asyncio
-async def test_c4_tenant_manager_survives_restart_with_same_api_key(tmp_path):
-    """Real trigger: create a tenant, force a save, construct a FRESH
-    TenantManager against the same storage path (simulating a restart), and
-    confirm the api_key round-trips instead of coming back empty."""
-    from orchestrator.tenancy import TenantManager
+async def test_b3_wire_01_rescans_after_fix_tests_engaged(tmp_path, monkeypatch) -> None:
+    """Fires B3-WIRE-01 without the fix; passes with it. Violated property:
+    security_report must reflect content after step 4b (test-fixing) can
+    mutate files, not just the one scan that ran before it."""
+    from orchestrator.output_organizer import OutputOrganizer
 
-    mgr1 = TenantManager(storage_path=str(tmp_path))
-    tenant = await mgr1.create_tenant(name="Acme", plan_name="free")
-    original_key = tenant.api_key
-    assert original_key
+    organizer = OutputOrganizer(
+        tmp_path,
+        auto_generate_tests=False,
+        run_tests=True,
+        fix_tests=True,
+        format_code=False,
+        security_scan=True,
+    )
+    scan_calls = 0
 
-    mgr2 = TenantManager(storage_path=str(tmp_path))
-    reloaded = mgr2.tenants[tenant.id]
+    async def fake_scan():
+        nonlocal scan_calls
+        scan_calls += 1
 
-    assert reloaded.api_key == original_key
-    assert mgr2.api_keys.get(original_key) == tenant.id
+    async def fake_noop(*_a, **_kw):
+        return None
+
+    monkeypatch.setattr(organizer, "_organize_task_files", fake_noop)
+    monkeypatch.setattr(organizer, "_detect_source_files", lambda: [])
+    monkeypatch.setattr(organizer, "_security_scan", fake_scan)
+    monkeypatch.setattr(organizer, "_run_all_tests", fake_noop)
+    monkeypatch.setattr(organizer, "_fix_failing_tests", fake_noop)
+    monkeypatch.setattr(organizer, "_organize_test_files", fake_noop)
+    monkeypatch.setattr(organizer, "_print_summary", lambda: None)
+    monkeypatch.setattr(organizer, "_save_report", lambda: None)
+
+    await organizer.organize_project()
+
+    if scan_calls < 2:
+        pytest.fail(
+            f"defect still present: _security_scan called {scan_calls}x, "
+            "expected 2 (once before, once after the fix_tests step)"
+        )
+
+
+# ── Batch 5 (security scoring/posture/templates): T2-B5-06, T2-B5-07 ───────
+
+
+def test_t2b506_secret_not_hidden_by_unrelated_allow_keyword(tmp_path) -> None:
+    """Fires T2-B5-06 without the fix; passes with it.
+    Violated property: a real hardcoded secret must be flagged even when the
+    same line also contains an unrelated placeholder-shaped substring."""
+    from orchestrator.safety.architecture_scorer import ArchitectureScorer
+
+    leak = tmp_path / "leak.py"
+    leak.write_text(
+        'OPENAI_API_KEY = "sk-proj-abc123def456ghi789jkl012mno345pqr"  '
+        "# see <https://dashboard.example.com/keys>\n",
+        encoding="utf-8",
+    )
+    hits = ArchitectureScorer()._find_hardcoded_secrets([leak])
+    if not hits:
+        pytest.fail(
+            "defect still present: secret co-located with 'example'/'<...>' went undetected"
+        )
+
+
+def test_t2b507_unpinned_pyproject_is_not_credited_as_pinned(tmp_path) -> None:
+    """Fires T2-B5-07 without the fix; passes with it.
+    Violated property: '+2 dependencies are version-pinned' must require an
+    actual exact pin, not merely the presence of a pyproject.toml file."""
+    from orchestrator.safety.architecture_scorer import ArchitectureScorer
+
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\ndependencies = ["fastapi>=0.100", "uvicorn~=0.29"]\n',
+        encoding="utf-8",
+    )
+    pinned = ArchitectureScorer()._has_pinned_deps(tmp_path, "pyproject.toml")
+    if pinned:
+        pytest.fail("defect still present: unpinned pyproject.toml credited as pinned")
+
+
+def test_t2b507_pinned_requirements_still_credited(tmp_path) -> None:
+    """Guards the fix's own boundary: a genuinely fully-pinned requirements.txt
+    must still be credited (regression guard against over-tightening)."""
+    from orchestrator.safety.architecture_scorer import ArchitectureScorer
+
+    (tmp_path / "requirements.txt").write_text(
+        "fastapi==0.110.0\nuvicorn==0.29.0\n", encoding="utf-8"
+    )
+    assert ArchitectureScorer()._has_pinned_deps(tmp_path, "requirements.txt") is True
+
+
+# ── Batch 1 (auth/gateway/egress boundary): B1-GW-01, B1-OB-01 ─────────────
+
+
+def test_b1_gw_01_raw_key_not_retained_after_transform() -> None:
+    """Fires B1-GW-01 without the fix; passes with it. Violated property:
+    a bearer credential must not survive the sanitization step that already
+    exists for exactly this class of data."""
+    from orchestrator.integrations.gateway import APIGateway, APIRequest
+
+    async def _run() -> None:
+        gw = APIGateway()
+        raw_key = gw.register_api_key("test-user", ["read"])
+        req = APIRequest(method="GET", url="/health", headers={"X-API-Key": raw_key})
+        assert await gw.authenticate_request(req) is True
+        assert req.api_key == raw_key  # sanity: auth really did set it
+
+        transformed = await gw.transform_request(req, "health_service")
+        if transformed.api_key == raw_key:
+            pytest.fail("defect still present: raw API key survives transform_request()")
+        assert transformed.api_key is None
+
+    asyncio.run(_run())
+
+
+def test_b1_ob_01_fetch_json_bounds_memory_during_download(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fires B1-OB-01 without the fix; passes with it. Violated property:
+    fetch_json's max_bytes cap must bound how much of an oversized response
+    is ever buffered, not just detect the overage after full download.
+
+    outbound.py's fetch_json() does `import httpx` LOCALLY inside the
+    function, so `outbound.httpx` is never a module attribute — patching
+    must target the real top-level httpx module (the same sys.modules
+    entry fetch_json's local import resolves to), not outbound.httpx."""
+    import httpx
+
+    import orchestrator.safety.outbound as outbound
+
+    huge_chunk = b"x" * 1024
+
+    class _FakeStreamResponse:
+        is_redirect = False
+        headers: dict[str, str] = {}
+
+        def raise_for_status(self) -> None:
+            return None
+
+        async def aiter_bytes(self):
+            for _ in range(10_000):
+                yield huge_chunk
+
+    class _FakeStreamCtx:
+        async def __aenter__(self) -> _FakeStreamResponse:
+            return _FakeStreamResponse()
+
+        async def __aexit__(self, *exc: object) -> None:
+            return None
+
+    class _FakeClient:
+        def __init__(self, *a: object, **kw: object) -> None:
+            pass
+
+        async def __aenter__(self) -> "_FakeClient":
+            return self
+
+        async def __aexit__(self, *exc: object) -> None:
+            return None
+
+        def stream(self, method: str, url: str) -> _FakeStreamCtx:
+            return _FakeStreamCtx()
+
+    monkeypatch.setattr(outbound, "check_destination", lambda url: None)
+    monkeypatch.setattr(httpx, "AsyncClient", _FakeClient)
+
+    async def _run() -> None:
+        with pytest.raises(outbound.OutboundPolicyError, match="exceeded the .* cap"):
+            await outbound.fetch_json("https://example.com/spec.json", max_bytes=4096)
+
+    try:
+        asyncio.run(_run())
+    except Exception:
+        pytest.fail("defect still present: fetch_json did not bound streamed bytes")

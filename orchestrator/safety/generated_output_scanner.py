@@ -228,6 +228,14 @@ _INSECURE_PATTERNS: list[tuple[str, Severity, re.Pattern, str]] = [
 ]
 
 
+# Dotenv-style files (".env", ".env.local", ".env.production", ...) have no
+# usable Path.suffix — a bare ".env" yields suffix == "" and ".env.local"
+# yields suffix == ".local" (Python only returns the *last* dot-segment, and
+# never treats a leading dot as introducing one), so neither ever matches the
+# literal ".env" entry in _SCAN_SUFFIXES. Match by name for this convention.
+_DOTENV_NAME_RE = re.compile(r"(?i)^\.env(\..+)?$")
+
+
 def _iter_scannable_files(root: Path):
     """Yield text source files under root, skipping vendored/build/binary paths."""
     for path in root.rglob("*"):
@@ -235,7 +243,7 @@ def _iter_scannable_files(root: Path):
             continue
         if any(part in _SKIP_DIRS for part in path.parts):
             continue
-        if path.suffix.lower() not in _SCAN_SUFFIXES:
+        if path.suffix.lower() not in _SCAN_SUFFIXES and not _DOTENV_NAME_RE.match(path.name):
             continue
         try:
             if path.stat().st_size > _MAX_FILE_BYTES:
@@ -252,19 +260,22 @@ def _scan_text(rel_path: str, is_example: bool, text: str) -> list[Finding]:
         for name, sev, pattern, detail in _RULES:
             if pattern.search(line):
                 findings.append(Finding(rel_path, lineno, sev, name, detail))
-        # Assignment-style secrets — skip placeholders and .example files
-        if not is_example:
-            m = _ASSIGN_SECRET_RE.search(line)
-            if m and not _is_placeholder(m.group(2)):
-                findings.append(
-                    Finding(
-                        rel_path,
-                        lineno,
-                        "HIGH",
-                        "hardcoded-secret-assignment",
-                        f"Hardcoded {m.group(1).lower()} literal — read from environment instead",
-                    )
+        # Assignment-style secrets — a real (non-placeholder-looking) value
+        # is still a leak even inside a *.example/.env.example template, so
+        # only downgrade severity there instead of skipping the check
+        # outright (which previously made _is_placeholder unreachable for
+        # every example file, real value or not).
+        m = _ASSIGN_SECRET_RE.search(line)
+        if m and not _is_placeholder(m.group(2)):
+            findings.append(
+                Finding(
+                    rel_path,
+                    lineno,
+                    "MEDIUM" if is_example else "HIGH",
+                    "hardcoded-secret-assignment",
+                    f"Hardcoded {m.group(1).lower()} literal — read from environment instead",
                 )
+            )
         # Insecure code patterns (apply even to examples)
         for name, sev, pattern, detail in _INSECURE_PATTERNS:
             if pattern.search(line):

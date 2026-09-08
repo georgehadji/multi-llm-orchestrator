@@ -486,31 +486,52 @@ class ArchitectureScorer:
             except OSError:
                 continue
             for line in text.splitlines():
-                if _SECRET_ALLOW.search(line):
+                # Check the allow-list against the *matched secret substring*,
+                # not the whole line -- an unrelated "example"/"<...>" token
+                # elsewhere on the same line (a comment, a doc URL) must not
+                # exempt a genuine, co-located hardcoded secret.
+                for pat in _SECRET_PATTERNS:
+                    m = pat.search(line)
+                    if m and not _SECRET_ALLOW.search(m.group(0)):
+                        hits.add(f.name)
+                        break
+                else:
                     continue
-                if any(pat.search(line) for pat in _SECRET_PATTERNS):
-                    hits.add(f.name)
-                    break
+                break
         return hits
 
     @staticmethod
     def _has_pinned_deps(root: Path, manifest: str | None) -> bool:
         if manifest == "requirements.txt":
             try:
-                return "==" in (root / manifest).read_text(encoding="utf-8", errors="replace")
+                text = (root / manifest).read_text(encoding="utf-8", errors="replace")
             except OSError:
                 return False
-        if manifest in ("package.json",):
+            deps = [
+                ln.strip()
+                for ln in text.splitlines()
+                if ln.strip() and not ln.strip().startswith("#")
+            ]
+            return bool(deps) and all("==" in dep for dep in deps)
+        if manifest == "package.json":
             try:
-                return bool(
-                    re.search(
-                        r'"\^?~?\d+\.\d+',
-                        (root / manifest).read_text(encoding="utf-8", errors="replace"),
-                    )
-                )
+                text = (root / manifest).read_text(encoding="utf-8", errors="replace")
             except OSError:
                 return False
-        return manifest in ("pyproject.toml", "go.mod", "Cargo.toml")
+            # A caret/tilde-prefixed range ("^1.2.3"/"~1.2.3") is npm's
+            # explicitly *unpinned* convention -- it must not count as pinned
+            # merely because it also contains a "digit.digit" shape.
+            return bool(re.search(r'"\d+\.\d+', text)) and not re.search(r'"[\^~]\d', text)
+        if manifest in ("pyproject.toml", "go.mod", "Cargo.toml"):
+            try:
+                text = (root / manifest).read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                return False
+            # Exact-pin markers: pip/PEP 621 "==", Poetry/Cargo-style
+            # 'name = "1.2.3"'. A manifest with only caret/tilde/range
+            # operators (each ecosystem's default) is not considered pinned.
+            return bool(re.search(r'==\s*\d|=\s*"\d+\.\d+\.\d+"', text))
+        return False
 
     def _detect_pattern(self, files: list[Path]) -> str:
         layers = {self._classify_layer(f) for f in files}
