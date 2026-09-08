@@ -55,6 +55,10 @@ STORE_PATH_ENV = "ORCHESTRATOR_API_KEY_STORE"
 #: compromised issuing path cannot quietly mint thousands.
 MAX_KEYS_PER_PRINCIPAL = 10
 
+#: How long a revoked/expired record is kept around (for audit/debugging)
+#: before being pruned. Bounds store growth over the process/deployment's life.
+_RETENTION_SECONDS = 30 * 24 * 3600
+
 KEY_PREFIX = "orchestrator_"
 _TOKEN_BYTES = 32
 
@@ -202,6 +206,7 @@ class KeyStore:
         )
 
         with self._lock:
+            self._prune_expired(now)
             active = sum(
                 1
                 for r in self._records.values()
@@ -218,6 +223,22 @@ class KeyStore:
         logger.info("Issued key %s for principal %s", record.key_id, principal_id)
         return raw_key, record
 
+    def _prune_expired(self, now: float) -> None:
+        """Drop records inactive for over `_RETENTION_SECONDS`.
+
+        Caller must already hold `self._lock`. Without this, `_records` (and
+        the on-disk store) grow once per issued key for the life of the
+        process, and every issue()/revoke() rewrites the whole file.
+        """
+        cutoff = now - _RETENTION_SECONDS
+        stale = [
+            key_id
+            for key_id, r in self._records.items()
+            if not r.is_active(now) and max(r.revoked_at or 0.0, r.expires_at or 0.0) < cutoff
+        ]
+        for key_id in stale:
+            del self._records[key_id]
+
     def verify(self, raw_key: str) -> Principal | None:
         """Resolve `raw_key` to a `Principal`, or None if it is not usable."""
         if not raw_key or not isinstance(raw_key, str) or not raw_key.strip():
@@ -227,19 +248,21 @@ class KeyStore:
         now = time.time()
 
         with self._lock:
+            # Compare against every record before deciding: stopping at the
+            # first match makes verify() take less time the earlier a match
+            # falls in iteration order, leaking match-existence/position.
+            matched: KeyRecord | None = None
             for record in self._records.values():
-                # compare_digest on every candidate: returning early on the
-                # first match would leak which records exist by timing.
-                if not hmac.compare_digest(record.digest, candidate):
-                    continue
-                if not record.is_active(now):
-                    return None
-                return Principal(
-                    id=record.principal_id,
-                    key_id=record.key_id,
-                    permissions=record.permissions,
-                )
-        return None
+                if hmac.compare_digest(record.digest, candidate):
+                    matched = record
+
+            if matched is None or not matched.is_active(now):
+                return None
+            return Principal(
+                id=matched.principal_id,
+                key_id=matched.key_id,
+                permissions=matched.permissions,
+            )
 
     def revoke(self, key_id: str) -> bool:
         """Revoke a key. False if it was unknown or already revoked."""
@@ -268,7 +291,11 @@ class KeyStore:
         if record is None:
             raise KeyStoreError(f"unknown key {key_id!r}")
 
-        self.revoke(key_id)
+        if not self.revoke(key_id):
+            # Concurrently revoked (or already revoked) between the read
+            # above and here — do not mint a fresh key under an identity
+            # someone else just killed.
+            raise KeyStoreError(f"key {key_id!r} was concurrently revoked; rotate aborted")
         return self.issue(record.principal_id, record.permissions)
 
     def list_for(self, principal_id: str) -> list[KeyRecord]:

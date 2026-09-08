@@ -305,7 +305,14 @@ class APIGateway:
             return response
 
         # Check rate limit
-        client_id = request.api_key or request.client_ip or "anonymous"
+        # Bucket by a hash of the key, never the raw bearer credential itself —
+        # rate_limits is never pruned, so a raw key used as its dict key would
+        # sit in memory, usable, for the life of the process (B1-GW-02).
+        client_id = (
+            hashlib.sha256(request.api_key.encode("utf-8")).hexdigest()
+            if request.api_key
+            else request.client_ip or "anonymous"
+        )
         allowed, remaining, reset_time = self.check_rate_limit(client_id)
 
         if not allowed:
@@ -349,7 +356,7 @@ class APIGateway:
                 status_code=500,
                 headers={"Content-Type": "application/json"},
                 body=json.dumps({"error": "Internal server error"}),
-                error=str(e),
+                error="Internal server error",
             )
             self._log_request_response(request, response)
             return response

@@ -177,6 +177,7 @@ class Sandbox:
         if input_file:
             stdin = open(input_file)
 
+        proc = None
         try:
             # Run the command with timeout
             proc = await asyncio.wait_for(

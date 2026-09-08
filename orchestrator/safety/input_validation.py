@@ -231,7 +231,10 @@ class ZodSchemaVisitor(SchemaVisitor):
         if field.pattern:
             # Escape backslashes for JavaScript regex
             escaped_pattern = field.pattern.replace("\\", "\\\\")
-            schema += f".regex({escaped_pattern})"
+            # Zod's .regex() expects an actual RegExp literal, not a bare
+            # identifier/string — wrap it in / … / delimiters.
+            escaped_pattern = escaped_pattern.replace("/", "\\/")
+            schema += f".regex(/{escaped_pattern}/)"
         if field.enum_values:
             values_str = ", ".join(f'"{v}"' for v in field.enum_values)
             schema = f"z.enum([{values_str}])"
@@ -254,7 +257,7 @@ class ZodSchemaVisitor(SchemaVisitor):
 
         if field.min_value is not None:
             schema += f".min({field.min_value})"
-        if field.field.max_value is not None:
+        if field.max_value is not None:
             schema += f".max({field.max_value})"
         if field.integer_only:
             schema += ".int()"
@@ -376,7 +379,9 @@ class JoiSchemaVisitor(SchemaVisitor):
         if field.max_length < 255:
             schema += f".max({field.max_length})"
         if field.pattern:
-            schema += f".pattern({field.pattern})"
+            # Joi's .pattern() also expects a RegExp literal, not a bare string.
+            escaped_pattern = field.pattern.replace("\\", "\\\\").replace("/", "\\/")
+            schema += f".pattern(/{escaped_pattern}/)"
         if field.enum_values:
             values_str = ", ".join(f'"{v}"' for v in field.enum_values)
             schema += f".valid({values_str})"

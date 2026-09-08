@@ -136,7 +136,7 @@ _PLACEHOLDER_RE = re.compile(
 
 def _is_placeholder(value: str) -> bool:
     v = value.strip().strip("\"'")
-    if not v or len(v) < 8:
+    if len(v) < 3:
         return True
     return bool(_PLACEHOLDER_RE.search(v))
 
@@ -204,7 +204,7 @@ _INSECURE_PATTERNS: list[tuple[str, Severity, re.Pattern, str]] = [
     (
         "flask-debug-true",
         "HIGH",
-        re.compile(r"\.run\([^)]*debug\s*=\s*True"),
+        re.compile(r"\.run\([^)]*\bdebug\s*=\s*True"),
         "Flask/web server started with debug=True — disable in production",
     ),
     (
@@ -222,7 +222,7 @@ _INSECURE_PATTERNS: list[tuple[str, Severity, re.Pattern, str]] = [
     (
         "verify-ssl-false",
         "HIGH",
-        re.compile(r"verify\s*=\s*False"),
+        re.compile(r"\bverify\s*=\s*False"),
         "TLS verification disabled (verify=False) — do not ship this",
     ),
 ]
@@ -255,7 +255,8 @@ def _iter_scannable_files(root: Path):
 
 def _scan_text(rel_path: str, is_example: bool, text: str) -> list[Finding]:
     findings: list[Finding] = []
-    for lineno, line in enumerate(text.splitlines(), start=1):
+    lines = text.splitlines()
+    for lineno, line in enumerate(lines, start=1):
         # High-precision token rules
         for name, sev, pattern, detail in _RULES:
             if pattern.search(line):
@@ -265,7 +266,14 @@ def _scan_text(rel_path: str, is_example: bool, text: str) -> list[Finding]:
         # only downgrade severity there instead of skipping the check
         # outright (which previously made _is_placeholder unreachable for
         # every example file, real value or not).
-        m = _ASSIGN_SECRET_RE.search(line)
+        # Also probe a 2-line window: a key and its literal value can be
+        # split across lines (continuation, or a dict key on one line with
+        # the value on the next) and are invisible to a pure per-line regex.
+        # Strip a trailing line-continuation backslash before joining — left
+        # in place, it sits between "=" and the quote and breaks the
+        # \s*[:=]\s* adjacency the regex requires.
+        window = line if lineno == len(lines) else line.rstrip("\\") + " " + lines[lineno]
+        m = _ASSIGN_SECRET_RE.search(line) or _ASSIGN_SECRET_RE.search(window)
         if m and not _is_placeholder(m.group(2)):
             findings.append(
                 Finding(

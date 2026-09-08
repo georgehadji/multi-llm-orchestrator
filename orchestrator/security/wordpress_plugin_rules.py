@@ -515,12 +515,12 @@ esc_html__( 'Hello World', '{text_domain}' );            // Return + escape
         """
         Recommend architecture path based on requirements.
         """
-        if public_distribution or team_size > 1 or complexity == "complex":
+        if complexity == "complex" and not public_distribution and team_size <= 1:
+            return "headless"
+        elif public_distribution or team_size > 1 or complexity == "complex":
             return "modular_oop"
         elif timeline == "tight" and complexity == "simple":
             return "lightweight"
-        elif complexity == "complex" and not public_distribution:
-            return "headless"
 
         return "modular_oop"
 
@@ -535,7 +535,7 @@ esc_html__( 'Hello World', '{text_domain}' );            // Return + escape
 
         # Generate namespace
         namespace_parts = [p.capitalize() for p in slug.split("-")]
-        namespace = "\\\\".join(namespace_parts)
+        namespace = "\\".join(namespace_parts)
 
         # Generate prefix
         prefix = slug.replace("-", "_") + "_"

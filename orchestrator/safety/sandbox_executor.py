@@ -47,6 +47,7 @@ class SandboxExecutor:
         self.project_dir = Path(project_dir)
         self._sandbox_dir = self.project_dir / ".sandbox"
         self._pending: SandboxResult | None = None
+        self._task_id: str | None = None
 
     async def run(self, task_id, code, output_path, test_command=""):
         """Execute code in a sandboxed temp directory and capture diff.
@@ -60,12 +61,21 @@ class SandboxExecutor:
         Returns:
             SandboxResult with diff and execution output
         """
+        from .secure_execution import PathTraversalError, SecurePath
+
         t0 = time.monotonic()
+        self._task_id = task_id
         sandbox = self._sandbox_dir / task_id
         sandbox.mkdir(parents=True, exist_ok=True)
 
-        # Write code to sandbox
-        target = sandbox / output_path
+        # Write code to sandbox — reject an output_path that escapes it
+        # (absolute path or "..") instead of writing wherever it resolves to.
+        try:
+            target = SecurePath(sandbox, str(output_path)).resolved
+        except PathTraversalError:
+            return SandboxResult(
+                success=False, error=f"output_path escapes sandbox: {output_path!r}"
+            )
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(code, encoding="utf-8")
 
@@ -78,9 +88,14 @@ class SandboxExecutor:
             # travels with a cloned or generated project — `pytest; curl evil`
             # would otherwise be two commands here, in the module named
             # "sandbox" (SEC-003).
-            argv = (
-                shlex.split(test_command) if isinstance(test_command, str) else list(test_command)
-            )
+            try:
+                argv = (
+                    shlex.split(test_command)
+                    if isinstance(test_command, str)
+                    else list(test_command)
+                )
+            except ValueError as exc:
+                return SandboxResult(success=False, error=f"Invalid test command syntax: {exc}")
             if not argv:
                 return SandboxResult(success=False, error="empty test command")
             try:
@@ -132,10 +147,19 @@ class SandboxExecutor:
         r = result or self._pending
         if not r or not r.review_approved:
             return False
+        if not self._task_id:
+            return False
+
+        from .secure_execution import PathTraversalError, SecurePath
+
+        task_sandbox = self._sandbox_dir / self._task_id
 
         for filepath in r.files_changed:
-            src = self._sandbox_dir / "task" / filepath
-            dst = self.project_dir / filepath
+            try:
+                src = SecurePath(task_sandbox, str(filepath)).resolved
+                dst = SecurePath(self.project_dir, str(filepath)).resolved
+            except PathTraversalError:
+                continue
             if src.exists():
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src, dst)

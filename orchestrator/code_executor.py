@@ -194,13 +194,27 @@ class CodeExecutor:
             code_files = {"script": code}
             command = "./script"
 
-        # Execute in sandbox
-        result = await sandbox.execute(
-            code_files=code_files,
-            command=command,
-            timeout=timeout or self.config.sandbox_timeout,
-            environment=env,
-        )
+        # DockerSandbox.execute() can raise (Docker daemon disappearing
+        # mid-call, image pull failure, container creation error, etc.) —
+        # catch it so this method upholds the same "always return an
+        # ExecutionResult" contract _execute_local already does, instead of
+        # propagating an unhandled exception from the default/secure path.
+        try:
+            result = await sandbox.execute(
+                code_files=code_files,
+                command=command,
+                timeout=timeout or self.config.sandbox_timeout,
+                environment=env,
+            )
+        except Exception as exc:
+            logger.error("Docker sandbox execution failed: %s", exc)
+            return ExecutionResult(
+                success=False,
+                output="",
+                error=f"Sandbox execution failed: {exc}",
+                sandbox_used=True,
+                security_warnings=security_warnings + [f"Sandbox error: {exc}"],
+            )
 
         return ExecutionResult(
             success=result.return_code == 0,
@@ -262,10 +276,11 @@ class CodeExecutor:
 
             execution_time = (time.time() - start_time) * 1000
 
+            cap = self.config.max_output_size
             return ExecutionResult(
                 success=proc.returncode == 0,
-                output=stdout.decode("utf-8", errors="replace"),
-                error=stderr.decode("utf-8", errors="replace"),
+                output=stdout.decode("utf-8", errors="replace")[:cap],
+                error=stderr.decode("utf-8", errors="replace")[:cap],
                 exit_code=proc.returncode or 0,
                 execution_time_ms=execution_time,
                 sandbox_used=False,

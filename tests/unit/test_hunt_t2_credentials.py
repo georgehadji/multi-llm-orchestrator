@@ -275,3 +275,408 @@ def test_b1_ob_01_fetch_json_bounds_memory_during_download(monkeypatch: pytest.M
         asyncio.run(_run())
     except Exception:
         pytest.fail("defect still present: fetch_json did not bound streamed bytes")
+
+
+# ── Round 2 ──────────────────────────────────────────────────────────────
+# Batch 1 additional: B1-KS-01, B1-KS-02, B1-KS-03, B1-GW-02, B1-GW-03
+
+
+def test_b1_ks_01_verify_compares_every_record_before_deciding() -> None:
+    """Fires B1-KS-01 without the fix; passes with it. Violated property:
+    verify()'s total compare_digest call count must not depend on where (or
+    whether) a match falls in iteration order."""
+    from unittest.mock import patch
+
+    from orchestrator.safety.api_keys import KeyStore
+
+    store = KeyStore(pepper="test-pepper-not-secret")
+    keys = [store.issue(f"user-{i}", [])[0] for i in range(5)]
+
+    call_counts: list[int] = []
+    from orchestrator.safety import api_keys as api_keys_mod
+
+    original_compare = api_keys_mod.hmac.compare_digest
+
+    def _counting_compare(a, b):
+        call_counts.append(1)
+        return original_compare(a, b)
+
+    with patch.object(api_keys_mod.hmac, "compare_digest", side_effect=_counting_compare):
+        call_counts.clear()
+        store.verify(keys[0])
+        first_count = len(call_counts)
+
+        call_counts.clear()
+        store.verify(keys[-1])
+        last_count = len(call_counts)
+
+    if first_count != last_count:
+        pytest.fail(
+            "defect still present: compare_digest call count depends on match "
+            f"position ({first_count} vs {last_count}) — verify() is short-circuiting"
+        )
+
+
+def test_b1_ks_02_long_dead_records_are_pruned_on_issue() -> None:
+    """Fires B1-KS-02 without the fix; passes with it. Violated property:
+    the store's record count must not grow without bound as keys are
+    issued and later revoked over a long time horizon."""
+    import time
+
+    from orchestrator.safety.api_keys import KeyRecord, KeyStore, _RETENTION_SECONDS
+
+    store = KeyStore(pepper="test-pepper-not-secret")
+    _raw, record = store.issue("stale-user", [])
+    store.revoke(record.key_id)
+
+    old = store._records[record.key_id]
+    store._records[record.key_id] = KeyRecord(
+        key_id=old.key_id,
+        principal_id=old.principal_id,
+        permissions=old.permissions,
+        digest=old.digest,
+        created_at=old.created_at,
+        expires_at=old.expires_at,
+        revoked_at=time.time() - _RETENTION_SECONDS - 3600,
+    )
+
+    store.issue("another-user", [])
+
+    if record.key_id in store._records:
+        pytest.fail("defect still present: long-dead record was never pruned")
+
+
+def test_b1_ks_03_rotate_does_not_reissue_after_concurrent_revoke() -> None:
+    """Fires B1-KS-03 without the fix; passes with it. Violated property: a
+    concurrently-revoked key must not still be reissued by an in-flight
+    rotate() for the same key_id."""
+    from orchestrator.safety.api_keys import KeyStore, KeyStoreError
+
+    store = KeyStore(pepper="test-pepper-not-secret")
+    _raw, record = store.issue("victim", [])
+    assert store.revoke(record.key_id) is True
+
+    try:
+        store.rotate(record.key_id)
+    except KeyStoreError:
+        return
+    pytest.fail(
+        "defect still present: rotate() minted a fresh key for a principal "
+        "whose key was already revoked, instead of refusing"
+    )
+
+
+def test_b1_gw_02_rate_limit_bucket_is_not_the_raw_key() -> None:
+    """Fires B1-GW-02 without the fix; passes with it. Violated property:
+    the raw bearer credential must never be used as a retained dict key."""
+    from orchestrator.integrations.gateway import APIGateway, APIRequest
+
+    async def _run() -> None:
+        gw = APIGateway()
+        raw_key = gw.register_api_key("test-user", ["read"])
+        req = APIRequest(method="GET", url="/health", headers={"X-API-Key": raw_key})
+        await gw.authenticate_request(req)
+
+        await gw.route_request(
+            {"method": "GET", "url": "/health", "headers": {"X-API-Key": raw_key}}
+        )
+
+        if raw_key in gw.rate_limits:
+            pytest.fail("defect still present: raw API key used as a live rate_limits dict key")
+
+    asyncio.run(_run())
+
+
+def test_b1_gw_03_forwarding_error_does_not_leak_exception_text() -> None:
+    """Fires B1-GW-03 without the fix; passes with it. Violated property:
+    internal exception text must not reach a response field this file
+    hands back to route_request()'s caller."""
+    from unittest.mock import patch
+
+    from orchestrator.integrations.gateway import APIGateway
+
+    async def _run():
+        gw = APIGateway()
+        raw_key = gw.register_api_key("u", ["read"])
+        secret_detail = "internal-path=/etc/shadow-ish-detail"
+        with patch.object(
+            gw, "_forward_request", new=AsyncMock(side_effect=RuntimeError(secret_detail))
+        ):
+            resp = await gw.route_request(
+                {"method": "GET", "url": "/orchestrator/x", "headers": {"X-API-Key": raw_key}}
+            )
+        return resp.error
+
+    error = asyncio.run(_run())
+    if error is not None and "shadow-ish-detail" in error:
+        pytest.fail(f"defect still present: internal exception text leaked into .error: {error!r}")
+
+
+# ── Batch 2 additional: SX-1, SX-2, SX-3, CE-1, CE-2, SB-3 ──────────────────
+
+
+async def test_sx1_run_rejects_path_traversal_reproducer(tmp_path) -> None:
+    """Fires SX-1 without the fix; passes with it. Violated property:
+    output_path must stay within the per-task sandbox directory."""
+    from orchestrator.safety.sandbox_executor import SandboxExecutor
+
+    executor = SandboxExecutor(project_dir=str(tmp_path))
+    outside_marker = tmp_path.parent / "sx1_escape_marker.txt"
+    outside_marker.unlink(missing_ok=True)
+    try:
+        result = await executor.run(
+            task_id="t1",
+            code="pwned",
+            output_path="../../sx1_escape_marker.txt",
+        )
+        assert result.success is False
+        assert not outside_marker.exists()
+    finally:
+        outside_marker.unlink(missing_ok=True)
+
+
+async def test_sx2_apply_actually_copies_the_file_run_wrote_reproducer(tmp_path) -> None:
+    """Fires SX-2 without the fix; passes with it. Violated property:
+    apply() must copy the exact file run() wrote, not silently no-op while
+    still reporting success."""
+    from orchestrator.safety.sandbox_executor import SandboxExecutor
+
+    executor = SandboxExecutor(project_dir=str(tmp_path))
+    result = await executor.run(task_id="task_001", code="hello", output_path="out.txt")
+    result.review_approved = True
+
+    applied = executor.apply(result)
+
+    assert applied is True
+    assert (tmp_path / "out.txt").exists()
+    assert (tmp_path / "out.txt").read_text(encoding="utf-8") == "hello"
+
+
+async def test_sx3_run_reports_malformed_test_command_reproducer(tmp_path) -> None:
+    """Fires SX-3 without the fix; passes with it. Violated property: every
+    error path in run() must return a SandboxResult, never raise."""
+    from orchestrator.safety.sandbox_executor import SandboxExecutor
+
+    executor = SandboxExecutor(project_dir=str(tmp_path))
+    result = await executor.run(
+        task_id="t1",
+        code="print('hi')",
+        output_path="out.py",
+        test_command="pytest 'unterminated",
+    )
+    assert result.success is False
+    assert "Invalid test command syntax" in result.error
+
+
+async def test_ce1_execute_in_sandbox_never_raises_reproducer() -> None:
+    """Fires CE-1 without the fix; passes with it. Violated property:
+    CodeExecutor.execute() must always return an ExecutionResult, never raise
+    — the contract every OTHER branch of this class already upholds."""
+    from unittest.mock import AsyncMock, patch
+
+    from orchestrator.safety.code_executor import CodeExecutor, ExecutionConfig
+
+    executor = CodeExecutor(ExecutionConfig(require_sandbox=True, fail_if_sandbox_unavailable=True))
+    with patch.object(executor, "_is_sandbox_available", return_value=True):
+        with patch(
+            "orchestrator.cost_optimization.docker_sandbox.DockerSandbox.execute",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("docker daemon vanished"),
+        ):
+            result = await executor.execute("print('hi')", language="python")
+    assert result.success is False
+    assert "docker daemon vanished" in result.error
+
+
+async def test_ce1_root_twin_execute_in_sandbox_never_raises_reproducer() -> None:
+    """XRef: the byte-for-byte-identical root orchestrator/code_executor.py fork."""
+    from unittest.mock import AsyncMock, patch
+
+    from orchestrator.code_executor import CodeExecutor, ExecutionConfig
+
+    executor = CodeExecutor(ExecutionConfig(require_sandbox=True, fail_if_sandbox_unavailable=True))
+    with patch.object(executor, "_is_sandbox_available", return_value=True):
+        with patch(
+            "orchestrator.cost_optimization.docker_sandbox.DockerSandbox.execute",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("docker daemon vanished"),
+        ):
+            result = await executor.execute("print('hi')", language="python")
+    assert result.success is False
+    assert "docker daemon vanished" in result.error
+
+
+async def test_ce2_execute_local_caps_output_reproducer() -> None:
+    """Fires CE-2 without the fix; passes with it. Violated property:
+    ExecutionConfig.max_output_size must actually bound local-execution output."""
+    from orchestrator.safety.code_executor import CodeExecutor, ExecutionConfig
+
+    config = ExecutionConfig(require_sandbox=False, max_output_size=100)
+    executor = CodeExecutor(config)
+    result = await executor.execute("print('x' * 10000)", language="python")
+    assert len(result.output) <= 100
+
+
+async def test_sb3_no_unboundlocalerror_on_spawn_timeout_reproducer(tmp_path) -> None:
+    """Fires SB-3 without the fix; passes with it. Violated property: every
+    exception path in _execute_with_limits must reference only bound locals."""
+    from unittest.mock import patch
+
+    from orchestrator.safety.sandbox import Sandbox
+
+    sandbox = Sandbox(timeout=30.0)
+    code_file = tmp_path / "code.py"
+    code_file.write_text("print('hi')", encoding="utf-8")
+
+    async def slow_spawn(*_a, **_kw):
+        await asyncio.sleep(999)
+
+    with patch("asyncio.create_subprocess_exec", side_effect=slow_spawn):
+        stdout, stderr, exit_code = await sandbox._execute_with_limits(
+            code_file, "python", None, {"cpu_time": 0.01}
+        )
+    assert exit_code == -1
+    assert stderr == "Execution timed out"
+
+
+# ── Batch 3 additional: B3-GOS-02, B3-GOS-03, B3-GOS-05, B3-IV-01, B3-IV-02 ─
+
+
+def test_b3_gos_02_short_real_secret_not_auto_cleared() -> None:
+    """Fires B3-GOS-02 without the fix; passes with it. Violated property: an
+    assignment matching _ASSIGN_SECRET_RE with a non-placeholder-looking
+    value must be flagged, regardless of its length."""
+    from orchestrator.safety.generated_output_scanner import _is_placeholder
+
+    if _is_placeholder("root123"):
+        pytest.fail("defect still present: a 7-char real-looking secret is auto-cleared")
+    assert _is_placeholder("") is True
+    assert _is_placeholder("xxx") is True
+
+
+def test_b3_gos_03_multiline_secret_assignment_detected(tmp_path) -> None:
+    """Fires B3-GOS-03 without the fix; passes with it. Violated property:
+    generic secret-assignment detection must not be defeated by an
+    assignment split across lines."""
+    from orchestrator.safety.generated_output_scanner import scan_output_dir
+
+    (tmp_path / "config.py").write_text(
+        'db_password = \\\n    "RealProdPassword2024"\n', encoding="utf-8"
+    )
+
+    report = scan_output_dir(tmp_path)
+
+    matches = [f for f in report.findings if f.rule == "hardcoded-secret-assignment"]
+    if not matches:
+        pytest.fail("defect still present: multi-line secret assignment is never detected")
+
+
+def test_b3_gos_05_no_false_positive_on_unrelated_identifier() -> None:
+    """Fires B3-GOS-05 without the fix; passes with it. Violated property:
+    the scanner's own stated high-precision design goal — do not flag a
+    benign identifier that merely ends in 'verify'/'debug'."""
+    from orchestrator.safety.generated_output_scanner import _INSECURE_PATTERNS
+
+    verify_rule = next(r for r in _INSECURE_PATTERNS if r[0] == "verify-ssl-false")
+    debug_rule = next(r for r in _INSECURE_PATTERNS if r[0] == "flask-debug-true")
+
+    if verify_rule[2].search("should_verify = False"):
+        pytest.fail("defect still present: false positive on should_verify = False")
+    if debug_rule[2].search('app.run(host="0.0.0.0", mydebug=True)'):
+        pytest.fail("defect still present: false positive on mydebug=True")
+
+    assert verify_rule[2].search("requests.get(url, verify=False)")
+    assert debug_rule[2].search('app.run(host="0.0.0.0", debug=True)')
+
+
+def test_b3_iv_01_visit_number_does_not_crash() -> None:
+    """Fires B3-IV-01 without the fix; passes with it. Violated property:
+    visit_number must return a value for every well-formed NumberField
+    input."""
+    from orchestrator.safety.input_validation import NumberField, ZodSchemaVisitor
+
+    field = NumberField(name="age", min_value=18, max_value=120)
+    visitor = ZodSchemaVisitor()
+
+    try:
+        result = visitor.visit_number(field)
+    except AttributeError:
+        pytest.fail("defect still present: visit_number raises AttributeError")
+
+    assert result == "z.number().min(18).max(120)"
+
+
+def test_b3_iv_02_pattern_wrapped_as_regex_literal() -> None:
+    """Fires B3-IV-02 without the fix; passes with it. Violated property:
+    the visitor must emit syntactically valid target-language code."""
+    import re as _re
+
+    from orchestrator.safety.input_validation import JoiSchemaVisitor, StringField, ZodSchemaVisitor
+
+    field = StringField(name="password", pattern=r"^(?=.*[a-z]).{8,}$", trim=False)
+
+    zod_out = ZodSchemaVisitor().visit_string(field)
+    joi_out = JoiSchemaVisitor().visit_string(field)
+
+    if not _re.search(r"\.regex\(/.*/\)", zod_out):
+        pytest.fail(f"defect still present: Zod output has no delimited regex literal: {zod_out!r}")
+    if not _re.search(r"\.pattern\(/.*/\)", joi_out):
+        pytest.fail(f"defect still present: Joi output has no delimited regex literal: {joi_out!r}")
+
+
+# ── Batch 6: SE-1, WP-1, WP-2 ────────────────────────────────────────────
+
+
+def test_se1_json_ld_does_not_allow_script_breakout() -> None:
+    """Fires SE-1 without the fix; passes with it.
+    Violated property: a JSON-LD field value must not be able to terminate
+    the enclosing <script> element early."""
+    from orchestrator.security.enhancer import OpenGraphGenerator
+
+    og = OpenGraphGenerator()
+    payload = "</script><script>alert(1)</script>"
+    html_out = og.generate_json_ld(name=payload, description="d", url="https://example.com")
+
+    if "</script><script>alert(1)</script>" in html_out:
+        pytest.fail("defect still present: raw </script> breakout sequence reached the page")
+
+
+def test_wp1_namespace_uses_single_backslash_separator() -> None:
+    """Fires WP-1 without the fix; passes with it.
+    Violated property: generated PHP namespaces must use PHP's single-
+    backslash separator."""
+    from orchestrator.security.wordpress_plugin_rules import WordPressPluginRules
+
+    rules = WordPressPluginRules()
+    config = rules.generate_config("My Awesome Plugin")
+    if config.namespace.count("\\") != 2:
+        pytest.fail(
+            f"defect still present: namespace={config.namespace!r} has "
+            f"{config.namespace.count(chr(92))} backslash chars, expected 2"
+        )
+
+
+def test_wp2_headless_recommendation_is_reachable() -> None:
+    """Fires WP-2 without the fix; passes with it.
+    Violated property: every architecture path the class advertises must be
+    reachable from its own recommendation function."""
+    from orchestrator.security.wordpress_plugin_rules import WordPressPluginRules
+
+    rules = WordPressPluginRules()
+    result = rules.recommend_architecture_path(
+        public_distribution=False, team_size=1, complexity="complex"
+    )
+    if result != "headless":
+        pytest.fail(f"defect still present: expected 'headless', got {result!r}")
+
+
+def test_wp2_team_collaboration_still_recommends_modular_oop() -> None:
+    """Guards the fix's own boundary: complex + multi-person team must stay
+    modular_oop, not fall through to headless."""
+    from orchestrator.security.wordpress_plugin_rules import WordPressPluginRules
+
+    rules = WordPressPluginRules()
+    result = rules.recommend_architecture_path(
+        public_distribution=False, team_size=3, complexity="complex"
+    )
+    assert result == "modular_oop"

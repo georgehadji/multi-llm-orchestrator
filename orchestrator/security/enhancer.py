@@ -277,7 +277,19 @@ class OpenGraphGenerator:
 
         import json
 
-        return f'<script type="application/ld+json">\n{json.dumps(data, indent=2)}\n</script>'
+        # json.dumps() does not escape '<', '>', or '&', so a name/description
+        # containing the literal string "</script>" would otherwise close this
+        # block early and inject arbitrary HTML (see generate_head_tags() above,
+        # which html.escape()s for the same reason -- that approach can't be
+        # reused here because it would corrupt the JSON-LD payload itself).
+        # \uXXXX round-trips through any conformant JSON parser unchanged.
+        safe_json = (
+            json.dumps(data, indent=2)
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("&", "\\u0026")
+        )
+        return f'<script type="application/ld+json">\n{safe_json}\n</script>'
 
     def full_head_section(
         self,
