@@ -200,7 +200,7 @@ def check_sql_injection(code: str, file_path: str) -> list[SecurityFinding]:
     patterns = [
         # Python string formatting in SQL
         (r"execute\s*\(\s*['\"].*%s.*['\"]\s*%", "Python % formatting in SQL"),
-        (r"cursor\.execute\s*\([^,]+,\s*\[\)", "Empty parameters in execute()"),
+        (r"cursor\.execute\s*\([^,]+,\s*\[\]\)", "Empty parameters in execute()"),
         # String concatenation
         (r"(execute|query|raw|cursor\.execute)\s*\(\s*[^)]*\+", "String concatenation in SQL"),
         (r"(execute|query|raw)\s*\(\s*f['\"][^)]*\{", "f-string in SQL query"),
@@ -280,7 +280,12 @@ def check_security_headers(code: str, file_path: str) -> list[SecurityFinding]:
     Check for missing security headers (pure function).
 
     Detects: Missing CSP, HSTS, X-Frame-Options, etc.
-    Only checks backend/server code files.
+    Applies to any file with a common backend/web-adjacent extension (.py,
+    .js, .ts, .go, .java, .rb, .php) of at least 50 non-whitespace
+    characters -- this is a coarse extension-based heuristic, not a true
+    backend/server-code classifier, so it will also flag non-HTTP files
+    (data models, CLI scripts, utilities) that happen to share one of
+    those extensions.
 
     Args:
         code: Source code to check

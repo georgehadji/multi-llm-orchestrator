@@ -17,6 +17,23 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Explicit export list: SecurityFinding/SecurityReport are intentionally
+# EXCLUDED. orchestrator/safety/security_validator.py defines its own,
+# incompatible SecurityFinding/SecurityReport classes and (per import order
+# in safety/__init__.py) already wins that flat name in the
+# `orchestrator.safety` namespace via wildcard import -- without this list,
+# that was a silent, order-dependent accident rather than a documented
+# choice. Use the fully-qualified `orchestrator.safety.security_review.
+# SecurityFinding` (as tests/test_security_review.py already does) to get
+# THIS module's version.
+__all__ = [
+    "Severity",
+    "Category",
+    "SecurityRule",
+    "DEFAULT_SECURITY_RULES",
+    "SecurityReviewer",
+]
+
 
 class Severity(str, Enum):
     CRITICAL = "critical"  # Data breach, auth bypass
@@ -100,6 +117,7 @@ class SecurityReport:
     high_count: int = 0
     medium_count: int = 0
     low_count: int = 0
+    info_count: int = 0
 
     @property
     def passed(self) -> bool:
@@ -109,7 +127,7 @@ class SecurityReport:
     def summary(self) -> str:
         parts = [
             f"Security Review: {self.total_findings} findings "
-            f"({self.critical_count}C/{self.high_count}H/{self.medium_count}M/{self.low_count}L)",
+            f"({self.critical_count}C/{self.high_count}H/{self.medium_count}M/{self.low_count}L/{self.info_count}I)",
         ]
         if self.passed:
             parts.append("Status: PASSED")
@@ -302,7 +320,7 @@ class SecurityReviewer:
             ],
             "SEC-004": [
                 (r"pickle\.loads?\s*\(", Severity.HIGH),
-                (r"yaml\.load\s*\([^s]", Severity.HIGH),
+                (r"yaml\.load\s*\(", Severity.HIGH),
             ],
             "SEC-005": [
                 (r"hashlib\.md5\s*\(", Severity.HIGH),
@@ -435,4 +453,5 @@ If no vulnerabilities found, return {{"findings": []}}."""
             high_count=counts.get("high", 0),
             medium_count=counts.get("medium", 0),
             low_count=counts.get("low", 0),
+            info_count=counts.get("info", 0),
         )

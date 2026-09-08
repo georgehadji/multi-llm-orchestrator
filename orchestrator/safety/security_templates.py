@@ -795,36 +795,42 @@ class TokenBucket:
     tokens: float = field(default={config.rate_limit_max})
     last_update: float = field(default_factory=time.time)
     refill_rate: float = {config.rate_limit_max / config.rate_limit_window}  # tokens per second
-    
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
+
     def consume(self, tokens: int = 1) -> bool:
         """
-        Consume tokens from bucket.
-        
+        Consume tokens from bucket (atomic: refill + check + debit under one lock).
+
         Args:
             tokens: Number of tokens to consume
-        
+
         Returns:
             True if tokens consumed, False if rate limited
         """
-        now = time.time()
-        elapsed = now - self.last_update
-        
-        # Refill tokens based on elapsed time
-        self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
-        self.last_update = now
-        
-        # Check if enough tokens available
-        if self.tokens >= tokens:
-            self.tokens -= tokens
-            return True
-        return False
+        with self._lock:
+            now = time.time()
+            elapsed = now - self.last_update
+
+            # Refill tokens based on elapsed time
+            self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
+            self.last_update = now
+
+            # Check if enough tokens available
+            if self.tokens >= tokens:
+                self.tokens -= tokens
+                return True
+            return False
 
 
 class RateLimiter:
     """Rate limiter with per-key buckets."""
-    
-    def __init__(self):
-        self._buckets: Dict[str, TokenBucket] = defaultdict(TokenBucket)
+
+    def __init__(self, capacity: int = {config.rate_limit_max}, refill_rate: float = None):
+        self._capacity = capacity
+        self._refill_rate = refill_rate if refill_rate is not None else capacity / {config.rate_limit_window}
+        self._buckets: Dict[str, TokenBucket] = defaultdict(
+            lambda: TokenBucket(capacity=self._capacity, tokens=self._capacity, refill_rate=self._refill_rate)
+        )
         self._lock = threading.Lock()
     
     def get_bucket(self, key: str) -> TokenBucket:
@@ -866,16 +872,24 @@ def rate_limit(key_func: Callable, max_requests: int = {config.rate_limit_max}, 
         max_requests: Max requests per window
         window: Window in seconds
     """
+    # A dedicated limiter for *this* decorator call, so max_requests/window
+    # actually govern this endpoint instead of silently sharing the global
+    # default-capacity _rate_limiter defined below.
+    limiter = RateLimiter(
+        capacity=max_requests,
+        refill_rate=max_requests / window if window > 0 else max_requests / {config.rate_limit_window},
+    )
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             key = key_func()
-            
-            if not _rate_limiter.is_allowed(key):
+
+            if not limiter.is_allowed(key):
                 raise HTTPException(429, "Rate limit exceeded")
-            
+
             return func(*args, **kwargs)
-        
+
         return wrapper
     return decorator
 

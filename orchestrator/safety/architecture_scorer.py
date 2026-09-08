@@ -323,7 +323,10 @@ class ArchitectureScorer:
                 "> Add unit and integration tests (aim for >= 1 test file per 4 source files)"
             )
             return d
-        ratio = len(tests) / max(len(src), 1)
+        if not src:
+            d.notes.append("- Test files present but no source files to test")
+            return d
+        ratio = len(tests) / len(src)
         d.score = round(min(1.0, ratio / 0.25) * 15.0, 1)
         if d.score >= 12:
             d.notes.append(f"+ Healthy test coverage surface ({len(tests)} test files)")

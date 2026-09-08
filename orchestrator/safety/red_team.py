@@ -16,7 +16,7 @@ This module provides:
 4. Integration with existing security components
 
 Usage:
-    from orchestrator.red_team import RedTeamFramework, AttackScenario, VulnerabilityReport
+    from orchestrator.safety.red_team import RedTeamFramework, AttackScenario, RedTeamReport
 
     framework = RedTeamFramework()
 
@@ -412,7 +412,7 @@ class RedTeamFramework:
         results: dict[str, ScenarioResult] | None = None,
     ) -> RedTeamReport:
         """Generate a comprehensive red-team report."""
-        results = results or self._results
+        results = results if results is not None else self._results
 
         total = len(self._scenarios)
         executed = sum(1 for r in results.values() if r.executed)

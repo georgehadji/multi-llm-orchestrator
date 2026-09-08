@@ -14,14 +14,18 @@ This module provides:
 5. Integration with existing audit system
 
 Usage:
-    from orchestrator.accountability import AccountabilityTracker, Action, DelegationChain
+    from orchestrator.safety.accountability import (
+        AccountabilityTracker, Action, DelegationRecord, ActorType, ActionType,
+    )
 
     tracker = AccountabilityTracker()
 
     # Track an action with attribution
     action_id = tracker.record_action(
-        actor="user:admin",
-        action_type="file_write",
+        actor_id="admin",
+        actor_type=ActorType.USER,
+        actor_name="admin",
+        action_type=ActionType.FILE_WRITE,
         target="src/main.py",
         delegation_chain=["user:admin", "agent:code_writer", "tool:file_write"],
     )
@@ -204,6 +208,19 @@ class DelegationRecord:
         if self.revoked:
             return False
         return not (self.expires_at and datetime.utcnow() > self.expires_at)
+
+
+def _as_naive_utc(dt: datetime | None) -> datetime | None:
+    """Normalize a possibly timezone-aware datetime to naive UTC, matching
+    this module's `datetime.utcnow()` convention, so a caller passing an
+    aware datetime (e.g. the modern, non-deprecated `datetime.now(timezone.
+    utc)`) doesn't crash when compared against naive `Action.timestamp`
+    values recorded elsewhere in this class."""
+    if dt is not None and dt.tzinfo is not None:
+        from datetime import timezone
+
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 class AccountabilityTracker:
@@ -426,6 +443,9 @@ class AccountabilityTracker:
     ) -> dict[str, Any]:
         """Generate an accountability report for a time period."""
         actions = list(self._actions.values())
+
+        start_time = _as_naive_utc(start_time)
+        end_time = _as_naive_utc(end_time)
 
         if start_time:
             actions = [a for a in actions if a.timestamp >= start_time]

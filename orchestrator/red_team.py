@@ -16,7 +16,7 @@ This module provides:
 4. Integration with existing security components
 
 Usage:
-    from orchestrator.red_team import RedTeamFramework, AttackScenario, VulnerabilityReport
+    from orchestrator.red_team import RedTeamFramework, AttackScenario, RedTeamReport
 
     framework = RedTeamFramework()
 

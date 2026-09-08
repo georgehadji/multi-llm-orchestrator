@@ -847,3 +847,173 @@ def test_gr1_kill_switch_defaults_are_not_world_writable_tmp() -> None:
             f"defect still present: kill_file={ks.kill_file!r} / "
             f"force_file={ks.force_file!r} default outside the user's own state dir"
         )
+
+
+# ── Round 4: T2B4-04/07/08/09/10/11/12/13, T2-B5-04/05/08 ──────────────────
+
+
+def test_t2b4_07_yaml_load_detected_for_s_prefixed_argument() -> None:
+    """Fires T2B4-07 without the fix; passes with it."""
+    from orchestrator.safety.security_review import SecurityReviewer
+
+    reviewer = SecurityReviewer()
+    report = reviewer.quick_scan("config = yaml.load(stream)")
+    matching = [f for f in report.findings if f.rule_id == "SEC-004"]
+    assert len(matching) > 0, "yaml.load(stream) was not detected"
+
+
+def test_t2b4_09_safety_namespace_no_longer_ambiguous() -> None:
+    """Fires T2B4-09 without the fix; passes with it."""
+    import orchestrator.safety as safety_pkg
+    from orchestrator.safety import security_review, security_validator
+
+    assert safety_pkg.SecurityFinding is security_validator.SecurityFinding
+    assert safety_pkg.SecurityFinding is not security_review.SecurityFinding
+
+    finding = security_review.SecurityFinding(
+        rule_id="SEC-001",
+        title="t",
+        severity=security_review.Severity.LOW,
+        category=security_review.Category.CONFIG,
+        description="d",
+    )
+    assert finding.rule_id == "SEC-001"
+
+
+def test_t2b4_04_aware_datetime_boundary_does_not_crash() -> None:
+    """Fires T2B4-04 without the fix; passes with it."""
+    from datetime import datetime, timezone
+
+    from orchestrator.safety.accountability import AccountabilityTracker, ActionType, ActorType
+
+    tracker = AccountabilityTracker()
+    tracker.record_action(
+        actor_id="a",
+        actor_type=ActorType.AGENT,
+        actor_name="a",
+        action_type=ActionType.TASK_EXECUTE,
+        target="x",
+    )
+    report = tracker.get_accountability_report(
+        start_time=datetime.now(timezone.utc).replace(year=2000)
+    )
+    assert report["summary"]["total_actions"] == 1
+
+
+def test_t2b4_08_empty_params_pattern_actually_matches() -> None:
+    """Fires T2B4-08 without the fix; passes with it."""
+    from orchestrator.safety.security_validator import check_sql_injection
+
+    code = "cursor.execute(sql_string, [])"
+    findings = check_sql_injection(code, "db.py")
+    assert any(
+        "Empty parameters" in f.description for f in findings
+    ), "the empty-parameters pattern never matches its own intended target"
+
+
+def test_t2b4_10_accountability_docstring_example_runs() -> None:
+    """Fires T2B4-10 (accountability.py half) without the fix; passes with it."""
+    from orchestrator.safety.accountability import AccountabilityTracker, ActionType, ActorType
+
+    tracker = AccountabilityTracker()
+    action_id = tracker.record_action(
+        actor_id="admin",
+        actor_type=ActorType.USER,
+        actor_name="admin",
+        action_type=ActionType.FILE_WRITE,
+        target="src/main.py",
+        delegation_chain=["user:admin", "agent:code_writer", "tool:file_write"],
+    )
+    assert tracker.get_action(action_id) is not None
+
+
+async def test_t2b4_11_explicit_empty_results_not_collapsed_to_stale_state() -> None:
+    """Fires T2B4-11 without the fix; passes with it."""
+    from orchestrator.safety.red_team import RedTeamFramework
+
+    framework = RedTeamFramework()
+    await framework.run_scenario("task_misrep_001")
+
+    report = framework.generate_report({})
+
+    assert (
+        report.executed_scenarios == 0
+    ), "explicit empty results was ignored in favor of stale self._results"
+
+
+def test_t2b4_12_docstring_now_matches_broad_extension_filter() -> None:
+    """Fires T2B4-12 (documentation-drift guard) without the fix's docstring text."""
+    from orchestrator.safety.security_validator import check_security_headers
+
+    plain_module = "x = 1\n" * 20
+
+    findings = check_security_headers(plain_module, "orchestrator/plain_data.py")
+
+    assert len(findings) == 4, (
+        "a plain non-HTTP .py file should still be flagged under the "
+        "documented (now-accurate) broad extension heuristic"
+    )
+
+
+def test_t2b4_13_info_findings_are_counted() -> None:
+    """Fires T2B4-13 without the fix; passes with it."""
+    from orchestrator.safety.security_review import (
+        Category,
+        SecurityFinding,
+        SecurityReviewer,
+        Severity,
+    )
+
+    reviewer = SecurityReviewer()
+    findings = [
+        SecurityFinding("SEC-X", "t", Severity.INFO, Category.CONFIG, "d"),
+    ]
+
+    report = reviewer._build_report(findings)
+
+    assert report.info_count == 1
+    assert "1I" in report.summary
+
+
+def test_t2b504_rate_limit_decorator_honors_its_own_arguments() -> None:
+    """Fires T2-B5-04 without the fix; passes with it."""
+    from orchestrator.safety.security_templates import RateLimitTemplate, SecurityConfig
+
+    code = RateLimitTemplate().generate(SecurityConfig(rate_limit_max=100, rate_limit_window=60))
+    wrapper_body = code[code.index("def rate_limit(key_func") : code.index("def rate_limit_ip")]
+    if "_rate_limiter.is_allowed(key)" in wrapper_body:
+        pytest.fail(
+            "defect still present: wrapper() reads the shared global limiter, "
+            "ignoring this call's own max_requests/window"
+        )
+
+
+def test_t2b505_token_bucket_consume_is_lock_guarded() -> None:
+    """Fires T2-B5-05 without the fix; passes with it."""
+    import ast
+
+    from orchestrator.safety.security_templates import RateLimitTemplate, SecurityConfig
+
+    code = RateLimitTemplate().generate(SecurityConfig())
+    tree = ast.parse(code)
+    consume_fn = next(
+        n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "consume"
+    )
+    has_with_lock = any(isinstance(n, ast.With) for n in ast.walk(consume_fn))
+    if not has_with_lock:
+        pytest.fail("defect still present: consume() mutates state with no lock held")
+
+
+def test_t2b508_tests_with_no_source_does_not_score_perfect(tmp_path) -> None:
+    """Fires T2-B5-08 without the fix; passes with it."""
+    from orchestrator.safety.architecture_scorer import ArchitectureScorer
+
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_something.py").write_text(
+        "def test_x():\n    assert True\n", encoding="utf-8"
+    )
+    scorer = ArchitectureScorer()
+    files = scorer._collect_code_files(tmp_path)
+    dim = scorer._score_tests(tmp_path, files)
+    if dim.score >= 12:
+        pytest.fail(f"defect still present: scored {dim.score}/15 with zero source files")
