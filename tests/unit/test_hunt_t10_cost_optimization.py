@@ -574,12 +574,22 @@ async def test_f3_avg_execution_time_tracks_unavailable_path(monkeypatch):
     sandbox = DockerSandbox()
     monkeypatch.setattr(sandbox, "_check_docker", lambda: _false_coro())
 
+    calls = []
+    real_record = sandbox._record_execution_time
+
+    def _spy(execution_time):
+        calls.append(execution_time)
+        return real_record(execution_time)
+
+    monkeypatch.setattr(sandbox, "_record_execution_time", _spy)
+
     await sandbox.execute(code_files={"a.py": "pass"}, command="python a.py")
 
-    if sandbox.metrics.avg_execution_time == 0.0:
+    if not calls:
         pytest.fail(
             "defect still present: total_executions advanced without a "
-            "matching avg_execution_time contribution"
+            "matching avg_execution_time contribution "
+            "(_record_execution_time was never called on the fail-closed path)"
         )
 
 
@@ -654,3 +664,181 @@ async def test_f11_avg_context_size_ignores_no_op_calls():
     assert second_avg == pytest.approx(
         first_avg
     ), f"no-op call diluted avg_context_size ({first_avg} -> {second_avg})"
+
+
+# --- Recovery pass (docs/audits/v3/T1/batch2, F1/F2/F6/F8/F9/F12 lost to --
+# --- a notification truncation, re-derived under RECOV-* ids) --------------
+#
+# Bonus finding from the recovery pass: DockerSandbox IS reachable, via
+# orchestrator/code_executor.py and orchestrator/safety/code_executor.py --
+# the original "UNKNOWN reachability" label was wrong for this file. Both
+# callers also had their own bug (never passing environment=env to
+# execute()), fixed alongside RECOV-9 below since RECOV-9 is inert without it.
+
+
+def test_recov1_cost_table_mutation_does_not_leak_into_other_instances():
+    """Fires RECOV-1 without the fix; passes with it. Violated property:
+    each TokenBudget instance's cost calculations are isolated from
+    mutations reachable through another instance's (or the class's)
+    COST_PER_1K reference (a shared class-level nested dict)."""
+    from orchestrator.cost_optimization.token_budget import TokenBudget
+
+    victim = TokenBudget()
+    baseline = victim._calculate_cost("gpt-4", 1000, "input")
+
+    attacker = TokenBudget()
+    attacker.COST_PER_1K["input"]["gpt-4"] = 0.0
+
+    after = victim._calculate_cost("gpt-4", 1000, "input")
+    assert after == baseline, (
+        f"mutating COST_PER_1K through one instance changed another's cost calc "
+        f"({baseline} -> {after})"
+    )
+
+
+def test_recov8_gpt4_turbo_and_gpt4o_not_billed_as_gpt4():
+    """Fires RECOV-8 without the fix; passes with it. Violated property: a
+    model's cost lookup must match its own price entry, not a shorter,
+    unrelated key that happens to be a substring and appears earlier in
+    dict-insertion order ("gpt-4" shadowing "gpt-4-turbo"/"gpt-4o")."""
+    from orchestrator.cost_optimization.token_budget import TokenBudget
+
+    budget = TokenBudget()
+
+    turbo_cost = budget._calculate_cost("gpt-4-turbo", 1000, "input")
+    o_cost = budget._calculate_cost("gpt-4o", 1000, "input")
+
+    assert turbo_cost == pytest.approx(10.0)
+    assert o_cost == pytest.approx(5.0)
+
+
+class _FakeDockerClient:
+    def __init__(self):
+        from unittest.mock import MagicMock
+
+        self._container = MagicMock()
+        self._container.wait.return_value = {"StatusCode": 0}
+        self._container.logs.return_value = b""
+        self.containers = MagicMock()
+        self.containers.run = MagicMock(return_value=self._container)
+
+    def ping(self):
+        return None
+
+
+class _FakeDockerModule:
+    """Matches the pattern the existing C4 tests use: docker-py isn't
+    installed in this environment, so `docker.from_env` can't be patched
+    directly (unittest.mock.patch must import the real module first) --
+    a fake module is injected into sys.modules instead."""
+
+    def __init__(self, client=None, from_env_error: Exception | None = None):
+        self._client = client or _FakeDockerClient()
+        self._from_env_error = from_env_error
+
+    def from_env(self):
+        if self._from_env_error is not None:
+            raise self._from_env_error
+        return self._client
+
+
+async def _always_true(self) -> bool:
+    return True
+
+
+@pytest.mark.asyncio
+async def test_recov2_colliding_kwarg_raises_clear_error(monkeypatch):
+    """Fires RECOV-2 without the fix; passes with it. Violated property: a
+    kwarg colliding with an explicit Docker parameter must fail loudly and
+    clearly, not be silently dropped (execute()'s **kwargs was documented
+    as functional but never forwarded to containers.run() at all)."""
+    import sys
+
+    from orchestrator.cost_optimization.docker_sandbox import DockerSandbox
+
+    monkeypatch.setitem(sys.modules, "docker", _FakeDockerModule())
+    monkeypatch.setattr(DockerSandbox, "_check_docker", _always_true)
+
+    sandbox = DockerSandbox()
+    result = await sandbox.execute(
+        code_files={"a.py": "pass"},
+        command="python a.py",
+        detach=False,  # collides with the explicit detach=True Docker sends
+    )
+
+    assert "collide" in (result.error or "").lower()
+
+
+@pytest.mark.asyncio
+async def test_recov6_command_with_single_quote_is_safely_quoted(monkeypatch):
+    """Fires RECOV-6 without the fix; passes with it. Violated property:
+    the caller-supplied `command` string must survive verbatim as one
+    shell argument to `bash -c`, even when it embeds a single quote."""
+    import shlex
+    import sys
+
+    from orchestrator.cost_optimization.docker_sandbox import DockerSandbox
+
+    fake_module = _FakeDockerModule()
+    monkeypatch.setitem(sys.modules, "docker", fake_module)
+    monkeypatch.setattr(DockerSandbox, "_check_docker", _always_true)
+
+    sandbox = DockerSandbox()
+    dangerous_command = "echo 'pwned'"
+    await sandbox.execute(code_files={"a.py": "pass"}, command=dangerous_command)
+
+    sent_command = fake_module._client.containers.run.call_args.kwargs["command"]
+    assert shlex.split(sent_command) == ["bash", "-c", dangerous_command]
+
+
+@pytest.mark.asyncio
+async def test_recov9_environment_forwarded_to_container(monkeypatch):
+    """Fires RECOV-9 without the fix; passes with it. Violated property:
+    the `environment` dict execute() accepts and documents ("Environment
+    variables") must actually reach the container, not be silently
+    discarded."""
+    import sys
+
+    from orchestrator.cost_optimization.docker_sandbox import DockerSandbox
+
+    fake_module = _FakeDockerModule()
+    monkeypatch.setitem(sys.modules, "docker", fake_module)
+    monkeypatch.setattr(DockerSandbox, "_check_docker", _always_true)
+
+    sandbox = DockerSandbox()
+    await sandbox.execute(
+        code_files={"a.py": "pass"},
+        command="python a.py",
+        environment={"MY_SECRET": "abc123"},
+    )
+
+    run_kwargs = fake_module._client.containers.run.call_args.kwargs
+    assert run_kwargs["environment"] == {"MY_SECRET": "abc123"}
+
+
+@pytest.mark.asyncio
+async def test_recov12_negative_docker_cache_expires(monkeypatch):
+    """Fires RECOV-12 without the fix; passes with it. Violated property: a
+    transient Docker-unavailable result must not permanently latch
+    execute() into fail-closed for the rest of the instance's lifetime once
+    Docker becomes available again."""
+    import sys
+    import time
+
+    from orchestrator.cost_optimization.docker_sandbox import DockerSandbox
+
+    sandbox = DockerSandbox()
+    sandbox._DOCKER_CHECK_TTL_SECONDS = 0.05
+
+    monkeypatch.setitem(
+        sys.modules, "docker", _FakeDockerModule(from_env_error=RuntimeError("daemon starting"))
+    )
+    first = await sandbox._check_docker()
+    assert first is False
+
+    time.sleep(0.1)
+
+    monkeypatch.setitem(sys.modules, "docker", _FakeDockerModule())
+    second = await sandbox._check_docker()
+
+    assert second is True, "negative Docker-availability result never expires"

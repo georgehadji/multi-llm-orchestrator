@@ -29,6 +29,7 @@ Usage:
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from typing import Any
 
@@ -137,6 +138,11 @@ class TokenBudget:
         """
         self.metrics = TokenBudgetMetrics()
         self._limits = {**self.DEFAULT_LIMITS, **(custom_limits or {})}
+        # COST_PER_1K is a nested class-level dict, unlike DEFAULT_LIMITS
+        # above (already de-aliased via the spread). Left as a class
+        # attribute, every instance shares the exact same dict object --
+        # an unsynchronized de facto global hiding behind a class attribute.
+        self._cost_per_1k = copy.deepcopy(self.COST_PER_1K)
         self._usage: dict[str, TokenUsage] = {}
 
     def get_limit(self, phase: OptimizationPhase) -> int:
@@ -278,11 +284,15 @@ class TokenBudget:
             Cost in USD
         """
         model_key = model.lower()
-        cost_dict = self.COST_PER_1K.get(token_type, {})
+        cost_dict = self._cost_per_1k.get(token_type, {})
 
         # Find matching model cost
         cost_per_1k = 1.0  # Default
-        for key, cost in cost_dict.items():
+        # Longest-key-first: "gpt-4" is a substring of both "gpt-4-turbo"
+        # and "gpt-4o", and dict-insertion order put "gpt-4" first, so
+        # iterating in insertion order matched the wrong (shorter, earlier)
+        # key before ever reaching the correct, more specific one.
+        for key, cost in sorted(cost_dict.items(), key=lambda kv: len(kv[0]), reverse=True):
             if key in model_key:
                 cost_per_1k = cost
                 break

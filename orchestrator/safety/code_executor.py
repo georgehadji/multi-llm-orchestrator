@@ -201,6 +201,7 @@ class CodeExecutor:
             code_files=code_files,
             command=command,
             timeout=timeout or self.config.sandbox_timeout,
+            environment=env,
         )
 
         return ExecutionResult(

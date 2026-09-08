@@ -24,6 +24,7 @@ Usage:
 
 from __future__ import annotations
 
+import shlex
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -90,6 +91,11 @@ class DockerSandbox:
     DEFAULT_TIMEOUT = 30  # 30 seconds
     DEFAULT_NETWORK_DISABLED = True  # No network access
 
+    # How long a cached Docker-availability result stays valid. Without a
+    # TTL, a transient "Docker not ready yet" at first use latches False
+    # (or a later daemon crash latches True) forever for the instance.
+    _DOCKER_CHECK_TTL_SECONDS = 30
+
     def __init__(
         self,
         image: str | None = None,
@@ -118,10 +124,17 @@ class DockerSandbox:
 
         # Check if Docker is available
         self._docker_available: bool | None = None
+        self._docker_checked_at: float | None = None
 
     async def _check_docker(self) -> bool:
         """Check if Docker is available."""
-        if self._docker_available is not None:
+        import time
+
+        if (
+            self._docker_available is not None
+            and self._docker_checked_at is not None
+            and (time.monotonic() - self._docker_checked_at) < self._DOCKER_CHECK_TTL_SECONDS
+        ):
             return self._docker_available
 
         try:
@@ -197,18 +210,25 @@ class DockerSandbox:
                     file_path.write_text(content)
 
                 # Run container
-                container = client.containers.run(
-                    self.image,
-                    command=f"bash -c '{command}'",
-                    volumes={str(workspace): {"bind": working_dir, "mode": "rw"}},
-                    working_dir=working_dir,
-                    network_disabled=self.network_disabled,
-                    mem_limit=self.memory_limit,
-                    cpu_period=self.cpu_period,
-                    cpu_quota=self.cpu_quota,
-                    detach=True,
-                    remove=False,  # We'll remove manually
-                )
+                docker_run_kwargs: dict[str, Any] = {
+                    "command": f"bash -c {shlex.quote(command)}",
+                    "volumes": {str(workspace): {"bind": working_dir, "mode": "rw"}},
+                    "working_dir": working_dir,
+                    "environment": environment,
+                    "network_disabled": self.network_disabled,
+                    "mem_limit": self.memory_limit,
+                    "cpu_period": self.cpu_period,
+                    "cpu_quota": self.cpu_quota,
+                    "detach": True,
+                    "remove": False,  # We'll remove manually
+                }
+                colliding = sorted(set(kwargs) & set(docker_run_kwargs))
+                if colliding:
+                    raise ValueError(
+                        f"execute() kwargs collide with explicit Docker parameters: {colliding}"
+                    )
+                docker_run_kwargs.update(kwargs)
+                container = client.containers.run(self.image, **docker_run_kwargs)
 
                 try:
                     # Wait for completion with timeout
