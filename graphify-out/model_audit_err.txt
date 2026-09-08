@@ -1,4 +1,0 @@
-  File "<string>", line 4
-    print("=== REMAINING MODELS (after cleanup) ===
-          ^
-SyntaxError: unterminated string literal (detected at line 4)
