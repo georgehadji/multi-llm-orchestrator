@@ -135,8 +135,11 @@ class SafeCommand:
 
     args: list[str]
 
-    # Shell metacharacters that could enable injection
-    _SHELL_METACHARACTERS = set(";|&$`<>{}[]\\\n\r")
+    # Shell metacharacters that could enable injection. Deliberately excludes
+    # '\' -- commands run argv-only (shell=False), so a backslash is never
+    # shell-interpreted here; on Windows it's simply the native path
+    # separator, and rejecting it broke every caller passing a real path.
+    _SHELL_METACHARACTERS = set(";|&$`<>{}[]\n\r")
 
     def __post_init__(self):
         self._validate()
