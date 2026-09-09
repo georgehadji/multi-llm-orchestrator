@@ -14,10 +14,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable
+from typing import Any, Callable
 
-if TYPE_CHECKING:
-    from ..models import TaskType
+from ..models import TaskType
 
 logger = logging.getLogger(__name__)
 
@@ -51,40 +50,31 @@ class TelemetrySnapshotter:
 
     async def flush_snapshots(self, project_id: str) -> None:
         """
-        Fire-and-forget: snapshot each ModelProfile that was used this run.
+        Snapshot each ModelProfile that was used this run.
         Only profiles with call_count >= 1 are written.
-        Uses asyncio.create_task so the hot path is never blocked.
+
+        The write-intent for every profile is enqueued to pending_writes
+        *synchronously* (durable before this coroutine returns), via
+        TelemetryStore.enqueue_snapshot() -- so a crash right after this
+        call still lets drain_queue() recover the data. The queue is
+        drained into model_snapshots by the next run's warm-start
+        (engine.py calls drain_queue() before reading history), which is
+        exactly when this cross-run telemetry is actually consumed.
         """
+        active_profiles = self._get_active_profiles()
+        if not active_profiles:
+            logger.debug("No active profiles to flush")
+            return
 
-        async def _write_snapshots() -> None:
-            active_profiles = self._get_active_profiles()
-            if active_profiles:
-                try:
-                    result = await self._telemetry_store.record_snapshots_batch(
-                        project_id, active_profiles
-                    )
-                    if isinstance(result, dict):
-                        if result.get("failed", 0) > 0:
-                            logger.warning(
-                                f"Telemetry batch: {result['success']} succeeded, "
-                                f"{result['failed']} failed"
-                            )
-                            for err in result.get("errors", [])[:5]:
-                                logger.warning(
-                                    f"  - {err.get('model', 'unknown')}: {err.get('error', 'unknown')}"
-                                )
-                        else:
-                            logger.debug(
-                                f"Telemetry batch flush complete for {len(active_profiles)} models"
-                            )
-                except Exception as exc:
-                    logger.warning(f"TelemetryStore.record_snapshots_batch failed: {exc}")
-            else:
-                logger.debug("No active profiles to flush")
-
-        task = asyncio.create_task(_write_snapshots())
-        self._background_tasks.add(task)
-        task.add_done_callback(self._cleanup_task_callback)
+        for model, profile in active_profiles:
+            if getattr(profile, "call_count", 0) < 1:
+                continue
+            try:
+                await self._telemetry_store.enqueue_snapshot(
+                    project_id, model, TaskType.CODE_GEN, profile
+                )
+            except Exception as exc:
+                logger.warning(f"TelemetryStore.enqueue_snapshot failed: {exc}")
 
     # ── Background task lifecycle ──────────────────────────────────────────
 

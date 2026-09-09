@@ -833,7 +833,7 @@ class Orchestrator:
                 self._snapshotter = TelemetrySnapshotter(
                     telemetry_store=self._c.telemetry_store,
                     get_active_profiles_fn=lambda: [
-                        p
+                        (p.model, p)
                         for p in self._c.planner._profiles.values()
                         if getattr(p, "call_count", 0) >= 1
                     ],

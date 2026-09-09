@@ -16,7 +16,11 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
+from ..log_config import get_logger
+
 # Optional import of StateManager for type hints
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -112,8 +116,9 @@ def _recency_factor(created_at_timestamp: float, reference_time: float | None = 
 
     # 30-day decay window
     if age_days <= 30:
-        # Linear decay from 1.0 to 0.0 over 30 days
-        return max(0.0, 1.0 - (age_days / 30.0))
+        # Linear decay from 1.0 to 0.0 over 30 days (clamped: a future
+        # timestamp from clock skew must not push the score above 1.0)
+        return max(0.0, min(1.0, 1.0 - (age_days / 30.0)))
     else:
         # Older than 30 days
         return 0.0
@@ -310,22 +315,31 @@ class ResumeDetector:
         if not self.state_manager:
             return None
 
-        rows = await self.state_manager.find_resumable(list(combined_keywords))
+        try:
+            rows = await self.state_manager.find_resumable(list(combined_keywords))
+        except Exception as exc:
+            logger.warning("Failed to check resumable projects: %s", exc)
+            return None
         if not rows:
             return None
 
         now = time.time()
-        candidates = [
-            ResumeCandidate(
-                project_id=row["project_id"],
-                description=row.get("description", ""),
-                keywords=row.get("keywords", []),
-                recency_score=_recency_factor(float(row.get("updated_at") or 0.0), now),
-                similarity_score=0.0,
-                overall_score=0.0,
+        candidates = []
+        for row in rows:
+            try:
+                updated_at = float(row.get("updated_at") or 0.0)
+            except (ValueError, TypeError, OSError, OverflowError):
+                updated_at = now
+            candidates.append(
+                ResumeCandidate(
+                    project_id=row["project_id"],
+                    description=row.get("description", ""),
+                    keywords=row.get("keywords", []),
+                    recency_score=_recency_factor(updated_at, now),
+                    similarity_score=0.0,
+                    overall_score=0.0,
+                )
             )
-            for row in rows
-        ]
 
         scored = _score_candidates(combined_keywords, candidates)
         if not scored:

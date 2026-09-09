@@ -274,6 +274,7 @@ class TelemetryStore:
         self,
         project_id: str,
         snapshots: list[tuple[Model, ModelProfile]],
+        task_type: TaskType = TaskType.CODE_GEN,
     ) -> dict[str, Any]:
         """
         P2-2 OPTIMIZATION: Batch persist multiple ModelProfile snapshots at once.
@@ -285,6 +286,7 @@ class TelemetryStore:
         Args:
             project_id: The project ID to associate with all snapshots
             snapshots: List of (Model, ModelProfile) tuples to persist
+            task_type: What the models were used for (defaults to CODE_GEN)
 
         Returns:
             Dict with keys: success (count), failed (count), errors (list)
@@ -298,14 +300,21 @@ class TelemetryStore:
         batch_data = []
         errors = []
 
-        for model, profile in snapshots:
+        for entry in snapshots:
+            try:
+                model, profile = entry
+            except (TypeError, ValueError) as e:
+                errors.append({"model": "unknown", "error": f"Malformed snapshot entry: {e}"})
+                logger.warning(f"Telemetry snapshot entry has wrong shape: {e}")
+                continue
+
             if profile.call_count < 1:
                 continue  # Skip profiles with no usage
 
             record = {
                 "project_id": project_id,
                 "model": model.value,
-                "task_type": TaskType.CODE_GEN.value,
+                "task_type": task_type.value,
                 "quality_score": profile.quality_score,
                 "trust_factor": profile.trust_factor,
                 "avg_latency_ms": profile.avg_latency_ms,
@@ -488,9 +497,16 @@ class TelemetryStore:
 
             await self._ensure_schema()
 
+            # Detach a copy before I/O: another coroutine can append to the
+            # live buffers while we're awaiting the DB below, and clearing
+            # the live buffer afterwards would silently drop those late
+            # arrivals. We only remove the items we actually wrote (below).
+            snapshot_batch = list(self._snapshot_buffer)
+            routing_batch = list(self._routing_buffer)
+
             async with aiosqlite.connect(self._db_path) as db:
                 # Flush snapshot buffer
-                for item in self._snapshot_buffer:
+                for item in snapshot_batch:
                     await db.execute(
                         """
                         INSERT INTO model_snapshots
@@ -517,7 +533,7 @@ class TelemetryStore:
                     )
 
                 # Flush routing buffer
-                for item in self._routing_buffer:
+                for item in routing_batch:
                     await db.execute(
                         """
                         INSERT INTO routing_events
@@ -541,10 +557,12 @@ class TelemetryStore:
 
                 await db.commit()
 
-            # Clear buffers after successful commit
-            count = len(self._snapshot_buffer) + len(self._routing_buffer)
-            self._snapshot_buffer.clear()
-            self._routing_buffer.clear()
+            # Remove exactly the items we just wrote (they were appended
+            # first, in order) -- anything appended during the I/O window
+            # above stays in the buffer to be picked up by the next flush.
+            del self._snapshot_buffer[: len(snapshot_batch)]
+            del self._routing_buffer[: len(routing_batch)]
+            count = len(snapshot_batch) + len(routing_batch)
             self._last_flush_time = time.time()
 
             logger.debug(f"Flushed {count} telemetry records to database")

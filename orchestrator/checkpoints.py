@@ -94,8 +94,9 @@ class CheckpointManager:
         # Create checkpoint object
         checkpoint = Checkpoint(task_id=task_id, data=data, timestamp=datetime.now())
 
-        # Create filename with timestamp and task ID
-        timestamp_str = checkpoint.timestamp.strftime("%Y%m%d_%H%M%S")
+        # Create filename with timestamp and task ID (microsecond resolution
+        # to avoid same-second collisions between rapid saves)
+        timestamp_str = checkpoint.timestamp.strftime("%Y%m%d_%H%M%S_%f")
         filename = f"checkpoint_{task_id}_{timestamp_str}.json"
         filepath = self.checkpoint_dir / filename
 
@@ -127,19 +128,22 @@ class CheckpointManager:
             logger.info(f"No checkpoint found for task: {task_id}")
             return None
 
-        # Sort by modification time to get the most recent
-        latest_file = max(checkpoint_files, key=lambda f: f.stat().st_mtime)
+        # Newest first; fall back to older files if the newest is corrupt
+        checkpoint_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
 
-        try:
-            with open(latest_file, encoding="utf-8") as f:
-                checkpoint_data = json.load(f)
+        for candidate in checkpoint_files:
+            try:
+                with open(candidate, encoding="utf-8") as f:
+                    checkpoint_data = json.load(f)
 
-            checkpoint = Checkpoint.from_dict(checkpoint_data)
-            logger.info(f"Checkpoint loaded: {latest_file}")
-            return checkpoint
-        except Exception as e:
-            logger.error(f"Failed to load checkpoint: {e}")
-            return None
+                checkpoint = Checkpoint.from_dict(checkpoint_data)
+                logger.info(f"Checkpoint loaded: {candidate}")
+                return checkpoint
+            except Exception as e:
+                logger.error(f"Failed to load checkpoint {candidate}: {e}")
+                continue
+
+        return None
 
     async def load_specific_checkpoint(self, filepath: str) -> Checkpoint | None:
         """
@@ -536,23 +540,29 @@ class ContentCheckpointManager(NamedCheckpointManager):
             snapshot_id = cp.artifacts["_snapshot_id"]
             try:
                 success = await self._snapshot_store.restore(snapshot_id, output_dir)
-                if success:
-                    logger.info(
-                        "File contents restored from snapshot '%s' (%s)",
-                        snapshot_name,
-                        snapshot_id,
-                    )
-                else:
-                    logger.warning(
-                        "Content restoration failed for '%s' — "
-                        "falling back to metadata-only rollback",
-                        snapshot_name,
-                    )
             except Exception as e:
                 logger.warning(
-                    "Content restoration error for '%s': %s — " "metadata-only rollback returned",
+                    "Content restoration error for '%s': %s",
                     snapshot_name,
                     e,
+                )
+                raise RuntimeError(
+                    f"Content restoration error for snapshot '{snapshot_name}': {e}"
+                ) from e
+            if success:
+                logger.info(
+                    "File contents restored from snapshot '%s' (%s)",
+                    snapshot_name,
+                    snapshot_id,
+                )
+            else:
+                logger.warning(
+                    "Content restoration failed for '%s' — "
+                    "falling back to metadata-only rollback",
+                    snapshot_name,
+                )
+                raise RuntimeError(
+                    f"Content restoration failed for snapshot '{snapshot_name}' (id={snapshot_id})"
                 )
 
         return cp

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -77,12 +78,14 @@ class RestorePointManager:
                 logger.warning(f"Failed to load restore points: {e}")
 
     def _save(self) -> None:
-        """Save restore points to disk."""
+        """Save restore points to disk (atomic: write temp file, then replace)."""
         fp = self._dir / "restore_points.json"
-        fp.write_text(
+        tmp = fp.with_suffix(fp.suffix + ".tmp")
+        tmp.write_text(
             json.dumps([p.to_dict() for p in self._points], indent=2),
             encoding="utf-8",
         )
+        os.replace(tmp, fp)
 
     async def capture(
         self,
@@ -102,7 +105,7 @@ class RestorePointManager:
         Returns:
             RestorePoint that can be used to roll back
         """
-        point_id = f"rp_{int(time.time())}"
+        point_id = f"rp_{time.time_ns()}"
         rp = RestorePoint(
             point_id=point_id,
             label=label,

@@ -20,6 +20,7 @@ import hashlib
 import json
 import logging
 import shutil
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -129,9 +130,16 @@ class WorkspaceManager:
         Returns:
             Workspace: The created workspace
         """
-        # Generate unique ID based on name and owner
-        id_source = f"{name}_{owner}_{datetime.now().isoformat()}"
+        # Generate unique ID based on name, owner, timestamp, and a random
+        # salt (belt-and-suspenders against accidental hash collisions --
+        # the explicit check below is what actually guards against reuse)
+        id_source = f"{name}_{owner}_{datetime.now().isoformat()}_{uuid.uuid4()}"
         workspace_id = hashlib.sha256(id_source.encode()).hexdigest()[:12]
+
+        if workspace_id in self.workspaces:
+            raise RuntimeError(
+                f"Workspace ID collision for '{workspace_id}' (name={name!r}, owner={owner!r})"
+            )
 
         # Create workspace directory
         workspace_dir = self.base_dir / workspace_id
@@ -417,13 +425,14 @@ class WorkspaceManager:
         workspace_dir = self.workspace_dirs.pop(workspace_id)
 
         # Delete files if requested
+        files_deleted_ok = True
         if delete_files and workspace_dir.exists():
             try:
                 shutil.rmtree(workspace_dir)
                 logger.info(f"Deleted workspace files: {workspace_dir}")
             except Exception as e:
                 logger.error(f"Failed to delete workspace files {workspace_dir}: {e}")
-                # Still return True as the workspace is removed from memory
+                files_deleted_ok = False
         elif not delete_files:
             logger.info(f"Kept workspace files at: {workspace_dir}")
 
@@ -432,7 +441,7 @@ class WorkspaceManager:
             self.active_workspace_id = None
 
         logger.info(f"Deleted workspace: {workspace.name} (ID: {workspace_id})")
-        return True
+        return files_deleted_ok
 
     def get_workspace_usage(self, workspace_id: str) -> dict[str, any]:
         """

@@ -90,7 +90,7 @@ class CapabilityEvent:
     ) -> CapabilityEvent:
         """Factory method to create an event with current timestamp."""
         return cls(
-            timestamp=datetime.now(timezone.utc).isoformat() + "Z",
+            timestamp=datetime.now(timezone.utc).isoformat(),
             capability=capability.name,
             task_type=task_type,
             model=model,
@@ -111,7 +111,7 @@ class CapabilityLogger:
     _instance: CapabilityLogger | None = None
     _lock: Lock = Lock()
 
-    def __new__(cls) -> CapabilityLogger:
+    def __new__(cls, *args, **kwargs) -> CapabilityLogger:
         """Singleton pattern to ensure single logger instance."""
         if cls._instance is None:
             with cls._lock:
@@ -126,24 +126,25 @@ class CapabilityLogger:
         Args:
             log_dir: Directory for capability logs. Defaults to ./logs/capabilities
         """
-        if self._initialized:
-            return
+        with type(self)._lock:
+            if self._initialized:
+                return
 
-        self._initialized = True
-        self._buffer: list[CapabilityEvent] = []
-        self._buffer_lock = Lock()
-        self._flush_interval = 10  # Flush every N events
+            self._initialized = True
+            self._buffer: list[CapabilityEvent] = []
+            self._buffer_lock = Lock()
+            self._flush_interval = 10  # Flush every N events
 
-        # Setup log directory
-        if log_dir is None:
-            log_dir = Path.cwd() / "logs" / "capabilities"
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
+            # Setup log directory
+            if log_dir is None:
+                log_dir = Path.cwd() / "logs" / "capabilities"
+            self.log_dir = Path(log_dir)
+            self.log_dir.mkdir(parents=True, exist_ok=True)
 
-        # Current log file (rotates daily)
-        self._current_file = self._get_log_file()
+            # Current log file (rotates daily)
+            self._current_file = self._get_log_file()
 
-        logger.info(f"CapabilityLogger initialized: {self.log_dir}")
+            logger.info(f"CapabilityLogger initialized: {self.log_dir}")
 
     def _get_log_file(self) -> Path:
         """Get current log file path (date-based rotation)."""

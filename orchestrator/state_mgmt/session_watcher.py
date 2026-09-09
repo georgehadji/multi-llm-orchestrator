@@ -34,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -201,11 +202,18 @@ class SessionWatcher:
                         summary=data.get("summary"),
                         metadata=data.get("metadata", {}),
                     )
-                    # Load interactions
+                    # Load interactions -- one corrupt line (e.g. a
+                    # crash-truncated write) must not discard the session
+                    # or any interaction already parsed from earlier lines.
                     for line in f:
-                        if line.strip():
+                        if not line.strip():
+                            continue
+                        try:
                             interaction = InteractionRecord.from_dict(json.loads(line))
-                            session.interactions.append(interaction)
+                        except Exception as e:
+                            logger.warning(f"Skipping corrupt interaction line in {file_path}: {e}")
+                            continue
+                        session.interactions.append(interaction)
 
                     self._sessions[session_id] = session
             except Exception as e:
@@ -214,11 +222,13 @@ class SessionWatcher:
         logger.info(f"Loaded {len(self._sessions)} sessions from disk")
 
     def _save_session(self, session: SessionRecord) -> None:
-        """Save session to disk."""
+        """Save session to disk (atomic: write temp file, then replace --
+        a crash mid-write must never leave the on-disk file truncated)."""
         file_path = self._session_file_path(session.id)
+        tmp_path = file_path.with_suffix(file_path.suffix + ".tmp")
 
         # Write as JSONL: first line is session metadata, rest are interactions
-        with open(file_path, "w", encoding="utf-8") as f:
+        with open(tmp_path, "w", encoding="utf-8") as f:
             # Session header
             f.write(
                 json.dumps(
@@ -238,6 +248,8 @@ class SessionWatcher:
             # Interactions
             for interaction in session.interactions:
                 f.write(json.dumps(interaction.to_dict()) + "\n")
+
+        os.replace(tmp_path, file_path)
 
     def start_session(self, project_id: str, metadata: dict[str, Any] | None = None) -> str:
         """Start a new session for a project."""
@@ -346,8 +358,9 @@ class SessionWatcher:
         if not session:
             return []
 
-        # Get last N interactions
-        recent = session.interactions[-limit:] if session.interactions else []
+        # Get last N interactions (limit<=0 means "none", not "all" --
+        # interactions[-0:] would otherwise slice the entire list)
+        recent = session.interactions[-limit:] if limit > 0 else []
 
         result = []
         for interaction in recent:
