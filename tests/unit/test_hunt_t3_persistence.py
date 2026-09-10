@@ -368,6 +368,63 @@ def test_telem1_engine_active_profiles_lambda_yields_tuples() -> None:
     )
 
 
+def test_telem1_container_snapshotter_lambda_yields_tuples() -> None:
+    """TELEM-1's live half. engine.py's _get_snapshotter prefers
+    container.snapshotter and only falls back to its own lambda when the
+    container has none -- so the container's lambda is the one production
+    actually runs. The test above builds a container without a snapshotter
+    and therefore exercises only the dead fallback; this one checks the
+    live wiring."""
+    from unittest.mock import MagicMock
+
+    from orchestrator.engine_core.container import ServiceContainer
+    from orchestrator.models import Budget
+
+    container = ServiceContainer.build(
+        budget=Budget(max_usd=1.0, max_time_seconds=60),
+        cache=MagicMock(),
+        state_manager=MagicMock(),
+    )
+    assert container.snapshotter is not None, "container built no snapshotter to check"
+
+    model, profile = next(iter(container.planner._profiles.items()))
+    profile.call_count = 1  # the lambda only yields profiles used this run
+
+    active = container.snapshotter._get_active_profiles()
+    assert active == [(model, profile)], (
+        f"defect still present: container's get_active_profiles_fn yielded {active!r}, "
+        "expected a list of (Model, ModelProfile) tuples"
+    )
+
+
+@pytest.mark.asyncio
+async def test_telem4_flush_snapshots_survives_a_wrong_shaped_profiles_fn(tmp_path: Path) -> None:
+    """flush_snapshots unpacks (Model, ModelProfile) in its own await path,
+    so a wrong-shaped profiles callable supplied by wiring raises straight
+    through the caller instead of being contained. The shape is supplied by
+    a lambda in another module, which is exactly the kind of thing that
+    drifts -- flushing telemetry must not be able to break a run."""
+    from orchestrator.infrastructure.telemetry_snapshotter import TelemetrySnapshotter
+    from orchestrator.models import Model
+    from orchestrator.policy import ModelProfile
+    from orchestrator.state_mgmt.telemetry_store import TelemetryStore
+
+    store = TelemetryStore(db_path=tmp_path / "telemetry.db")
+    profile = ModelProfile(
+        model=list(Model)[0],
+        provider="anthropic",
+        cost_per_1m_input=3.0,
+        cost_per_1m_output=15.0,
+        call_count=1,
+    )
+    snapshotter = TelemetrySnapshotter(
+        telemetry_store=store,
+        get_active_profiles_fn=lambda: [profile],  # bare profile, not a tuple
+    )
+
+    await snapshotter.flush_snapshots("proj-1")
+
+
 # ── SESSION-1: non-atomic _save_session destroys prior history on a crash ──
 
 

@@ -66,7 +66,15 @@ class TelemetrySnapshotter:
             logger.debug("No active profiles to flush")
             return
 
-        for model, profile in active_profiles:
+        for entry in active_profiles:
+            # The shape is supplied by a lambda in the wiring layer, so a
+            # drifted one must not break the run that is flushing telemetry.
+            try:
+                model, profile = entry
+            except (TypeError, ValueError) as exc:
+                logger.warning(f"Skipping malformed active-profile entry: {exc}")
+                continue
+
             if getattr(profile, "call_count", 0) < 1:
                 continue
             try:

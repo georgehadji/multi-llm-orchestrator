@@ -970,7 +970,7 @@ class ServiceContainer:
             snapshotter = TelemetrySnapshotter(
                 telemetry_store=telemetry_store,
                 get_active_profiles_fn=lambda: [
-                    p
+                    (p.model, p)
                     for p in (planner._profiles if planner else {}).values()
                     if getattr(p, "call_count", 0) >= 1
                 ],
