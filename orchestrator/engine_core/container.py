@@ -366,13 +366,18 @@ class ServiceContainer:
             except Exception as e:
                 logger.warning("Failed to close semantic cache: %s", e)
 
-        # 6. Close event bus
+        # 6. Stop event bus. UnifiedEventBus exposes stop(), not close() — the
+        # old close()-only probe was always False, so the bus was silently
+        # skipped and its _process_loop task outlived the container.
         if self.event_bus is not None:
             try:
-                if hasattr(self.event_bus, "close"):
-                    await self.event_bus.close()
+                stopper = getattr(self.event_bus, "stop", None) or getattr(
+                    self.event_bus, "close", None
+                )
+                if stopper is not None:
+                    await stopper()
             except Exception as e:
-                logger.warning("Failed to close event bus: %s", e)
+                logger.warning("Failed to stop event bus: %s", e)
 
         # 7. Close LLM client connection pools
         if self.client is not None:
@@ -724,7 +729,7 @@ class ServiceContainer:
 
         # Unified Event System integration
         try:
-            from .unified_events.core import UnifiedEventBus
+            from ..unified_events.core import UnifiedEventBus
 
             # event_bus  → async face (publish DomainEvents)
             # hook_registry → sync face (fire lifecycle hooks)

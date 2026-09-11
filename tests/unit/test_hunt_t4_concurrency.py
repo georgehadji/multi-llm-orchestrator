@@ -263,3 +263,67 @@ async def test_t4b1_01_concurrent_runs_do_not_erase_each_others_results() -> Non
         "a concurrent run erased results belonging to another run "
         f"(1 = own result survived, 0 = erased): {observed}"
     )
+
+
+# ── T4B7-02 — the container never gets a real event bus ─────────────────────
+@pytest.mark.unit
+def test_t4b7_02_container_wires_the_real_unified_event_bus() -> None:
+    """container.py imported '.unified_events.core' from inside engine_core —
+    one dot short of orchestrator.unified_events — and the ImportError was
+    swallowed, so every container fell back to NullEventBus/NullHookRegistry
+    and the whole unified event system was dead.
+
+    Violated property: container.py's own comment — 'event_bus -> async face
+    (publish DomainEvents)'; a null adapter is the documented *fallback*, not
+    the normal path.
+    """
+    from unittest.mock import AsyncMock
+
+    from orchestrator.engine_core.container import ServiceContainer
+    from orchestrator.models import Budget
+    from orchestrator.unified_events.core import UnifiedEventBus
+
+    container = ServiceContainer.build(
+        budget=Budget(max_usd=1.0, max_time_seconds=60),
+        cache=AsyncMock(),
+        state_manager=AsyncMock(),
+    )
+    assert isinstance(
+        container.event_bus, UnifiedEventBus
+    ), f"container fell back to {type(container.event_bus).__name__}"
+
+
+# ── T4B2-03 — shutdown() probes for close(), the bus only has stop() ────────
+@pytest.mark.unit
+async def test_t4b2_03_shutdown_stops_the_event_bus_loop() -> None:
+    """ServiceContainer.shutdown() guards on hasattr(event_bus, 'close'), but
+    UnifiedEventBus exposes stop() — so the guard is always False, shutdown
+    silently skips the bus, and its _process_loop task outlives the container.
+
+    Violated property: shutdown()'s own docstring — 'Release all
+    container-managed resources.'
+    """
+    from unittest.mock import AsyncMock
+
+    from orchestrator.engine_core.container import ServiceContainer
+    from orchestrator.models import Budget
+    from orchestrator.unified_events.core import UnifiedEventBus
+
+    container = ServiceContainer.build(
+        budget=Budget(max_usd=1.0, max_time_seconds=60),
+        cache=AsyncMock(),
+        state_manager=AsyncMock(),
+    )
+    bus = container.event_bus
+    assert isinstance(bus, UnifiedEventBus), "precondition: real bus required"
+
+    await bus.start()
+    assert bus._process_task is not None and not bus._process_task.done()
+
+    await container.shutdown()
+    await asyncio.sleep(0)
+
+    assert bus._process_task.done(), (
+        "shutdown() left the event bus processing task running — it leaks for "
+        "the lifetime of the process"
+    )
