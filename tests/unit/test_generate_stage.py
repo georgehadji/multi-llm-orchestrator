@@ -56,8 +56,13 @@ def mock_selector():
 @pytest.fixture
 def mock_budget():
     class _MockBudget:
-        def charge(self, model, tokens):
-            return 0.0
+        def __init__(self):
+            self.spent_usd = 0.0
+
+        # Matches the real Budget.charge contract: async, (amount, phase).
+        async def charge(self, amount, phase="generation"):
+            self.spent_usd += amount
+            return self.spent_usd
 
         async def can_charge(self, model, tokens):
             return True

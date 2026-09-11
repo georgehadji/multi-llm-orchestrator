@@ -327,3 +327,49 @@ async def test_t4b2_03_shutdown_stops_the_event_bus_loop() -> None:
         "shutdown() left the event bus processing task running — it leaks for "
         "the lifetime of the process"
     )
+
+
+# ── T4B6-01 — the main generation call never charges the run budget ─────────
+@pytest.mark.unit
+async def test_t4b6_01_generate_stage_charges_the_budget() -> None:
+    """GenerateStage is handed a Budget and adds the response cost to
+    ctx.cost_usd, but never calls budget.charge(). Nothing downstream charges
+    it either: BudgetEnforcer.record_cost() -- the one method that would -- has
+    zero production callers. Only evaluation, verbalized sampling, decomposition
+    and the validator's revision call ever reach Budget.charge(), so the
+    dominant per-task spend escapes the cap entirely.
+
+    Violated property: Budget.max_usd caps what a run may spend.
+    """
+    from unittest.mock import AsyncMock
+
+    from orchestrator.budget import Budget
+    from orchestrator.engine_core.pipeline import PipelineContext
+    from orchestrator.engine_core.stages.generate import GenerateStage
+    from orchestrator.models import Model, Task, TaskType
+
+    response = MagicMock()
+    response.text = "def hello(): pass"
+    response.cost_usd = 0.25
+    response.usage = MagicMock(input_tokens=100, output_tokens=50)
+
+    client = MagicMock()
+    client.call = AsyncMock(return_value=response)
+
+    budget = Budget(max_usd=10.0, max_time_seconds=300)
+    task = Task(
+        id="t1",
+        type=TaskType.CODE_GEN,
+        prompt="write hello",
+        preferred_model=Model.GPT_4O_MINI,
+    )
+
+    stage = GenerateStage(client=client, budget=budget, selector=MagicMock())
+    ctx = PipelineContext(task=task, model=Model.GPT_4O_MINI)
+    await stage.process(ctx)
+
+    assert ctx.cost_usd == pytest.approx(0.25), "precondition: the call happened"
+    assert budget.spent_usd == pytest.approx(0.25), (
+        f"generation cost never reached the budget (spent_usd={budget.spent_usd}); "
+        "Budget.max_usd does not cap the dominant spend"
+    )

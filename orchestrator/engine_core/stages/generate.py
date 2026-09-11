@@ -152,6 +152,12 @@ class GenerateStage:
 
         ctx.output = response.text
         ctx.cost_usd += response.cost_usd
+        # Charge at the call site, the way the VS path, the evaluator and the
+        # validator's revision call all do. ctx.cost_usd is only a per-task
+        # tally; without this the run's dominant spend never reaches Budget and
+        # max_usd caps nothing (BudgetEnforcer.record_cost, the one method that
+        # would have charged it downstream, has no production callers).
+        await self._budget.charge(response.cost_usd, "generation")
         ctx.tokens_used["input"] += (
             getattr(response, "usage", None) and getattr(response.usage, "input_tokens", 0) or 0
         )
