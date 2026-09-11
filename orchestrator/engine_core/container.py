@@ -833,7 +833,12 @@ class ServiceContainer:
         else:
             stages = [
                 GenerateStage(client=client, budget=budget, selector=selector, vs_sampler=vs_sampler),  # type: ignore[arg-type]
-                CritiqueStage(client=client, lsp_validator=lsp_validator, vs_sampler=vs_sampler),  # type: ignore[arg-type]
+                CritiqueStage(
+                    client=client,
+                    budget=budget,
+                    lsp_validator=lsp_validator,
+                    vs_sampler=vs_sampler,
+                ),  # type: ignore[arg-type]
                 EvaluateStage(evaluator=evaluator),
                 ValidateStage(),
                 PersuasionDefenseStage(ara_integration=ara),

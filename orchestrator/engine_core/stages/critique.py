@@ -43,6 +43,7 @@ class CritiqueStage:
     def build_kwargs(cls, **deps):
         return {
             "client": deps["client"],
+            "budget": deps.get("budget"),
             "lsp_validator": deps.get("lsp_validator"),
             "vs_sampler": deps.get("vs_sampler"),
         }
@@ -53,9 +54,18 @@ class CritiqueStage:
         get_reviewer_fn: object = None,
         lsp_validator: LSPValidatorPort | None = None,
         vs_sampler: VSSamplerPort | None = None,
+        budget: object = None,
     ) -> None:
         self._client = client
+        if get_reviewer_fn is None:
+            # No construction path ever supplied one, so _resolve_reviewer
+            # always returned None and critique never ran. Default to the
+            # cross-provider selector that was written for exactly this.
+            from ..utilities import _select_reviewer
+
+            get_reviewer_fn = _select_reviewer
         self._get_reviewer_fn = get_reviewer_fn
+        self._budget = budget
         self._lsp_validator = lsp_validator
         self._vs_sampler = vs_sampler
 
@@ -108,6 +118,9 @@ class CritiqueStage:
                     retries=STAGE_RETRY_CRITIQUE,
                 )
                 ctx.critique = response.text[:2000]
+                ctx.cost_usd += getattr(response, "cost_usd", 0.0) or 0.0
+                if self._budget is not None:
+                    await self._budget.charge(getattr(response, "cost_usd", 0.0) or 0.0, "critique")
         except Exception as e:
             logger.warning("Critique failed for task %s: %s", ctx.task.id, e)
 
@@ -187,7 +200,22 @@ class CritiqueStage:
         return "python"
 
     def _resolve_reviewer(self, ctx: PipelineContext):
-        """Resolve the reviewer model."""
-        if self._get_reviewer_fn is not None:
+        """Resolve the reviewer model.
+
+        Critique is best-effort — the call itself is already wrapped so a
+        reviewer failure never fails the task. Resolution has to be guarded the
+        same way: it runs before that try block, and the resolver inspects
+        ctx.model, so a caller holding an unexpected model type would otherwise
+        take the whole task down over an optional review step.
+        """
+        if self._get_reviewer_fn is None:
+            return None
+        try:
             return self._get_reviewer_fn(ctx.model, ctx.task.type)
-        return None
+        except Exception as exc:
+            logger.warning(
+                "Reviewer resolution failed for task %s: %s — skipping critique",
+                getattr(ctx.task, "id", "unknown"),
+                exc,
+            )
+            return None

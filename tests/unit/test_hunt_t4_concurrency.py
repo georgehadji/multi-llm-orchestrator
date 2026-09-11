@@ -373,3 +373,35 @@ async def test_t4b6_01_generate_stage_charges_the_budget() -> None:
         f"generation cost never reached the budget (spent_usd={budget.spent_usd}); "
         "Budget.max_usd does not cap the dominant spend"
     )
+
+
+# ── T4B6-02 — the critique step of the core loop never runs ─────────────────
+@pytest.mark.unit
+def test_t4b6_02_critique_stage_resolves_a_reviewer_as_wired() -> None:
+    """CritiqueStage takes get_reviewer_fn, but neither construction path
+    supplies it: container.py:831 passes client/lsp_validator/vs_sampler, and
+    build_kwargs() returns the same three. So _resolve_reviewer() returns None
+    and process() returns at its guard for every task -- the critique step of
+    the documented generate -> critique -> revise -> evaluate loop never runs.
+    The function meant to be passed, utilities._select_reviewer, has zero
+    production callers.
+
+    Violated property: CLAUDE.md's core execution pipeline includes critique.
+    """
+    from orchestrator.engine_core.pipeline import PipelineContext
+    from orchestrator.engine_core.stages.critique import CritiqueStage
+    from orchestrator.engine_core.utilities import _select_reviewer
+    from orchestrator.models import Model, Task, TaskType
+
+    task = Task(id="t1", type=TaskType.CODE_GEN, prompt="write hello")
+    ctx = PipelineContext(task=task, model=Model.GPT_4O_MINI)
+
+    expected = _select_reviewer(Model.GPT_4O_MINI, TaskType.CODE_GEN)
+    assert expected is not None, "precondition: a cross-provider reviewer exists"
+
+    # Constructed exactly as container.py:831 does it.
+    stage = CritiqueStage(client=MagicMock())
+    assert stage._resolve_reviewer(ctx) == expected, (
+        "critique stage resolved no reviewer, so CritiqueStage.process() "
+        "returns at its guard and critique never runs"
+    )
