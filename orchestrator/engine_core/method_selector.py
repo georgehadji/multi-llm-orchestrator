@@ -401,7 +401,7 @@ class MethodSelector:
         if complexity != ComplexityLevel.LOW:
             lower_key = (
                 task_type,
-                ComplexityLevel(max(0, list(ComplexityLevel).index(complexity) - 1)),
+                list(ComplexityLevel)[max(0, list(ComplexityLevel).index(complexity) - 1)],
                 risk_level,
             )
             if lower_key in METHOD_SELECTION_RULES:
@@ -412,7 +412,7 @@ class MethodSelector:
             lower_key = (
                 task_type,
                 complexity,
-                RiskLevel(max(0, list(RiskLevel).index(risk_level) - 1)),
+                list(RiskLevel)[max(0, list(RiskLevel).index(risk_level) - 1)],
             )
             if lower_key in METHOD_SELECTION_RULES:
                 return METHOD_SELECTION_RULES[lower_key]

@@ -989,20 +989,29 @@ class Orchestrator:
                 )
             self._run_ctx._lock_held = _pid
 
-        # Reset per-run state for this new project
-        self._run_ctx.reset(
-            project_id=project_id,
-            budget=budget if budget is not None else self._run_ctx.budget,
-            analyze_on_complete=analyze_on_complete,
-        )
-        return await self._project_runner.run_project(
-            project_description=project_description,
-            success_criteria=success_criteria,
-            project_id=project_id,
-            app_profile=app_profile,
-            analyze_on_complete=analyze_on_complete,
-            output_dir=output_dir,
-        )
+        # The whole run holds _job_lock: _run_ctx (and the results dict
+        # aliased off it) is per-instance, and reset() below clears it, so
+        # two overlapping runs on one Orchestrator erase each other. The
+        # per-project advisory lock above does not cover this — concurrent
+        # runs carry *different* project_ids (see api_server's shared
+        # instance + one background task per request).
+        # ponytail: serialises concurrent runs on a shared instance; the
+        # upgrade path is a per-run context instead of one on the engine.
+        async with self._job_lock:
+            # Reset per-run state for this new project
+            self._run_ctx.reset(
+                project_id=project_id,
+                budget=budget if budget is not None else self._run_ctx.budget,
+                analyze_on_complete=analyze_on_complete,
+            )
+            return await self._project_runner.run_project(
+                project_description=project_description,
+                success_criteria=success_criteria,
+                project_id=project_id,
+                app_profile=app_profile,
+                analyze_on_complete=analyze_on_complete,
+                output_dir=output_dir,
+            )
 
     async def run_project_with_tasks(
         self,
@@ -1042,22 +1051,31 @@ class Orchestrator:
                 )
             self._run_ctx._lock_held = _pid
 
-        # Reset per-run state for this new project
-        self._run_ctx.reset(
-            project_id=project_id,
-            budget=budget if budget is not None else self._run_ctx.budget,
-            analyze_on_complete=analyze_on_complete,
-        )
-        return await self._project_runner.run_project(
-            project_description=project_description,
-            success_criteria=success_criteria,
-            project_id=project_id,
-            app_profile=app_profile,
-            analyze_on_complete=analyze_on_complete,
-            output_dir=output_dir,
-            precomposed_tasks=tasks,
-            constitution=constitution,
-        )
+        # The whole run holds _job_lock: _run_ctx (and the results dict
+        # aliased off it) is per-instance, and reset() below clears it, so
+        # two overlapping runs on one Orchestrator erase each other. The
+        # per-project advisory lock above does not cover this — concurrent
+        # runs carry *different* project_ids (see api_server's shared
+        # instance + one background task per request).
+        # ponytail: serialises concurrent runs on a shared instance; the
+        # upgrade path is a per-run context instead of one on the engine.
+        async with self._job_lock:
+            # Reset per-run state for this new project
+            self._run_ctx.reset(
+                project_id=project_id,
+                budget=budget if budget is not None else self._run_ctx.budget,
+                analyze_on_complete=analyze_on_complete,
+            )
+            return await self._project_runner.run_project(
+                project_description=project_description,
+                success_criteria=success_criteria,
+                project_id=project_id,
+                app_profile=app_profile,
+                analyze_on_complete=analyze_on_complete,
+                output_dir=output_dir,
+                precomposed_tasks=tasks,
+                constitution=constitution,
+            )
 
     async def run_job(self, spec: JobSpec) -> ProjectState:
         """

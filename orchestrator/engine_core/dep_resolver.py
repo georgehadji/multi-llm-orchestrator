@@ -128,6 +128,12 @@ class DependencyResolver:
         for py_file in sorted(output_dir.rglob("*.py")):
             self._scan_file(py_file, raw_imports)
 
+        # An import that resolves to one of the app's own files is not a PyPI
+        # distribution. Emitting it would put an attacker-registrable name into
+        # the delivered requirements.txt, so drop local names before mapping.
+        raw_imports -= {p.stem for p in output_dir.rglob("*.py")}
+        raw_imports -= {p.parent.name for p in output_dir.rglob("__init__.py")}
+
         # report.packages holds the plain (deduplicated) import/package names
         report.packages = sorted(raw_imports)
 

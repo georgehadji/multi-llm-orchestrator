@@ -58,7 +58,14 @@ class TestCircuitBreaker:
     # ── HALF_OPEN Probe ──
     @pytest.mark.asyncio
     async def test_half_open_blocks_second_probe(self):
-        """BUG-002 fix: Single probe in HALF_OPEN."""
+        """BUG-002 fix: only ONE probe may be in flight at a time in HALF_OPEN.
+
+        "In flight" means between check() and record_success/record_failure.
+        A probe that has already *finished* must release the slot, otherwise
+        success_threshold > 1 can never be reached: nothing re-arms HALF_OPEN,
+        so the breaker would reject every caller forever (see
+        tests/unit/test_hunt_t4_concurrency.py::test_t4b7_01_*).
+        """
         cb = CircuitBreaker(
             name="test", failure_threshold=1, reset_timeout=0.02, success_threshold=2
         )
@@ -66,10 +73,15 @@ class TestCircuitBreaker:
             async with cb.context():
                 raise ConnectionError("trip")
         await asyncio.sleep(0.03)
-        await cb.check()
-        await cb.record_success()
+
+        await cb.check()  # probe 1 admitted, now in flight
         with pytest.raises(CircuitBreakerOpen):
-            await cb.check()
+            await cb.check()  # a concurrent caller is rejected while it runs
+
+        await cb.record_success()  # probe 1 finished -> slot released
+        await cb.check()  # probe 2 admitted
+        await cb.record_success()
+        assert cb.is_closed
 
     # ── Edge Cases ──
     def test_circuit_breaker_without_name(self):

@@ -38,7 +38,7 @@ logger = logging.getLogger("orchestrator.async_event_store")
 
 # Import EventType and DomainEvent from unified_events if available
 try:
-    from .unified_events.core import DomainEvent, EventType
+    from ..unified_events.core import DomainEvent, EventType
 
     HAS_UNIFIED_EVENTS = True
 except ImportError:

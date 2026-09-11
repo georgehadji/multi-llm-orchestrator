@@ -236,6 +236,10 @@ class Experiment:
             "status": self.status.value,
             "control_count": self.control_count,
             "treatment_count": self.treatment_count,
+            # from_dict() reads this key; without it every recorded outcome is
+            # lost on reload while the counts above survive, leaving a
+            # reloaded experiment claiming samples it cannot show.
+            "outcomes": [o.to_dict() for o in self.outcomes],
             "result": self.result.to_dict() if self.result else None,
             "completed_at": self.completed_at,
         }

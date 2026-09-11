@@ -137,14 +137,15 @@ class CircuitBreaker:
                 if self._state.successes >= self.success_threshold:
                     self._close()
                 else:
-                    # BUG-002 FIX: Do NOT clear probe_in_flight before the
-                    # success threshold is met.  Keeping it True ensures
-                    # exactly one probe is active per reset window; subsequent
-                    # callers through check() will be blocked (raise
-                    # CircuitBreakerOpen).  When the probe eventually fails,
-                    # record_failure clears the flag so another probe can
-                    # be attempted.
-                    pass
+                    # The flag marks "a probe is in flight", not "a probe was
+                    # already spent this reset window". Release it so the next
+                    # probe can run: holding it after a SUCCESSFUL probe means
+                    # success_threshold > 1 is unreachable (check() rejects
+                    # every caller while HALF_OPEN + probe_in_flight), which
+                    # pins the breaker OPEN to callers forever. Exactly one
+                    # probe at a time is still guaranteed, because check() sets
+                    # the flag and only record_success/record_failure clear it.
+                    self._state.probe_in_flight = False
             elif self._state.state == CircuitState.OPEN:
                 # Shouldn't happen; close anyway
                 self._close()

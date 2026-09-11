@@ -121,6 +121,14 @@ class PipelineExecutor:
             status = TaskStatus.DEGRADED
         if ctx.abort_reason and ctx.abort_reason.startswith("stage_error"):
             status = TaskStatus.FAILED
+        elif ctx.should_abort and ctx.abort_reason:
+            # A delivery gate (ConstitutionGate, PersuasionDefense) stopped this
+            # task deliberately and named why. The retry reasons were consumed
+            # by the loop above, so a *named* abort surviving to here means
+            # "blocked" — and blocked output must never be reported COMPLETED.
+            # should_abort on its own is not enough: several stages set it with
+            # an empty abort_reason purely to end the pipeline early.
+            status = TaskStatus.FAILED
 
         result = ctx.to_task_result(status=status)
 
