@@ -16,6 +16,7 @@ Gates: `lint-imports` (`.importlinter`), root-file freeze, coverage ratchet. Nev
 | Task | Read |
 |---|---|
 | Architecture, how modules connect | `docs/CODEBASE_MINDMAP.md`, [orchestrator/CONTEXT.md](orchestrator/CONTEXT.md) |
+| What is X (a noun), what else moves if I change it | [docs/map/CLAUDE.md](docs/map/CLAUDE.md) |
 | Write or place a test, markers | [tests/CONTEXT.md](tests/CONTEXT.md) |
 | Run a check or audit script | [scripts/CONTEXT.md](scripts/CONTEXT.md) |
 | Find a plan, audit, ADR, design doc | [docs/CONTEXT.md](docs/CONTEXT.md) |
