@@ -33,6 +33,12 @@ Older docs (`docs/DEV_GUIDE.md`, `docs/CI_AND_CONTRACTS.md`) say `Budget` lives 
 - Ghosts: `CostForecaster` (no call site) and `TokenBudgetManager` (no live caller). `orchestrator/costing/core.py` and root `token_budget.py` are leftover copies or shims.
 - `engine_core/container.py:41` imports `CostPredictor` from a `cost_predictor` module that does not exist.
 
+## Findings from the routing cluster (slice 2)
+- Three cost sources disagree: the `models.py:397` literal, `config/costs.json` (148 entries) and `ModelRegistry.COST_TABLE` (60). The json and registry share 54 ids and differ in price for 2. The json loader for `COST_TABLE` (`models.py:924`) is probably never reached.
+- `ModelRegistry.is_valid_model` is true only for ids in its own 60-entry table, so 94 ids that are in `costs.json` return false.
+- Production model choice goes through `application/fallback_handler.py`, not `ConstraintPlanner`. The planner's selection methods are called only from tests.
+- Ghosts: `CapabilityVector` (inert field) and `PhasePolicy` (only tests import it).
+
 ## Output
 Cards under `objects/<cluster>/`. Status values: `stub`, `verified` (needs date, commit and citations), `stale`.
 
