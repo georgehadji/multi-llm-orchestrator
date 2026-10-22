@@ -21,10 +21,12 @@ All verified 2026-10-22 at 80161d2c.
 - `PhasePolicy`, `Phase` — stub — `domain/phase_policy.py`
 
 ## money
-- `Budget` — stub — `budget.py`
-- `BudgetHierarchy` — stub — `cost.py`
-- `CostPredictor`, `CostForecaster` — stub — `cost.py`
-- token budget — stub — `infrastructure/token_budget.py`
+All verified 2026-10-22 at 3b5f746d.
+- [Budget](money/Budget.md) — verified — `budget.py:36`
+- [BudgetHierarchy](money/BudgetHierarchy.md) — verified — `cost.py:136`
+- [CostPredictor](money/CostPredictor.md) — verified — `cost.py:499`
+- [CostForecaster](money/CostForecaster.md) (with `ForecastReport`, `RiskLevel`) — verified, ghost (no call site found) — `cost.py:580`
+- [TokenBudgetManager](money/TokenBudgetManager.md) — verified, ghost (no live caller) — `infrastructure/token_budget.py:136`
 
 ## ports
 - Port protocols (Cache, State, Event, Config, LLMClient, Planner, Telemetry, Tracing, PolicyEngine, HookRegistry, Validator, TaskExecutor, TaskQueue, SkillStore) — stub — `domain/ports.py`

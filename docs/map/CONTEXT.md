@@ -27,6 +27,12 @@ Older docs (`docs/DEV_GUIDE.md`, `docs/CI_AND_CONTRACTS.md`) say `Budget` lives 
 - `Task` and `TaskResult` lose fields on resume (see their cards). `ProjectState` does not.
 - More collisions: `TaskStatus` and `TaskResult` also exist in `engine_core/a2a_protocol.py`; `Verdict` also exists in `generators/wf100/report.py`.
 
+## Findings from the money cluster (slice 2)
+- `Budget.charge` skips per-phase accounting for phases not in its five keys; `"critique"` and `"verbalized_sampling"` charges only raise the total (`budget.py:128`).
+- `BudgetHierarchy.can_afford_job` reserves as a side effect; a caller must settle or release. Nothing in production code builds a `BudgetHierarchy` unless the caller passes one.
+- Ghosts: `CostForecaster` (no call site) and `TokenBudgetManager` (no live caller). `orchestrator/costing/core.py` and root `token_budget.py` are leftover copies or shims.
+- `engine_core/container.py:41` imports `CostPredictor` from a `cost_predictor` module that does not exist.
+
 ## Output
 Cards under `objects/<cluster>/`. Status values: `stub`, `verified` (needs date, commit and citations), `stale`.
 
