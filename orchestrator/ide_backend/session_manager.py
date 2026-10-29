@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -214,9 +215,13 @@ class SessionManager:
         return session
 
     async def get_session(self, session_id: str) -> SessionState | None:
-        """Get session by ID."""
+        """Get session by ID, loading it from disk after a restart."""
         async with self._lock:
-            return self._sessions.get(session_id)
+            session = self._sessions.get(session_id)
+        if session is None:
+            # Outside the lock: load_session caches the result under the same lock.
+            session = await self.load_session(session_id)
+        return session
 
     async def update_session(self, session_id: str, **updates) -> SessionState | None:
         """Update session fields."""
@@ -271,7 +276,8 @@ class SessionManager:
                 return False
 
             path_parts = path.split("/")
-            update_in_tree(session.files, path_parts)
+            if not update_in_tree(session.files, path_parts):
+                return False
             await self._save_session(session)
             return True
 
@@ -362,8 +368,12 @@ class SessionManager:
         """Persist session to disk."""
         try:
             session_file = self._session_file(session.id)
-            with open(session_file, "w") as f:
+            # Write a temp file and swap it in, so a crash mid-write never
+            # truncates the last good copy.
+            tmp = session_file.with_suffix(".json.tmp")
+            with open(tmp, "w") as f:
                 json.dump(session.to_dict(), f, indent=2)
+            os.replace(tmp, session_file)
         except PathTraversalError:
             logger.warning("Refused to save a session with an out-of-root id")
         except Exception as e:

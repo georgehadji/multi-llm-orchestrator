@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from orchestrator.log_config import get_logger
+from orchestrator.models import cost_rates
 
 logger = get_logger(__name__)
 
@@ -122,14 +123,6 @@ class SpeculativeGenerator:
             "premium": "claude-sonnet-4.6",
             "threshold": 0.90,
         },
-    }
-
-    # Cost per 1M tokens
-    MODEL_COSTS = {
-        "deepseek/deepseek-v4-flash": {"input": 1.0, "output": 4.0},
-        "claude-sonnet-4.6": {"input": 3.0, "output": 15.0},
-        "claude-opus-4.6": {"input": 15.0, "output": 75.0},
-        "gpt-4o": {"input": 5.0, "output": 15.0},
     }
 
     def __init__(self, client=None):
@@ -449,8 +442,7 @@ class SpeculativeGenerator:
         output_tokens = len(response) / 4
         input_tokens = len(prompt) / 4 if prompt else 0
 
-        model_key = model.lower()
-        costs = self.MODEL_COSTS.get(model_key, {"input": 3.0, "output": 15.0})
+        costs = cost_rates(model, {"input": 3.0, "output": 15.0})
 
         input_cost = (input_tokens / 1_000_000) * costs["input"]
         output_cost = (output_tokens / 1_000_000) * costs["output"]

@@ -28,7 +28,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ..models import ProjectState, ProjectStatus, TaskStatus, TaskType
+from ..models import RESUMABLE_STATUSES, ProjectState, ProjectStatus, TaskStatus, TaskType
 from ..resilience import RetryTemplate
 from .project_runner_deps import ProjectRunnerCallables, ProjectRunState
 from .unattended_guard import RunContext, UnattendedGuard
@@ -251,7 +251,7 @@ class ProjectRunner:
             try:
                 # ── Resume detection ────────────────────────────────────
                 existing = await self._state_mgr.load_project(project_id)
-                if existing and existing.status == ProjectStatus.PARTIAL_SUCCESS:
+                if existing and existing.status in RESUMABLE_STATUSES:
                     logger.info("Resuming project %s from checkpoint", project_id)
                     state = await self._resumption_svc.resume(existing)
                     await self._state_mgr.save_project(project_id, state)
@@ -279,7 +279,9 @@ class ProjectRunner:
                         from ..assumption_gate import surface_assumptions
 
                         report = await surface_assumptions(
-                            project_description, self._callables.client
+                            project_description,
+                            self._callables.client,
+                            charge_fn=self._charge_decomposition,
                         )
                         if report.has_ambiguity:
                             logger.info(
@@ -393,8 +395,25 @@ class ProjectRunner:
 
                 # ── Phases 2-5: Execute ──────────────────────────────────
                 logger.info("Starting task execution...")
+
+                async def _save_partial(results: dict[str, Any]) -> None:
+                    # Saved as PARTIAL_SUCCESS (a resumable status) after every
+                    # task, so a crash mid-run leaves something to --resume.
+                    partial = self._callables.make_state(
+                        project_description,
+                        success_criteria,
+                        tasks,
+                        execution_order=execution_order,
+                        results=results,
+                    )
+                    await self._state_mgr.save_project(project_id, partial)
+
                 state = await self._callables.execute_all(
-                    tasks, execution_order, project_description, success_criteria
+                    tasks,
+                    execution_order,
+                    project_description,
+                    success_criteria,
+                    persist_fn=_save_partial,
                 )
                 logger.info("Task execution completed.")
 
@@ -452,6 +471,10 @@ class ProjectRunner:
                     await self._state_mgr.close()
                     await self._cache.close()
 
+    async def _charge_decomposition(self, amount: float) -> None:
+        """Charge planning-phase LLM calls (e.g. the assumption gate) to the run budget."""
+        await self._budget.charge(amount, "decomposition")
+
     async def run_job(self, spec: Any) -> Any:
         """
         Policy-driven entry point. Accepts a JobSpec that bundles project
@@ -481,26 +504,26 @@ class ProjectRunner:
         BudgetEnforcer.enforce_hierarchy_job(
             self._budget_hierarchy, job_id, team, spec.budget.max_usd
         )
+        # The Budget may be shared across runs, so charge only this run's spend.
+        spent_before = self._budget.spent_usd
         try:
             state = await self.run_project(
                 project_description=spec.project_description,
                 success_criteria=spec.success_criteria,
             )
-        except Exception:
-            # BUG-001 FIX: release reservation on failure
+        finally:
+            # Settle on success, error AND cancellation (CancelledError is a
+            # BaseException): charge_job() also releases the reservation, so a
+            # failed run's real spend is charged and nothing stays reserved.
             if self._budget_hierarchy is not None:
-                self._budget_hierarchy.release_reservation(job_id, team)
-            raise
-        # Charge actual spend to BudgetHierarchy
-        if self._budget_hierarchy is not None:
-            # T1-C5: use spent_usd directly. Deriving this from
-            # `max_usd - remaining_usd` silently clamps at max_usd whenever the
-            # run overspends its own per-run cap, because remaining_usd floors
-            # at 0.0 — the excess would never reach the cross-run hierarchy.
-            actual_spend = self._budget.spent_usd
-            BudgetEnforcer.enforce_hierarchy_job(
-                self._budget_hierarchy, job_id, team, spec.budget.max_usd, actual_spend
-            )
+                # T1-C5: use spent_usd directly. Deriving this from
+                # `max_usd - remaining_usd` silently clamps at max_usd whenever the
+                # run overspends its own per-run cap, because remaining_usd floors
+                # at 0.0 — the excess would never reach the cross-run hierarchy.
+                actual_spend = max(0.0, self._budget.spent_usd - spent_before)
+                BudgetEnforcer.enforce_hierarchy_job(
+                    self._budget_hierarchy, job_id, team, spec.budget.max_usd, actual_spend
+                )
         # Persist telemetry snapshots for all models used this run (fire-and-forget)
         if self._callables.flush_telemetry_fn is not None:
             await self._callables.flush_telemetry_fn(job_id)
@@ -529,7 +552,11 @@ class ProjectRunner:
         try:
             from ..assumption_gate import surface_assumptions
 
-            report = await surface_assumptions(project_description, self._callables.client)
+            report = await surface_assumptions(
+                project_description,
+                self._callables.client,
+                charge_fn=self._charge_decomposition,
+            )
             if report.has_ambiguity:
                 logger.info(
                     "Assumptions surfaced: %d assumptions, %d questions",

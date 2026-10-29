@@ -22,7 +22,9 @@ FEAT:    Circuit breaker — model marked unhealthy after 3 consecutive failures
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any, Dict, List
 
 from .api_clients import APIResponse
@@ -590,6 +592,7 @@ class Orchestrator:
             skill_manager=getattr(self, "_skill_manager", None),
             taste_skill_service=self._taste_skill_service,
             background_tasks=self._background_tasks,
+            record_failure_fn=self._record_failure,
         )
 
         logger.info("Orchestrator initialized via ServiceContainer")
@@ -705,15 +708,22 @@ class Orchestrator:
         Exceptions during cleanup are logged but not raised to avoid masking
         the original exception.
         """
-        # Release any held project lock
-        _lock_pid = getattr(self._run_ctx, "_lock_held", None)
-        if _lock_pid and self.state_mgr is not None:
-            try:
-                await self.state_mgr.release_project_lock(_lock_pid)
-            except Exception:
-                logger.warning("Failed to release project lock for %s", _lock_pid)
-
         await self._cleanup_resources()
+
+    @contextlib.asynccontextmanager
+    async def _project_lock(self, project_id: str) -> AsyncIterator[None]:
+        """Hold the cross-process project lock for one run; released on any exit."""
+        _pid = project_id or self._run_ctx.project_id
+        if not _pid or self.state_mgr is None:
+            yield
+            return
+        async with self.state_mgr.project_lease(_pid) as acquired:
+            if not acquired:
+                raise ConfigurationError(
+                    f"Project '{_pid}' is locked by another orchestrator instance. "
+                    f"Wait for it to complete or release the lock."
+                )
+            yield
 
     async def _cleanup_resources(self) -> None:
         """
@@ -754,9 +764,10 @@ class Orchestrator:
         except Exception as e:
             logger.warning("Failed to flush telemetry store: %s", e)
 
-        # 2b. Flush audit log (getattr: minimal Orchestrator may lack _audit_log).
+        # 2b. Flush the policy audit log (getattr: a minimal Orchestrator may
+        #     lack _policy_engine).
         try:
-            audit = getattr(self, "_audit_log", None)
+            audit = getattr(getattr(self, "_policy_engine", None), "audit_log", None)
             if hasattr(audit, "flush"):
                 await audit.flush()
         except Exception as e:
@@ -978,26 +989,15 @@ class Orchestrator:
         """
         validate_project_args(project_description, success_criteria, project_id, output_dir)
 
-        # Acquire advisory lock to prevent concurrent modification
-        _pid = project_id or self._run_ctx.project_id
-        if _pid and self.state_mgr is not None:
-            acquired = await self.state_mgr.acquire_project_lock(_pid)
-            if not acquired:
-                raise ConfigurationError(
-                    f"Project '{_pid}' is locked by another orchestrator instance. "
-                    f"Wait for it to complete or release the lock."
-                )
-            self._run_ctx._lock_held = _pid
-
         # The whole run holds _job_lock: _run_ctx (and the results dict
         # aliased off it) is per-instance, and reset() below clears it, so
         # two overlapping runs on one Orchestrator erase each other. The
-        # per-project advisory lock above does not cover this — concurrent
+        # per-project advisory lock does not cover this — concurrent
         # runs carry *different* project_ids (see api_server's shared
         # instance + one background task per request).
         # ponytail: serialises concurrent runs on a shared instance; the
         # upgrade path is a per-run context instead of one on the engine.
-        async with self._job_lock:
+        async with self._project_lock(project_id), self._job_lock:
             # Reset per-run state for this new project
             self._run_ctx.reset(
                 project_id=project_id,
@@ -1040,26 +1040,15 @@ class Orchestrator:
         """
         validate_project_args(project_description, success_criteria, project_id, output_dir)
 
-        # Acquire advisory lock to prevent concurrent modification
-        _pid = project_id or self._run_ctx.project_id
-        if _pid and self.state_mgr is not None:
-            acquired = await self.state_mgr.acquire_project_lock(_pid)
-            if not acquired:
-                raise ConfigurationError(
-                    f"Project '{_pid}' is locked by another orchestrator instance. "
-                    f"Wait for it to complete or release the lock."
-                )
-            self._run_ctx._lock_held = _pid
-
         # The whole run holds _job_lock: _run_ctx (and the results dict
         # aliased off it) is per-instance, and reset() below clears it, so
         # two overlapping runs on one Orchestrator erase each other. The
-        # per-project advisory lock above does not cover this — concurrent
+        # per-project advisory lock does not cover this — concurrent
         # runs carry *different* project_ids (see api_server's shared
         # instance + one background task per request).
         # ponytail: serialises concurrent runs on a shared instance; the
         # upgrade path is a per-run context instead of one on the engine.
-        async with self._job_lock:
+        async with self._project_lock(project_id), self._job_lock:
             # Reset per-run state for this new project
             self._run_ctx.reset(
                 project_id=project_id,
@@ -1091,7 +1080,7 @@ class Orchestrator:
         """
         validate_job_spec(spec)
         async with self._job_lock:
-            self._run_ctx.budget = spec.budget
+            self._run_ctx.apply_budget(spec.budget)
             self._run_ctx.active_policies = spec.policy_set
             self._run_ctx.quality_mode = getattr(spec, "quality_mode", "standard")
             # JobSpec may override the per-task parallelism limit
@@ -1201,6 +1190,7 @@ class Orchestrator:
         project_desc: str,
         success_criteria: str,
         output_dir: "Path | None" = None,  # noqa: F821
+        persist_fn: Any = None,
     ) -> ProjectState:
         """
         Execute all tasks respecting dependencies, with intra-level parallelism.
@@ -1214,6 +1204,7 @@ class Orchestrator:
             output_dir=output_dir,
             execute_task_fn=self._execute_task,
             make_state_fn=self._make_state,
+            persist_fn=persist_fn,
         )
 
     async def _warm_cache_for_level(self, tasks: Dict[str, Task], runnable: List[str]) -> None:

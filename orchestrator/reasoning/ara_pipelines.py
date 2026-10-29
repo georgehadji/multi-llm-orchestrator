@@ -321,7 +321,7 @@ class MultiPerspectivePipeline(BasePipeline):
 
     async def _phase_perspectives(self, state: PipelineState, context: str):
         """Run all 4 perspectives concurrently."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for analysis
         primary = self._get_model_for_phase(PhaseType.ANALYSIS, state.task.type)
@@ -364,7 +364,7 @@ class MultiPerspectivePipeline(BasePipeline):
 
     async def _phase_critique(self, state: PipelineState):
         """Score all candidates on multiple criteria."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         if len(state.candidates) == 0:
             return
@@ -421,7 +421,7 @@ class MultiPerspectivePipeline(BasePipeline):
 
     async def _phase_synthesis(self, state: PipelineState):
         """Synthesize top candidates into final solution."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         if not state.top_candidates:
             state.final_output = "No viable candidates generated."
@@ -529,7 +529,7 @@ class IterativePipeline(BasePipeline):
 
     async def _phase_generate(self, state: PipelineState, context: str, round_num: int):
         """Generate candidates with reflexion memory."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for generation
         generator = self._get_model_for_phase(PhaseType.GENERATION, state.task.type)
@@ -568,7 +568,7 @@ class IterativePipeline(BasePipeline):
 
     async def _phase_critique(self, state: PipelineState):
         """Score candidates with detailed feedback."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         if len(state.candidates) == 0:
             return
@@ -683,7 +683,7 @@ class DebatePipeline(BasePipeline):
 
     async def _phase_debate_opening(self, state: PipelineState, context: str):
         """Two parallel opening statements."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for debate
         model_pro = self._get_model_for_phase(PhaseType.DEBATE, state.task.type)
@@ -727,7 +727,7 @@ class DebatePipeline(BasePipeline):
 
     async def _phase_debate_rebuttal(self, state: PipelineState):
         """Each side rebuts the other's opening."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         if not state.debate_rounds:
             return
@@ -776,7 +776,7 @@ class DebatePipeline(BasePipeline):
 
     async def _phase_debate_cross_examine(self, state: PipelineState):
         """Judge asks probing questions to both sides."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for evaluation/judge
         judge_model = self._get_model_for_phase(PhaseType.EVALUATION, state.task.type)
@@ -805,7 +805,7 @@ class DebatePipeline(BasePipeline):
 
     async def _phase_debate_judge(self, state: PipelineState):
         """Judge makes final decision."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for evaluation/judge
         judge_model = self._get_model_for_phase(PhaseType.EVALUATION, state.task.type)
@@ -1040,7 +1040,7 @@ class ResearchPipeline(BasePipeline):
 
     async def _phase_research_llm_fallback(self, state: PipelineState):
         """Fallback to LLM-based research if Nexus unavailable."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for research
         researcher = self._get_model_for_phase(PhaseType.RESEARCH, state.task.type)
@@ -1097,7 +1097,7 @@ class ResearchPipeline(BasePipeline):
 
     async def _phase_analyze(self, state: PipelineState):
         """Analyze findings using Multi-Perspective approach."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         web_context = (
             "\n\n".join(state.web_discovery_results)
@@ -1266,7 +1266,7 @@ class JuryPipeline(BasePipeline):
 
     async def _phase_jury_generate(self, state: PipelineState, context: str):
         """4 parallel generators create solutions."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for generation
         generator_model = self._get_model_for_phase(PhaseType.GENERATION, state.task.type)
@@ -1311,7 +1311,7 @@ class JuryPipeline(BasePipeline):
 
     async def _phase_jury_critique(self, state: PipelineState):
         """3 parallel critics evaluate all generators."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for critique
         critic_model = self._get_model_for_phase(PhaseType.CRITIQUE, state.task.type)
@@ -1354,7 +1354,7 @@ class JuryPipeline(BasePipeline):
 
     async def _phase_jury_verify_and_meta_eval(self, state: PipelineState):
         """Verify claims and evaluate critic quality."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for evaluation
         verifier = self._get_model_for_phase(PhaseType.EVALUATION, state.task.type)
@@ -1535,7 +1535,7 @@ class ScientificPipeline(BasePipeline):
 
     async def _phase_scientific_hypothesize(self, state: PipelineState):
         """Generate multiple hypotheses."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for analysis (hypothesis generation)
         primary = self._get_model_for_phase(PhaseType.ANALYSIS, state.task.type)
@@ -1572,7 +1572,7 @@ class ScientificPipeline(BasePipeline):
 
     async def _phase_scientific_test(self, state: PipelineState):
         """Design tests for each hypothesis."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for research (test design)
         tester = self._get_model_for_phase(PhaseType.RESEARCH, state.task.type)
@@ -1600,7 +1600,7 @@ class ScientificPipeline(BasePipeline):
 
     async def _phase_scientific_evaluate(self, state: PipelineState):
         """Evaluate evidence for each hypothesis."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for evaluation
         evaluator = self._get_model_for_phase(PhaseType.EVALUATION, state.task.type)
@@ -1656,7 +1656,7 @@ class ScientificPipeline(BasePipeline):
 
     async def _phase_synthesis(self, state: PipelineState):
         """Synthesize conclusion from best hypothesis."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         if not state.candidates:
             state.final_output = "No hypotheses generated."
@@ -1742,7 +1742,7 @@ class SocraticPipeline(BasePipeline):
 
     async def _phase_socratic_question(self, state: PipelineState, context: str):
         """Generate initial Socratic questions."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for analysis (Socratic questioning)
         questioner = self._get_model_for_phase(PhaseType.ANALYSIS, state.task.type)
@@ -1772,7 +1772,7 @@ class SocraticPipeline(BasePipeline):
 
     async def _phase_socratic_followup(self, state: PipelineState, round_num: int):
         """Generate follow-up questions based on answers."""
-        from .phase_aware_models import PhaseType
+        from ..phase_aware_models import PhaseType
 
         # Use phase-aware model selection for analysis (follow-up questioning)
         questioner = self._get_model_for_phase(PhaseType.ANALYSIS, state.task.type)

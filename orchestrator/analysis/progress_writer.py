@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -124,8 +125,11 @@ class ProgressWriter:
         # FIXED: from .models import TaskType
         from ..models import TaskType
 
+        # Work on a copy: result is the live TaskResult the final state is built from.
+        output = result.output
+
         # CRITICAL FIX: Validate code with AST before writing
-        if task.type == TaskType.CODE_GEN and result.output:
+        if task.type == TaskType.CODE_GEN and output:
             try:
                 # FIXED: from .code_validator import SecurityConfig, validate_code
                 from ..code_validator import SecurityConfig, validate_code
@@ -137,7 +141,7 @@ class ProgressWriter:
                     allow_subprocess=False,
                     allow_network=False,
                 )
-                validation_result = validate_code(result.output, config)
+                validation_result = validate_code(output, config)
 
                 if not validation_result.is_valid:
                     # Code failed validation - sanitize or reject
@@ -150,7 +154,7 @@ class ProgressWriter:
                         f"# Issues: {', '.join(validation_result.errors)}\n"
                         f"# Warnings: {', '.join(validation_result.warnings)}\n\n"
                     )
-                    result.output = warning_header + result.output
+                    output = warning_header + output
 
                 if validation_result.dangerous_patterns_found:
                     logger.warning(
@@ -162,10 +166,12 @@ class ProgressWriter:
                 logger.warning(f"Task {task_id}: AST validation failed: {e}")
                 # Continue with write but log the issue
 
-        ext = _ext_for(task.type, result.output)
-        filename = f"{task_id}_{task.type.value}{ext}"
+        ext = _ext_for(task.type, output)
+        # task_id comes from LLM decomposition output; keep path separators out.
+        safe_id = re.sub(r"[^A-Za-z0-9_.-]", "_", task_id)
+        filename = f"{safe_id}_{task.type.value}{ext}"
         dest = self._out / filename
-        content = _render_content(task.type, result.output, ext)
+        content = _render_content(task.type, output, ext)
         # HIGH PRIORITY FIX: Use async file I/O to prevent event loop blocking
         await async_write_text(dest, content, encoding="utf-8")
         logger.debug(
@@ -180,7 +186,7 @@ class ProgressWriter:
             # FIXED: from .output_writer import extract_named_files, write_extracted_files
             from ..output_writer import extract_named_files, write_extracted_files
 
-            named = extract_named_files(result.output)
+            named = extract_named_files(output)
             if named:
                 app_dir = self._out / "app"
                 write_extracted_files(named, app_dir)

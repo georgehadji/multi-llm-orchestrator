@@ -300,7 +300,8 @@ class ARAPipelineIntegration:
         return TaskResult(
             task_id=task.id,
             output=response.text,
-            score=0.7,
+            # Unevaluated output: never report it as a passing score.
+            score=0.0,
             model_used=primary,
             status=TaskStatus.COMPLETED,
             metadata={"execution_mode": "fallback_standard"},

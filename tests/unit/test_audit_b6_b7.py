@@ -68,8 +68,8 @@ class TestPerCallReservation:
         monkeypatch.setattr(flags, "vs_generate", False, raising=False)
         client = MagicMock(call=AsyncMock(side_effect=RuntimeError("provider down")))
         budget = Budget(max_usd=10.0)
-        with pytest.raises(RuntimeError):
-            await _stage(client, budget).process(_ctx("t"))
+        ctx = await _stage(client, budget).process(_ctx("t"))
+        assert ctx.abort_reason == "provider_error"
         assert budget._reserved_usd == pytest.approx(0.0)
         assert budget.spent_usd == 0.0
 

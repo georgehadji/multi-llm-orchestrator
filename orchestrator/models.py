@@ -835,6 +835,12 @@ class ProjectStatus(str, Enum):
     SYSTEM_FAILURE = "SYSTEM_FAILURE"
 
 
+# Runs that stopped before finishing and can pick up where they left off.
+RESUMABLE_STATUSES: frozenset[ProjectStatus] = frozenset(
+    {ProjectStatus.PARTIAL_SUCCESS, ProjectStatus.BUDGET_EXHAUSTED, ProjectStatus.TIMEOUT}
+)
+
+
 class TaskStatus(str, Enum):
 
     PENDING = "pending"
@@ -1181,6 +1187,8 @@ class AttemptRecord:
 
     validators_failed: list[str] = field(default_factory=list)
 
+    score: float = 0.0  # evaluator score this attempt reached
+
 
 @dataclass
 class ProjectState:
@@ -1294,9 +1302,16 @@ def prompt_hash(
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
+def cost_rates(model: Model | str, default: CostDict) -> CostDict:
+    """Per-1M-token prices for *model* (enum or OpenRouter id), else *default*."""
+    if isinstance(model, str):
+        model = Model._value2member_map_.get(model.lower())  # type: ignore[assignment]
+    return COST_TABLE.get(model, default) if model is not None else default
+
+
 def estimate_cost(model: Model, input_tokens: int, output_tokens: int) -> float:
 
-    costs = COST_TABLE.get(model, {"input": 5.0, "output": 20.0})
+    costs = cost_rates(model, {"input": 5.0, "output": 20.0})
 
     return (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000
 

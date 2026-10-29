@@ -106,8 +106,8 @@ class TestCandidate6ClientCacheIsolation:
 
         a = UnifiedClient(openrouter_api_key="fake-a")
         b = UnifiedClient(openrouter_api_key="fake-b")
-        assert a._clients is not b._clients, (
-            "UnifiedClient instances share one class-level `_clients` dict — "
+        assert a._provider_clients is not b._provider_clients, (
+            "UnifiedClient instances share one class-level `_provider_clients` dict — "
             "populating one instance's cache is visible to every other "
             "instance in the process, and close() on any one instance clears "
             "it for all of them."
@@ -125,12 +125,12 @@ class TestCandidate6ClientCacheIsolation:
 
         a = UnifiedClient(openrouter_api_key="fake-a")
         b = UnifiedClient(openrouter_api_key="fake-b")
-        b._clients["b-model"] = _FakeClient()
+        b._provider_clients["deepseek"] = _FakeClient()
 
         await a.close()
 
         assert (
-            "b-model" in b._clients
+            "deepseek" in b._provider_clients
         ), "a.close() emptied b's cache — confirms the shared class-level dict."
 
 

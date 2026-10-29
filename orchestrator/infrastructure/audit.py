@@ -25,13 +25,12 @@ Usage
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 # ── AuditRecord ───────────────────────────────────────────────────────────────
 
@@ -146,6 +145,26 @@ class AuditLog:
         with open(path, "a", encoding="utf-8") as fh:
             for r in self._records:
                 fh.write(json.dumps(asdict(r)) + "\n")
+
+    async def flush(self, path: str | Path | None = None) -> int:
+        """Append pending records to *path*, then drop them from memory.
+
+        Defaults to ``settings.audit_log_path``. Returns how many were written.
+        Clearing after the write keeps a long-lived process from growing
+        forever and stops a second flush from duplicating lines.
+        """
+        if not self._records:
+            return 0
+        if path is None:
+            from ..crosscutting.config import settings
+
+            path = settings.audit_log_path
+        target = Path(path).expanduser()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        count = len(self._records)
+        await asyncio.to_thread(self.flush_jsonl, target)
+        del self._records[:count]
+        return count
 
     # ── Utilities ─────────────────────────────────────────────────────────────
 

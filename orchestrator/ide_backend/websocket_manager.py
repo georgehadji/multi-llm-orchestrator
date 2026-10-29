@@ -115,11 +115,23 @@ class ConnectionManager:
         """Get all active session IDs."""
         return list(self._connections.keys())
 
-    def register_handler(self, event: str, handler: Callable):
-        """Register an event handler."""
-        if event not in self._event_handlers:
-            self._event_handlers[event] = []
-        self._event_handlers[event].append(handler)
+    def register_handler(self, event: str, handler: Callable | None = None):
+        """Register an event handler; without `handler`, return a decorator.
+
+        Re-registering a function with the same qualified name replaces it, so
+        calling the setup twice does not run every handler twice.
+        """
+        if handler is None:
+
+            def decorator(fn: Callable) -> Callable:
+                self.register_handler(event, fn)
+                return fn
+
+            return decorator
+        handlers = self._event_handlers.setdefault(event, [])
+        handlers[:] = [h for h in handlers if h.__qualname__ != handler.__qualname__]
+        handlers.append(handler)
+        return handler
 
     async def handle_event(self, event: str, data: dict[str, Any], websocket: WebSocket):
         """Handle incoming event from client."""

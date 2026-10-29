@@ -75,29 +75,29 @@ async def decompose_project(
             decomposer_inst = TaskDecomposer(api_client=client)  # type: ignore[no-untyped-call]
             decomp_model = model.value
             logger.info("Using Instructor for structured decomposition with %s", decomp_model)
-            result = await decomposer_inst.decompose(
-                project_description=enhanced_project,
-                success_criteria=criteria,
-                model=decomp_model,
-                max_retries=1,
-            )
+            try:
+                result = await decomposer_inst.decompose(
+                    project_description=enhanced_project,
+                    success_criteria=criteria,
+                    model=decomp_model,
+                    max_retries=1,
+                )
+            finally:
+                # The Instructor fast path issues its own raw API call (TaskDecomposer
+                # builds a direct AsyncOpenAI client, bypassing UnifiedClient's cost
+                # tracking), so charge a token-count estimate. The call is paid for
+                # even when it fails, so charge on failure too.
+                # shortcut: one estimate even when max_retries made a second call.
+                try:
+                    est_input_tokens = (len(enhanced_project) + len(criteria)) // 4
+                    est_output_tokens = decomposer_inst._calculate_decomposition_tokens(
+                        enhanced_project
+                    )
+                    await charge_fn(estimate_cost(model, est_input_tokens, est_output_tokens))
+                except Exception:
+                    logger.debug("charge_fn failed for Instructor decomposition", exc_info=True)
             tasks = {task.id: task for task in result.to_tasks()}
             logger.info("Instructor decomposition succeeded: %d tasks", len(tasks))
-
-            # The Instructor fast path issues its own raw API call (TaskDecomposer
-            # builds a direct AsyncOpenAI client, bypassing UnifiedClient's cost
-            # tracking) — charge_fn below is only reached by the fallback path, so
-            # this real, billable call was previously never reflected in the run
-            # budget. Charge a token-count estimate so it isn't silently free.
-            try:
-                est_input_tokens = (len(enhanced_project) + len(criteria)) // 4
-                est_output_tokens = decomposer_inst._calculate_decomposition_tokens(
-                    enhanced_project
-                )
-                await charge_fn(estimate_cost(model, est_input_tokens, est_output_tokens))
-            except Exception:
-                logger.debug("charge_fn failed for Instructor decomposition", exc_info=True)
-
             return tasks
     except ImportError:
         logger.warning("Instructor not available, using Decomposer")
