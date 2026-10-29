@@ -459,7 +459,9 @@ class UnifiedClient:
         _maybe_add_response_healing(kwargs, getattr(self, "_or_opts", None))
         max_retries = kwargs.pop("max_retries", _MAX_RETRIES)
         if "response_model" not in kwargs:
-            return await client.client.with_options(max_retries=max_retries).chat.completions.create(
+            return await client.client.with_options(
+                max_retries=max_retries
+            ).chat.completions.create(
                 model=model_id,
                 messages=messages,
                 max_tokens=max_tokens,

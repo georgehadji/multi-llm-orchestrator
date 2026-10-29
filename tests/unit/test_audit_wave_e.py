@@ -75,8 +75,9 @@ class TestRetriesReachSdk:
         import httpx
         from openai import AsyncOpenAI
 
-        monkeypatch.setattr("openai._base_client.AsyncAPIClient._calculate_retry_timeout",
-                            lambda *a, **k: 0.0)
+        monkeypatch.setattr(
+            "openai._base_client.AsyncAPIClient._calculate_retry_timeout", lambda *a, **k: 0.0
+        )
         hits = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -241,9 +242,7 @@ class TestGenerateTokensAndCritique:
             selector=MagicMock(),
         )
         task = Task(id="t", type=TaskType.CODE_GEN, prompt="p", preferred_model=Model.GPT_4O)
-        ctx = await stage.process(
-            PipelineContext(task=task, tokens_used={"input": 0, "output": 0})
-        )
+        ctx = await stage.process(PipelineContext(task=task, tokens_used={"input": 0, "output": 0}))
         assert ctx.tokens_used == {"input": 12, "output": 7}
 
     @pytest.mark.asyncio
