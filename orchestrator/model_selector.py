@@ -194,19 +194,6 @@ class ModelSelector:
 
         return None
 
-    def fallback(self, failed_model: Model) -> Model | None:
-        """Select fallback after failure."""
-        fb = self._routing.get_fallback_for_model(failed_model)
-        if fb and self._health.get(fb, True):
-            return fb
-
-        # Any other healthy model
-        for m in Model:
-            if m != failed_model and self._health.get(m, True):
-                return m
-
-        return None
-
     def next_tier(self, current_model: Model, task_type: TaskType) -> Model | None:
         """Escalate to higher tier."""
         current_tier = _MODEL_TIERS.get(current_model, 0)
@@ -259,10 +246,3 @@ class TieredModelRouter:
         # Reuse ModelSelector logic for consistency
         selector = ModelSelector(self._health, self._routing, self._costs)
         return selector.decomposition_model("")
-
-    def cheapest_available(self) -> Model:
-        """Get the cheapest healthy model available."""
-        healthy = [m for m in Model if self._health.get(m, True)]
-        if not healthy:
-            return Model.GPT_4O_MINI
-        return min(healthy, key=lambda m: self._costs.get_cost(m)["output"])

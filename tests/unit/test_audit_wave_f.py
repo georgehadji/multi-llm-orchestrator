@@ -99,3 +99,13 @@ def test_task_validator_uses_the_quality_filter() -> None:
         task, output
     )
     assert "python_syntax" not in validator.filter_validators_for_task(task, output)
+
+
+# ── F4: no selector helpers that would route to image models ────────────────
+
+
+def test_unused_selector_helpers_are_deleted() -> None:
+    from orchestrator.model_selector import ModelSelector, TieredModelRouter
+
+    assert not hasattr(ModelSelector, "fallback")
+    assert not hasattr(TieredModelRouter, "cheapest_available")
