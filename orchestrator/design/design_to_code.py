@@ -145,7 +145,7 @@ class DesignToCodePipeline:
 
     # Supported vision models
     VISION_MODELS = {
-        "claude-sonnet-4.6": {"provider": "anthropic", "strength": "strong"},
+        "claude-sonnet-5": {"provider": "anthropic", "strength": "strong"},
         "gpt-4o": {"provider": "openai", "strength": "strong"},
         "gemini-3.1-flash-lite": {"provider": "google", "strength": "good"},
     }
