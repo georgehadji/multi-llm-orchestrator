@@ -21,6 +21,7 @@ Into a single core with pluggable views.
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -215,7 +216,7 @@ class DashboardCore:
         <head><title>Dashboard Error</title></head>
         <body>
             <h1>Dashboard Error</h1>
-            <p>{message}</p>
+            <p>{html.escape(message)}</p>
             <p>Available views: {self.registry.list_views()}</p>
         </body>
         </html>
