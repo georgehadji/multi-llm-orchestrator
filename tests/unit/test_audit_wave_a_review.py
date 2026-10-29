@@ -10,6 +10,8 @@ R2: ProgressWriter._write_task_file prepended a SECURITY WARNING header to the s
     TaskResult.output and built its filename from the raw task_id.
 R3: a failing progress write escaped run_one after the result was stored, so a finished
     task was logged as failed; the write also ran while holding results_lock.
+R4: after run_project closed the StateManager, the CLI reloaded state through it, which
+    reopened an aiosqlite connection (non-daemon thread) that nothing closed.
 R6: writing the FAILED_ placeholder left an earlier run's plain-name file in place.
 """
 
@@ -163,6 +165,20 @@ def test_r6_failed_placeholder_removes_stale_plain_file(tmp_path, monkeypatch) -
 
     assert not stale.exists()
     assert (tmp_path / "FAILED_t1_code_generation.py").exists()
+
+
+async def test_r4_cli_final_state_load_closes_the_reopened_connection(tmp_path) -> None:
+    from orchestrator.entrypoints.cli_dispatch import _load_final_state
+    from orchestrator.infrastructure.state import StateManager
+
+    sm = StateManager(db_path=tmp_path / "state.db")
+    await sm._get_conn()
+    await sm.close()  # what project_runner does at the end of a CLI run
+
+    state = await _load_final_state(sm, "missing")
+
+    assert state is None
+    assert sm._conn is None
 
 
 async def test_r1_reset_without_budget_keeps_cumulative_spend() -> None:
