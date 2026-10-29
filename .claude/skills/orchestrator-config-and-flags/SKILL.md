@@ -1,6 +1,6 @@
 ---
 name: orchestrator-config-and-flags
-description: Complete catalog of every configuration axis in the Multi-LLM Orchestrator — the five JSON configs (costs/routing/fallbacks/limits/thresholds.json) and their silent-drop drift trap, orchestrator/config.py runtime constants, the ORCH_-prefixed pydantic FeatureFlags, the full environment-variable table (USE_* OpenRouter flags, ORCH_HITL_AUTOAPPROVE, ENABLE_PR_COMMENTS, ENABLE_AUTO_COMMIT, ORCH_CACHE_HOME, ORCHESTRATOR_ADMIN_SECRET, ORCHESTRATOR_WS_TOKEN) with wired-or-dead status, API-key loading (.env override=True, eager OPENROUTER_API_KEY validation), and the dependency-declaration rule. Load this when you see symptoms like "model silently never routed to", "config entry ignored", "fallback never fires", "is USE_PROVIDER_SORTING doing anything", "USE_RESPONSE_HEALING not taking effect", "AuthenticationError: OpenRouter API key not found", "tests fail without API key", "CI collection died on import", "which env var controls X", "where do I add a new model/task type", or before editing anything under orchestrator/config/ or adding an environment flag.
+description: Complete catalog of every configuration axis in the Multi-LLM Orchestrator — the four JSON configs (routing/fallbacks/limits/thresholds.json; prices are COST_TABLE in models.py) and their silent-drop drift trap, orchestrator/config.py runtime constants, the ORCH_-prefixed pydantic FeatureFlags, the full environment-variable table (USE_* OpenRouter flags, ORCH_HITL_AUTOAPPROVE, ENABLE_PR_COMMENTS, ENABLE_AUTO_COMMIT, ORCH_CACHE_HOME, ORCHESTRATOR_ADMIN_SECRET, ORCHESTRATOR_WS_TOKEN) with wired-or-dead status, API-key loading (.env override=True, eager OPENROUTER_API_KEY validation), and the dependency-declaration rule. Load this when you see symptoms like "model silently never routed to", "config entry ignored", "fallback never fires", "is USE_PROVIDER_SORTING doing anything", "USE_RESPONSE_HEALING not taking effect", "AuthenticationError: OpenRouter API key not found", "tests fail without API key", "CI collection died on import", "which env var controls X", "where do I add a new model/task type", or before editing anything under orchestrator/config/ or adding an environment flag.
 ---
 
 # Orchestrator Configuration & Flags Catalog
@@ -13,18 +13,17 @@ Repo root: the directory containing `pyproject.toml` and `orchestrator/`.
 
 | # | Axis | Location | Mechanism | Owner section |
 |---|------|----------|-----------|---------------|
-| 1 | Model/routing/cost data | `orchestrator/config/*.json` (5 files) | JSON, loaded lazily | §1 |
+| 1 | Model/routing/cost data | `orchestrator/config/*.json` (4 files) + `COST_TABLE` in `models.py` | JSON, loaded lazily | §1 |
 | 2 | Runtime constants | `orchestrator/config.py` | Plain Python classes | §2 |
 | 3 | Feature flags (ORCH_*) | `orchestrator/crosscutting/config.py` | pydantic-settings, env prefix `ORCH_` | §3 |
 | 4 | Ad-hoc env vars | scattered `os.getenv` call sites | env | §4 |
 | 5 | API keys + .env | `orchestrator/cli.py` `load_dotenv(override=True)` | env / `.env` file | §5 |
 | 6 | Python dependencies | `pyproject.toml` `[project.dependencies]` | pip | §6 |
 
-## 1. The five JSON configs (`orchestrator/config/`)
+## 1. The four JSON configs (`orchestrator/config/`)
 
 | File | Schema (top level) | Meaning |
 |------|--------------------|---------|
-| `costs.json` | `{ "<model-id>": {"input": float, "output": float} }` | USD per **million** tokens (see cost math in `llm_client.py::call`, divides by 1_000_000) |
 | `routing.json` | `{ "<task-type>": ["<model-id>", ...] }` | Ordered preference list per task type; index 0 = lead model |
 | `fallbacks.json` | `{ "<model-id>": "<model-id>" }` | Single-step fallback chain: on failure of key, try value |
 | `limits.json` | `{ "<task-type>": int }` | Max output tokens per task type |
@@ -54,7 +53,7 @@ Any JSON key (or routing list entry, or fallback key/value) that is not **byte-f
 - History: repeated fixes on 2026-06-23; resync in commit `ab17b5f4`. A 2026-07-07 audit additionally reported an orphan `google/gemini-2.5-flash` key present even on master. As of 2026-07-08 that exact key is gone (only `google/gemini-2.5-flash-image` remains, which IS a valid enum value) — **but drift is live right now**, see next block.
 - Full incident narratives live in `orchestrator-failure-archaeology`; this skill owns the rule itself.
 
-**Live drift-checker output (run 2026-07-08, exit code 1):**
+**Drift-checker output from 2026-07-08 (historical; `costs.json` has since been deleted, prices now live in `COST_TABLE` in `models.py`):**
 
 ```
 Checked 133 cost keys, 9 routing keys, 51 fallback pairs against 130 Model values and 9 TaskType values.
@@ -80,9 +79,9 @@ Command: `python .claude\skills\orchestrator-diagnostics-and-tooling\scripts\che
 
 - `test_lead_candidate_is_free_tier` — `ROUTING_TABLE[task][0].value` MUST end with `":free"` (lines 78–83).
 - `test_no_silent_drops` — every routing.json entry must survive into the built table.
-- `test_every_routed_model_is_priced` — every routed model must have a costs.json entry.
+- `test_every_routed_model_is_priced` — every routed model must have a `COST_TABLE` entry.
 - `test_has_premium_fallback` — chain length ≥ 2 and the LAST model must NOT be `:free` (reliable paid last resort).
-- `:free` is an OpenRouter **endpoint variant** — it reaches the API intact and costs $0; free entries in costs.json must be `{"input": 0.00, "output": 0.00}` (also asserted). Theory: see `llm-orchestration-reference`.
+- `:free` is an OpenRouter **endpoint variant** — it reaches the API intact and costs $0; free entries in `COST_TABLE` must be `{"input": 0.00, "output": 0.00}` (also asserted). Theory: see `llm-orchestration-reference`.
 
 If you reorder or extend `routing.json`, run `pytest tests/unit/test_vfm_routing.py -q` before claiming done.
 
@@ -185,7 +184,7 @@ Also remember: **no new dependencies without explicit approval** (stdlib-first /
 
 Adding a **model**:
 1. Add the enum member to `Model` in `orchestrator/models.py` FIRST. The enum is the source of truth; JSON follows it, never the reverse.
-2. Add `costs.json` entry — key EXACTLY `Model.X.value`. Free variants (`...:free`) must be `{"input": 0.00, "output": 0.00}`.
+2. Add its `COST_TABLE` entry in `models.py` (USD per million tokens). Free variants (`...:free`) must be `{"input": 0.00, "output": 0.00}`.
 3. (Optional) add to `routing.json` lists and/or `fallbacks.json` — again exact enum values on BOTH sides of a fallback pair.
 4. Run the drift check: `python .claude\skills\orchestrator-diagnostics-and-tooling\scripts\check_config_drift.py` → must exit 0.
 5. Run the locked tests: `pytest tests/unit/test_vfm_routing.py tests/unit/test_cost_reduction.py -q`. If the model leads a text-task route it MUST end `:free`; the last chain entry must NOT.

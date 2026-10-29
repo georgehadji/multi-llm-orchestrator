@@ -70,7 +70,7 @@ folklore — it is an executable contract in `tests/unit/test_vfm_routing.py`:
 |---|---|
 | Lead candidate ends with `:free` | `test_lead_candidate_is_free_tier` (line 78) |
 | No routing entry silently dropped | `test_no_silent_drops` (line 86) |
-| Every routed model has a costs.json entry | `test_every_routed_model_is_priced` (line 94) |
+| Every routed model has a `COST_TABLE` entry | `test_every_routed_model_is_priced` (line 94) |
 | ≥2 models; last resort is paid | `test_has_premium_fallback` (line 101) |
 
 Cost tiers for cascade decisions: `CostTier` = FREE < BUDGET < PREMIUM with
@@ -85,7 +85,7 @@ All models route through OpenRouter; ids are `provider/slug` with optional suffi
 
 | Suffix / form | Meaning | Handling |
 |---|---|---|
-| `:free` | *Endpoint variant* — a genuinely distinct $0 endpoint of the same model | Passed to the API **intact** (endpoint variants "returned unchanged", `orchestrator/infrastructure/llm_client.py:469-476`); priced 0.0 in `costs.json` |
+| `:free` | *Endpoint variant* — a genuinely distinct $0 endpoint of the same model | Passed to the API **intact** (endpoint variants "returned unchanged", `orchestrator/infrastructure/llm_client.py:469-476`); priced 0.0 in `COST_TABLE` |
 | `:nitro` / `:floor` | Sorting aliases (throughput / price) | **Stripped** from the slug and mapped to `provider.sort` (`llm_client.py:458,461-473`) |
 | `:exacto` | OpenRouter-native variant | Kept on the slug; flagged so task-strategy sort does not override it (`llm_client.py:474-475`) |
 
@@ -118,7 +118,7 @@ Two different mechanisms, both real:
 ### 2.1 Token pricing math
 
 Prices are USD **per 1 million tokens**, split input/output
-(`orchestrator/config/costs.json`, e.g. `"qwen/qwen3-coder:free": {"input": 0.00, "output": 0.00}`):
+(`COST_TABLE` in `orchestrator/models.py`, e.g. `Model.GPT_4O_MINI: {"input": 0.15, "output": 0.6}`):
 
 ```
 cost_usd = (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000

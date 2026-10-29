@@ -4,7 +4,7 @@ Config <-> Model-enum drift checker for the Multi-LLM Orchestrator.
 
 WHY THIS EXISTS
 ---------------
-orchestrator/models.py builds ROUTING_TABLE / COST_TABLE / FALLBACK_CHAIN from
+orchestrator/models.py builds ROUTING_TABLE / FALLBACK_CHAIN from
 orchestrator/config/{routing,fallbacks}.json with guards like:
 
     {Model(k): v for k, v in data.items() if k in Model._value2member_map_}

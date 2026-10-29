@@ -101,7 +101,7 @@ until someone notices a suspiciously cheap invoice or a suspiciously bad output.
 # One-liner: is the model id you care about actually surviving into the built table?
 python -c "from orchestrator.models import Model, ROUTING_TABLE, TaskType; print([m.value for m in ROUTING_TABLE[TaskType.CODE_GEN]])"
 
-# Full drift audit (checks costs.json, routing.json, fallbacks.json against the enum):
+# Full drift audit (checks routing.json, fallbacks.json against the enum):
 python .claude\skills\orchestrator-diagnostics-and-tooling\scripts\check_config_drift.py
 # Exit 0 = clean. Exit 1 = at least one JSON key/value is not byte-for-byte equal to a
 # Model or TaskType enum .value and was SILENTLY DROPPED by the loader's membership
