@@ -681,7 +681,9 @@ class APIServer:
             # The exception text holds the resolved server path; log it, do not return it.
             logger.info("Spec-Kit load failed: %s", exc)
             self._update_request_stats(success=False)
-            return web.json_response({"error": "Spec-Kit artifacts missing in spec_dir"}, status=400)
+            return web.json_response(
+                {"error": "Spec-Kit artifacts missing in spec_dir"}, status=400
+            )
         except ValueError as exc:
             self._update_request_stats(success=False)
             return web.json_response({"error": str(exc)}, status=400)
