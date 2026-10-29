@@ -8,6 +8,8 @@ R1: a per-call budget passed to run_project/run_job only rebound _run_ctx.budget
     one project into the next.
 R2: ProgressWriter._write_task_file prepended a SECURITY WARNING header to the stored
     TaskResult.output and built its filename from the raw task_id.
+R3: a failing progress write escaped run_one after the result was stored, so a finished
+    task was logged as failed; the write also ran while holding results_lock.
 """
 
 from __future__ import annotations
@@ -90,6 +92,49 @@ async def test_r2_progress_writer_keeps_result_and_stays_in_output_dir(
     assert not list(tmp_path.glob("x_*"))
     written = [p for p in out.iterdir() if p.name.endswith(".py")]
     assert len(written) == 1 and "SECURITY WARNING" in written[0].read_text(encoding="utf-8")
+
+
+async def test_r3_progress_write_failure_does_not_fail_the_task(
+    tmp_path, monkeypatch, caplog
+) -> None:
+    from orchestrator.analysis.progress_writer import ProgressWriter
+    from orchestrator.budget import Budget
+    from orchestrator.engine_core.pipeline_runner import PipelineRunner
+    from orchestrator.engine_core.project_planner import ProjectPlanner
+    from orchestrator.models import Model, ProjectState, Task, TaskResult, TaskType
+
+    async def boom(self, *args):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(ProgressWriter, "task_completed", boom)
+
+    def make_state(desc, criteria, tasks, status=None, execution_order=None, results=None):
+        return ProjectState(
+            project_description=desc,
+            success_criteria=criteria,
+            budget=Budget(),
+            tasks=tasks,
+            results=results or {},
+        )
+
+    async def run_task(task):
+        return TaskResult(task_id=task.id, output="x", score=1.0, model_used=Model.GPT_4O_MINI)
+
+    tasks = {"t1": Task(id="t1", type=TaskType.CODE_GEN, prompt="p")}
+    runner = PipelineRunner(pipeline=None, planner=ProjectPlanner(), max_parallel_tasks=1)
+    state = await runner.execute_all(
+        tasks,
+        ["t1"],
+        "d",
+        "c",
+        output_dir=tmp_path,
+        execute_task_fn=run_task,
+        make_state_fn=make_state,
+    )
+
+    assert state.results["t1"].output == "x"
+    assert "failed in level" not in caplog.text
+    assert "disk full" in caplog.text
 
 
 async def test_r1_reset_without_budget_keeps_cumulative_spend() -> None:

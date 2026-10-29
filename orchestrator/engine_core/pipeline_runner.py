@@ -120,8 +120,13 @@ class PipelineRunner:
                             res = _build_failure_result(task, str(exc))
                         async with results_lock:
                             results[tid] = res
-                            if progress_writer:
+                        # Outside the lock (ProgressWriter has its own), and a failed
+                        # progress write never turns a finished task into a failure.
+                        if progress_writer:
+                            try:
                                 await progress_writer.task_completed(tid, res, task)
+                            except Exception as exc:
+                                logger.warning("Progress write failed for %s: %s", tid, exc)
                         return res
                 return None
 
