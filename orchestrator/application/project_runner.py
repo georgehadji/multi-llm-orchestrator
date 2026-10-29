@@ -28,7 +28,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ..models import ProjectState, ProjectStatus, TaskStatus, TaskType
+from ..models import RESUMABLE_STATUSES, ProjectState, ProjectStatus, TaskStatus, TaskType
 from ..resilience import RetryTemplate
 from .project_runner_deps import ProjectRunnerCallables, ProjectRunState
 from .unattended_guard import RunContext, UnattendedGuard
@@ -251,7 +251,7 @@ class ProjectRunner:
             try:
                 # ── Resume detection ────────────────────────────────────
                 existing = await self._state_mgr.load_project(project_id)
-                if existing and existing.status == ProjectStatus.PARTIAL_SUCCESS:
+                if existing and existing.status in RESUMABLE_STATUSES:
                     logger.info("Resuming project %s from checkpoint", project_id)
                     state = await self._resumption_svc.resume(existing)
                     await self._state_mgr.save_project(project_id, state)

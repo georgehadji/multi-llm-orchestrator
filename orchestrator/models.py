@@ -835,6 +835,12 @@ class ProjectStatus(str, Enum):
     SYSTEM_FAILURE = "SYSTEM_FAILURE"
 
 
+# Runs that stopped before finishing and can pick up where they left off.
+RESUMABLE_STATUSES: frozenset[ProjectStatus] = frozenset(
+    {ProjectStatus.PARTIAL_SUCCESS, ProjectStatus.BUDGET_EXHAUSTED, ProjectStatus.TIMEOUT}
+)
+
+
 class TaskStatus(str, Enum):
 
     PENDING = "pending"

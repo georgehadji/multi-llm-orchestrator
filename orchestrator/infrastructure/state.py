@@ -26,6 +26,7 @@ import aiosqlite
 
 from ..budget import Budget
 from ..models import (
+    RESUMABLE_STATUSES,
     AttemptRecord,
     Model,
     ProjectState,
@@ -507,38 +508,30 @@ class StateManager:
         """Find projects with matching keywords that are resumable.
 
         Returns list of dicts with: project_id, description, keywords, status, updated_at
-        Only returns PARTIAL_SUCCESS or IN_PROGRESS projects.
+        Only returns projects whose status is in RESUMABLE_STATUSES.
         ``updated_at`` is a Unix timestamp float from the DB.
         """
         db = await self._get_conn()
 
-        # Build a query that matches projects with any of the provided keywords
-        # We'll do a text-based search in the keywords_json column
+        # Match any of the provided keywords with a text search in keywords_json;
+        # no keywords returns every resumable project. Only "?" placeholders are
+        # interpolated into the SQL, never values.
+        statuses = sorted(s.value for s in RESUMABLE_STATUSES)
+        params: list[str] = list(statuses)
+        keyword_clause = ""
         if keywords:
-            keyword_conditions = " OR ".join(["keywords_json LIKE ?"] * len(keywords))
-            query_params = [f'%"{kw}"%' for kw in keywords]
+            keyword_clause = "AND (" + " OR ".join(["keywords_json LIKE ?"] * len(keywords)) + ")"
+            params += [f'%"{kw}"%' for kw in keywords]
 
-            query = f"""SELECT project_id, project_description, keywords_json, status, updated_at
-                       FROM projects
-                       WHERE status IN ('PARTIAL_SUCCESS', 'IN_PROGRESS')
-                       AND keywords_json IS NOT NULL
-                       AND ({keyword_conditions})
-                       ORDER BY updated_at DESC
-                       LIMIT 50"""
-
-            async with db.execute(query, query_params) as cursor:
-                rows = await cursor.fetchall()
-        else:
-            # If no keywords provided, return all resumable projects
-            async with db.execute(
-                """SELECT project_id, project_description, keywords_json, status, updated_at
+        query = f"""SELECT project_id, project_description, keywords_json, status, updated_at
                    FROM projects
-                   WHERE status IN ('PARTIAL_SUCCESS', 'IN_PROGRESS')
+                   WHERE status IN ({", ".join("?" * len(statuses))})
                    AND keywords_json IS NOT NULL
+                   {keyword_clause}
                    ORDER BY updated_at DESC
-                   LIMIT 50""",
-            ) as cursor:
-                rows = await cursor.fetchall()
+                   LIMIT 50"""
+        async with db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
 
         result = []
         for row in rows:
