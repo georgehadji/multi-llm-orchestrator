@@ -119,7 +119,11 @@ def test_unused_selector_helpers_are_deleted() -> None:
     [
         ("orchestrator.preflight", "orchestrator.quality.preflight", "PreflightValidator"),
         ("orchestrator.streaming", "orchestrator.infrastructure.streaming", "ProjectEventBus"),
-        ("orchestrator.progressive_output", "orchestrator.analysis.progressive_output", "ProgressiveOutputManager"),
+        (
+            "orchestrator.progressive_output",
+            "orchestrator.analysis.progressive_output",
+            "ProgressiveOutputManager",
+        ),
         ("orchestrator.tenancy", "orchestrator.integrations.tenancy", "TenantManager"),
         ("orchestrator.reranker", "orchestrator.infrastructure.reranker", "LLMReranker"),
     ],
