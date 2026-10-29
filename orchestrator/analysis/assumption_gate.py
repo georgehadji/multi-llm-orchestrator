@@ -17,7 +17,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 if TYPE_CHECKING:
     # FIXED: from .api_clients import UnifiedClient
@@ -73,6 +73,7 @@ async def surface_assumptions(
     task_description: str,
     client: UnifiedClient,
     threshold: float = 0.7,
+    charge_fn: Callable[[float], Awaitable[Any]] | None = None,
 ) -> AssumptionReport:
     """Ask the LLM to surface hidden assumptions before implementation.
 
@@ -113,6 +114,8 @@ async def surface_assumptions(
             max_tokens=300,
             temperature=0.1,
         )
+        if charge_fn is not None:
+            await charge_fn(response.cost_usd)
 
         data = json.loads(response.text)
         return AssumptionReport(
