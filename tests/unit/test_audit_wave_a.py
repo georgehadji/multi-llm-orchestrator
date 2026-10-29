@@ -8,6 +8,8 @@ A2: the dashboard, command center and MCP server bound 0.0.0.0 by default with n
     so anyone on the network could reach them.
 A4: StateManager.close() kept the closed connection on success, so the next call raised
     "Connection closed" and CLI --file runs silently wrote no output.
+A5: output_writer recorded FAILED_<name> for code that failed validation but wrote the
+    placeholder to the plain name, so the README pointed at a missing file.
 """
 
 from __future__ import annotations
@@ -73,3 +75,25 @@ async def test_a4_state_manager_reconnects_after_close(tmp_path) -> None:
     async with conn.execute("SELECT 1") as cur:
         assert (await cur.fetchone())[0] == 1
     await sm.close()
+
+
+def test_a5_invalid_code_placeholder_uses_failed_name(tmp_path, monkeypatch) -> None:
+    import orchestrator.output_writer as ow
+    from orchestrator.budget import Budget
+    from orchestrator.models import Model, ProjectState, Task, TaskResult, TaskType
+
+    monkeypatch.setattr(ow, "validate_code", lambda content, filename="": (False, ["bad"]))
+    task = Task(id="t1", type=TaskType.CODE_GEN, prompt="p")
+    state = ProjectState(
+        project_description="d",
+        success_criteria="c",
+        budget=Budget(max_usd=1.0),
+        tasks={"t1": task},
+        results={"t1": TaskResult(task_id="t1", output="def f(:", score=0.1, model_used=Model.GPT_4O_MINI)},
+        execution_order=["t1"],
+    )
+
+    ow.write_output_dir(state, tmp_path)
+
+    assert (tmp_path / "FAILED_t1_code_generation.py").exists()
+    assert not (tmp_path / "t1_code_generation.py").exists()
