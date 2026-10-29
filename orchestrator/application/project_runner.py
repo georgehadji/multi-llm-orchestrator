@@ -488,21 +488,19 @@ class ProjectRunner:
                 project_description=spec.project_description,
                 success_criteria=spec.success_criteria,
             )
-        except Exception:
-            # BUG-001 FIX: release reservation on failure
+        finally:
+            # Settle on success, error AND cancellation (CancelledError is a
+            # BaseException): charge_job() also releases the reservation, so a
+            # failed run's real spend is charged and nothing stays reserved.
             if self._budget_hierarchy is not None:
-                self._budget_hierarchy.release_reservation(job_id, team)
-            raise
-        # Charge actual spend to BudgetHierarchy
-        if self._budget_hierarchy is not None:
-            # T1-C5: use spent_usd directly. Deriving this from
-            # `max_usd - remaining_usd` silently clamps at max_usd whenever the
-            # run overspends its own per-run cap, because remaining_usd floors
-            # at 0.0 — the excess would never reach the cross-run hierarchy.
-            actual_spend = max(0.0, self._budget.spent_usd - spent_before)
-            BudgetEnforcer.enforce_hierarchy_job(
-                self._budget_hierarchy, job_id, team, spec.budget.max_usd, actual_spend
-            )
+                # T1-C5: use spent_usd directly. Deriving this from
+                # `max_usd - remaining_usd` silently clamps at max_usd whenever the
+                # run overspends its own per-run cap, because remaining_usd floors
+                # at 0.0 — the excess would never reach the cross-run hierarchy.
+                actual_spend = max(0.0, self._budget.spent_usd - spent_before)
+                BudgetEnforcer.enforce_hierarchy_job(
+                    self._budget_hierarchy, job_id, team, spec.budget.max_usd, actual_spend
+                )
         # Persist telemetry snapshots for all models used this run (fire-and-forget)
         if self._callables.flush_telemetry_fn is not None:
             await self._callables.flush_telemetry_fn(job_id)
