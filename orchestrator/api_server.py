@@ -142,6 +142,11 @@ class APIServer:
         - cors_origins: Configurable allowlist (not wildcard)
         - rate_limit: Rate limiting to prevent DoS
         - max_request_size: Limit request size
+
+        orchestrator: optional long-lived instance shared by every request.
+        The caller owns it: neither a finished project nor stop() closes it,
+        so close it yourself after stop(). Without it, each request builds
+        its own Orchestrator and the server closes that one when it finishes.
         """
         self.port = port
         self.host = host
