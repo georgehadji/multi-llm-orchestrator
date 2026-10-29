@@ -58,11 +58,22 @@ def mock_budget():
     class _MockBudget:
         def __init__(self):
             self.spent_usd = 0.0
+            self.remaining_usd = 1.0
 
         # Matches the real Budget.charge contract: async, (amount, phase).
         async def charge(self, amount, phase="generation"):
             self.spent_usd += amount
             return self.spent_usd
+
+        # Matches the real Budget reservation contract used per call (B6).
+        async def reserve(self, amount):
+            return True
+
+        async def commit_reservation(self, reserved_amount, actual_amount, phase="generation"):
+            self.spent_usd += actual_amount
+
+        async def release_reservation(self, amount):
+            return None
 
         async def can_charge(self, model, tokens):
             return True
@@ -100,3 +111,21 @@ async def test_generate_uses_skill_prefix(mock_client, mock_selector, mock_budge
 
     assert "<skill>Do X</skill>" in client.last_system
     assert result.output == "result"
+
+
+@pytest.mark.unit
+async def test_generate_skips_call_when_budget_exhausted(mock_client, mock_selector):
+    """An exhausted budget must stop the call, not just be noticed afterwards."""
+    from orchestrator.budget import Budget
+
+    budget = Budget(max_usd=1.0)
+    await budget.charge(1.0, "generation")
+    client = mock_client()
+    stage = GenerateStage(client=client, budget=budget, selector=mock_selector)
+    task = Task(id="test-3", type=TaskType.CODE_GEN, prompt="test")
+
+    result = await stage.process(PipelineContext(task=task))
+
+    assert client.call_count == 0
+    assert result.should_abort
+    assert result.abort_reason == "budget_exhausted"

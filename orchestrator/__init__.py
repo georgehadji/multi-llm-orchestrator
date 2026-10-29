@@ -48,6 +48,6 @@ from .models import (
     TaskStatus,
     TaskType,
 )
-from .progress_writer import ProgressEntry, ProgressWriter
+from .analysis.progress_writer import ProgressEntry, ProgressWriter
 from .state import StateManager
 # fmt: on

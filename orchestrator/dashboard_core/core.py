@@ -21,6 +21,7 @@ Into a single core with pluggable views.
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -215,7 +216,7 @@ class DashboardCore:
         <head><title>Dashboard Error</title></head>
         <body>
             <h1>Dashboard Error</h1>
-            <p>{message}</p>
+            <p>{html.escape(message)}</p>
             <p>Available views: {self.registry.list_views()}</p>
         </body>
         </html>
@@ -273,6 +274,11 @@ class DashboardCore:
 
     async def handle_websocket(self, websocket: WebSocket) -> None:
         """Handle WebSocket connection."""
+        from ..security.ws_origin import check_ws_origin
+
+        if not check_ws_origin(websocket.headers):
+            await websocket.close(code=1008)
+            return
         await websocket.accept()
         self._websocket_clients.append(websocket)
         logger.info(f"WebSocket client connected. Total: {len(self._websocket_clients)}")
@@ -344,7 +350,7 @@ class DashboardCore:
         self._app = app
         return app
 
-    async def run(self, host: str = "0.0.0.0", port: int = 8888) -> None:
+    async def run(self, host: str = "127.0.0.1", port: int = 8888) -> None:
         """Run the dashboard server."""
         import uvicorn
 
@@ -369,7 +375,7 @@ async def get_dashboard_core() -> DashboardCore:
     return await DashboardCore.get_instance()
 
 
-def run_dashboard(view: str = "", host: str = "0.0.0.0", port: int = 8888) -> None:
+def run_dashboard(view: str = "", host: str = "127.0.0.1", port: int = 8888) -> None:
     """
     Run the unified dashboard.
 

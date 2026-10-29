@@ -105,12 +105,11 @@ grep hit and confirmed none of them form such a chain.
 
 1. **Enum**: is the id a `Model` member in `orchestrator/models.py`
    (`Model.X.value == "provider/model[:variant]"`)?
-2. **`costs.json`**: does `orchestrator/config/costs.json` have a key that is
-   the **exact string** of `Model.X.value`? (`COST_TABLE` is built by
-   `_build_cost_table`, `orchestrator/models.py:816` — it maps `costs.json`
-   keys through `Model(k)`; a key that isn't a valid enum value is **silently
-   dropped**, no exception. Same drop pattern applies to `routing.json`/
-   `fallbacks.json`.)
+2. **`COST_TABLE`**: does `COST_TABLE` in `orchestrator/models.py` have an
+   entry for the member? It is keyed by `Model` members, so it cannot drift;
+   an unpriced model falls back to the `estimate_cost` default rate.
+   (`routing.json`/`fallbacks.json` keys go through `Model(k)` and a key that
+   isn't a valid enum value is **silently dropped**, no exception.)
 3. **`routing.json`** (and `fallbacks.json`): same exact-string-match
    requirement for any task-type routing/fallback entry referencing the id.
 4. **`scripts/audit_openrouter_models.py`**: cross-checks every
@@ -385,7 +384,7 @@ implement VS" is not a claim you can make from the class name
 ## Recipe 7 — Prove cost math by hand
 
 **Method**: pick a real `(model, input_tokens, output_tokens)` triple,
-look up the rate in `orchestrator/config/costs.json`, and recompute
+look up the rate in `COST_TABLE` (`orchestrator/models.py`), and recompute
 independently of any code, then compare against what the code returns.
 
 **The formula** (`orchestrator/models.py:1176-1180`):
@@ -394,13 +393,13 @@ def estimate_cost(model: Model, input_tokens: int, output_tokens: int) -> float:
     costs = COST_TABLE.get(model, {"input": 5.0, "output": 20.0})  # fallback if unmapped
     return (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000
 ```
-Rates in `costs.json` are **USD per 1,000,000 tokens** (confirm by checking a
+Rates in `COST_TABLE` are **USD per 1,000,000 tokens** (confirm by checking a
 known-price model, e.g. `"openai/gpt-4o": {"input": 2.50, "output": 10.00}` —
 OpenAI's published GPT-4o pricing is $2.50/$10.00 per 1M tokens as of the
 model's release, matching).
 
 **Worked example**: 12,000 input tokens + 3,500 output tokens against
-`openai/gpt-4o-mini` (`costs.json`: `{"input": 0.15, "output": 0.60}`):
+`openai/gpt-4o-mini` (`COST_TABLE`: `{"input": 0.15, "output": 0.60}`):
 ```
 input_cost  = 12000 * 0.15 / 1_000_000 = 0.0018
 output_cost = 3500  * 0.60 / 1_000_000 = 0.0021
@@ -408,7 +407,7 @@ total       = 0.0039  →  $0.0039
 ```
 The same computation appears independently in `UnifiedClient.call()`'s
 non-cached branch (`llm_client.py:347-351`) using `self._cost_service.get_cost(model_enum)`
-— trace that `CostService` resolves the *same* `costs.json` row (not a
+— trace that `CostService` resolves the *same* `COST_TABLE` row (not a
 different table) before trusting both paths agree; two independently
 maintained cost formulas is exactly the kind of thing that drifts.
 
@@ -419,7 +418,7 @@ literal `$0`, which is correct behavior, not a missing-data bug, but it will
 make your by-hand total for "N calls" diverge from "N × per-call cost" unless
 you also know the cache hit rate for that run.
 
-**You have proven it when**: your hand computation (rate from `costs.json` ×
+**You have proven it when**: your hand computation (rate from `COST_TABLE` ×
 tokens ÷ 1,000,000) matches the value the code actually returns/records for
 the same model+token triple, and you've confirmed which cost table
 (`COST_TABLE` vs whatever `CostService` reads) both paths are really using —
@@ -533,6 +532,6 @@ treatment on your next pass, not as settled.
 | Which `EvaluatorService` `container.py` wires | `grep -n "evaluator import EvaluatorService" orchestrator/engine_core/container.py` |
 | xfail ledger current state | `pytest tests/unit/test_preexisting_problems.py -v` |
 | Verbalized Sampling gaps (G1-G5) still open | Re-read `docs/VERBALIZED_SAMPLING_ANALYSIS.md` §2.2 against current `orchestrator/reasoning/ara_pipelines.py` and `ara_execution_strategy.py` |
-| `costs.json` rate for any model | `grep -n "\"<model-id>\"" orchestrator/config/costs.json` |
+| `COST_TABLE` rate for any model | `python -c "from orchestrator.models import Model, COST_TABLE; print(COST_TABLE.get(Model('<model-id>')))"` |
 | `instructor` still declared + lazy-imported | `grep -n "instructor" pyproject.toml` and `grep -n "import instructor" orchestrator/infrastructure/llm_client.py` (all hits indented/function-local) |
 | Live model-id catalogue check | `python scripts/audit_openrouter_models.py --json` |

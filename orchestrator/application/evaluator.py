@@ -365,12 +365,16 @@ class EvaluatorService:
 
             if isinstance(data, dict):
                 score = float(data.get("score", data.get("Score", 0.5)))
-                score = max(0.0, min(1.0, score))
             elif isinstance(data, (int, float)):
                 score = float(data)
             else:
                 match = re.search(r"([0-9]*\.?[0-9]+)", str(data))
                 score = float(match.group(1)) if match else 0.5
+            # Same scale rules as the text patterns: >10 is out of 100, >1 out of 10.
+            if score > 10:
+                score = score / 100.0
+            elif score > 1:
+                score = score / 10.0
 
             logger.debug("parse_score: JSON score=%.3f", score)
             return max(0.0, min(1.0, score))
@@ -383,7 +387,7 @@ class EvaluatorService:
             r'"?score"?\s*[:=]\s*([0-9]*\.?[0-9]+)',
             r"\u8bc4\u5206\s*[:=]\s*([0-9]*\.?[0-9]+)",
             r"\u5f97\u5206\s*[:=]\s*([0-9]*\.?[0-9]+)",
-            r"([0-9]\.[0-9]{1,2})\s*/\s*1",
+            r"([0-9]\.[0-9]{1,2})\s*/\s*1\b",
             r"([0-9]{1,2})\s*%",
             r"([0-9]+(?:\.[0-9]+)?)\s*/\s*10\b",
             r"([0-9]+(?:\.[0-9]+)?)\s*/\s*100\b",
@@ -395,12 +399,17 @@ class EvaluatorService:
             m = re.search(pattern, text, re.IGNORECASE)
             if m:
                 score = float(m.group(1))
-                if re.search(r"/\s*100\b", pattern) or score > 10:
+                # Read the scale from the matched text: the pattern string itself
+                # never matches these checks, so "1/10" used to parse as 1.0.
+                matched = m.group(0)
+                if re.search(r"/\s*100\b|%", matched):
                     score = score / 100.0
-                elif re.search(r"/\s*10\b|out\s+of\s+10", pattern) or 1 < score <= 10:
+                elif re.search(r"/\s*10\b|out\s+of\s+10", matched, re.IGNORECASE):
                     score = score / 10.0
-                if "%" in pattern and score > 1.0:
+                elif score > 10:
                     score = score / 100.0
+                elif score > 1:
+                    score = score / 10.0
                 logger.debug("parse_score: regex pattern '%s' matched %.3f", pattern, score)
                 return max(0.0, min(1.0, score))
 

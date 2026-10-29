@@ -136,6 +136,11 @@ class TestTaskPipeline:
         )
         mock_budget = MagicMock()
         mock_budget.charge = AsyncMock()  # Budget.charge is async
+        # GenerateStage reserves per call (B6): reserve -> commit or release.
+        mock_budget.reserve = AsyncMock(return_value=True)
+        mock_budget.commit_reservation = AsyncMock()
+        mock_budget.release_reservation = AsyncMock()
+        mock_budget.remaining_usd = 1.0
         mock_selector = MagicMock()
         mock_selector.select = MagicMock(return_value=Model.GPT_4O_MINI)
 

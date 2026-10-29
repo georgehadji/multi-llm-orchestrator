@@ -199,23 +199,19 @@ class UnifiedClient:
                 "environment variable."
             )
 
-        # Per-provider clients, lazily initialized
+        # Per-provider clients, lazily initialized. Instance-scoped, so close()
+        # only ever clears THIS instance's cache.
         self._provider_clients: dict[Provider, "AsyncInstructor[AsyncOpenAI]"] = {}
-        # Per-model clients (XAI path). Instance-scoped: shadows the
-        # class-level default below so close() only ever clears THIS
-        # instance's cache, not every UnifiedClient in the process.
-        self._clients: dict[str, "AsyncInstructor[AsyncOpenAI]"] = {}
 
         # Set up disk cache for compatibility
         from ..cache import DiskCache
 
         self.cache = cache or DiskCache()
 
-        # Set up circuit breaker for compatibility
-        from ..circuit_breaker import CircuitBreaker
+        # One breaker per model: a failing model must not block the others.
+        from ..circuit_breaker import CircuitBreakerRegistry
 
-        self.circuit_breaker = kwargs.get("circuit_breaker") or CircuitBreaker(
-            name="openrouter",
+        self.circuit_breakers = kwargs.get("circuit_breakers") or CircuitBreakerRegistry(
             failure_threshold=5,
             reset_timeout=60.0,
             success_threshold=2,
@@ -223,7 +219,7 @@ class UnifiedClient:
 
     async def close(self) -> None:
         """Close all cached HTTP clients and release connection pools."""
-        clients = list(self._clients.values()) + list(self._provider_clients.values())
+        clients = list(self._provider_clients.values())
         if self._default_client is not None:
             clients.append(self._default_client)
 
@@ -234,7 +230,6 @@ class UnifiedClient:
             except Exception:
                 logger.warning("Failed to close LLM client", exc_info=True)
 
-        self._clients.clear()
         self._provider_clients.clear()
         self._default_client = None
 
@@ -325,14 +320,15 @@ class UnifiedClient:
 
         timeout = kwargs.pop("timeout", _REQUEST_TIMEOUT_SECONDS)
         # Pop other non-standard arguments from older client interface
-        kwargs.pop("retries", None)
+        # Callers ask for retries by name; the SDK does the retrying.
+        kwargs["max_retries"] = kwargs.pop("retries", _MAX_RETRIES)
         kwargs.pop("task_type", None)
         kwargs.pop("response_schema", None)
         kwargs.pop("fallback_models", None)
         kwargs.pop("policy", None)
 
         try:
-            async with self.circuit_breaker.context():
+            async with (await self.circuit_breakers.get(model_id)).context():
                 try:
                     dispatch_res = await self._dispatch(
                         client=client,
@@ -457,8 +453,11 @@ class UnifiedClient:
         """Surgically isolated method to perform the raw API request, allowing tests to mock it."""
         # Opt-in OpenRouter server-side JSON repair for structured-output requests.
         _maybe_add_response_healing(kwargs, getattr(self, "_or_opts", None))
+        max_retries = kwargs.pop("max_retries", _MAX_RETRIES)
         if "response_model" not in kwargs:
-            return await client.client.chat.completions.create(
+            return await client.client.with_options(
+                max_retries=max_retries
+            ).chat.completions.create(
                 model=model_id,
                 messages=messages,
                 max_tokens=max_tokens,
@@ -489,27 +488,8 @@ class UnifiedClient:
                 "Falling back to OpenRouter."
             )
 
-        # XAI-specific client with fallback
-        if provider == "xai":
-            xai_api_key = os.environ.get("XAI_API_KEY")
-            if xai_api_key:
-                logger.info("Using XAI API client for model %s", model.value)
-                import instructor
-
-                client = instructor.from_openai(
-                    AsyncOpenAI(
-                        base_url="https://api.xai.com/v1/",
-                        api_key=xai_api_key,
-                    ),
-                    mode=self._instructor_mode(),
-                )
-                self._clients[model] = client
-                return client
-            else:
-                logger.warning(
-                    "XAI model specified, but no XAI_API_KEY found. " "Falling back to OpenRouter."
-                )
-
+        # Grok (x-ai/*) models go through OpenRouter like the rest. A direct xAI
+        # client needs api.x.ai plus xAI-native model ids; add it with that mapping.
         # Default to OpenRouter client
         return await self._get_openrouter_client()
 

@@ -51,6 +51,21 @@ def test_c1_qwen_3_6_flash_has_nonzero_cost_entry():
     assert cost["output"] > 0.0, f"qwen/qwen3.6-flash output cost silently defaulted to $0: {cost}"
 
 
+def test_c1_cost_service_bills_from_cost_table():
+    """Real charges must use the same prices as estimates and budgets.
+
+    costs.json had drifted from COST_TABLE on 49 models (an image model was
+    billed 1000x low, deepseek-v4-pro about 7x high).
+    """
+    from orchestrator.domain.services.config_services import CostService
+    from orchestrator.infrastructure.adapters.config_adapter import JsonConfigAdapter
+    from orchestrator.models import COST_TABLE
+
+    svc = CostService(JsonConfigAdapter())
+    wrong = {m.value: svc.get_cost(m) for m, p in COST_TABLE.items() if svc.get_cost(m) != p}
+    assert not wrong, f"{len(wrong)} models billed off COST_TABLE: {list(wrong)[:5]}"
+
+
 # --- C2 -----------------------------------------------------------------
 
 

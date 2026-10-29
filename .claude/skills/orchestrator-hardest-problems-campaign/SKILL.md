@@ -364,7 +364,7 @@ impossible to reintroduce, not a one-time cleanup.
    (`check_config_drift.py` should `sys.exit(1)` on hard drift — verify this yourself; if it
    doesn't currently exit nonzero, that's a prerequisite bug to fix first, since a CI step that
    always exits 0 is worse than no gate — it's a false sense of safety).
-2. **Loader that hard-fails on orphan keys** — make the config loader (wherever `costs.json` /
+2. **Loader that hard-fails on orphan keys** — make the config loader (wherever
    `fallbacks.json` / `routing.json` are parsed into runtime structures) raise at import/startup
    time if a key doesn't resolve to a `Model` or `TaskType` enum value, instead of silently
    dropping it. This catches drift the moment it's introduced, not just in CI — but it's a
@@ -374,7 +374,7 @@ impossible to reintroduce, not a one-time cleanup.
    ship a hard-fail loader while 5 known-bad entries still exist — fix those 5 in the same change
    or the loader will crash the app on startup).
 3. **Generate JSON from the Model enum directly** — instead of hand-maintained parallel JSON and
-   enum, generate (or partially generate) `costs.json`'s key set from `orchestrator/models.py`'s
+   enum, generate (or partially generate) the JSON key sets from `orchestrator/models.py`'s
    `Model` enum at build/lint time, so drift is structurally impossible rather than caught after
    the fact. Highest effort, strongest guarantee — consider this only after 1 and 2 are in place
    and you've observed drift recurring despite them.

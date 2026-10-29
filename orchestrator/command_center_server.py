@@ -163,7 +163,7 @@ class CommandCenterServer:
         self._event_queue: asyncio.Queue = asyncio.Queue()
         self._lock = asyncio.Lock()
 
-    async def start(self, host: str = "0.0.0.0", port: int = 8765):
+    async def start(self, host: str = "127.0.0.1", port: int = 8765):
         """Start the WebSocket server."""
         import websockets
 

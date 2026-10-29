@@ -97,6 +97,19 @@ class RunContext:
             1 for r in self.results.values() if getattr(r, "status", None) == TaskStatus.FAILED
         )
 
+    def apply_budget(self, budget: Any) -> None:
+        """Apply a per-run budget to the shared Budget object, in place.
+
+        Stages keep the Budget the container gave them, so rebinding
+        ``self.budget`` would leave them charging the old one.
+        """
+        if budget is None:
+            return
+        if self.budget is None:
+            self.budget = budget
+        elif budget is not self.budget:
+            self.budget.reset_limits(budget)
+
     def reset(
         self,
         *,
@@ -115,9 +128,7 @@ class RunContext:
         self.channels.clear()
         self.analyze_on_complete = analyze_on_complete
 
-        # Budget: use the provided one, or keep the existing reference.
-        if budget is not None:
-            self.budget = budget
+        self.apply_budget(budget)
 
         # Reset streaming-scoped fields
         self.event_bus = None

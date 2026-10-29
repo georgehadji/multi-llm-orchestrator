@@ -835,6 +835,12 @@ class ProjectStatus(str, Enum):
     SYSTEM_FAILURE = "SYSTEM_FAILURE"
 
 
+# Runs that stopped before finishing and can pick up where they left off.
+RESUMABLE_STATUSES: frozenset[ProjectStatus] = frozenset(
+    {ProjectStatus.PARTIAL_SUCCESS, ProjectStatus.BUDGET_EXHAUSTED, ProjectStatus.TIMEOUT}
+)
+
+
 class TaskStatus(str, Enum):
 
     PENDING = "pending"
@@ -878,11 +884,6 @@ def _load_static_config(filename: str) -> dict[str, Any]:
         return {}
 
 
-def _build_cost_table() -> "dict[Model, dict[str, float]]":
-    data = _load_static_config("costs.json")
-    return {Model(k): v for k, v in data.items() if k in Model._value2member_map_}
-
-
 def _build_routing_table() -> "dict[TaskType, list[Model]]":
     data = _load_static_config("routing.json")
     return {
@@ -913,7 +914,7 @@ def _build_max_output_tokens() -> "dict[TaskType, int]":
 
 # ─────────────────────────────────────────────
 # Lazy-loaded tables — no disk I/O at import time (Rule #2).
-# The five dicts below are populated on first access via __getattr__.
+# The four dicts below are populated on first access via __getattr__.
 # After the first access the value is written into module globals so
 # subsequent reads are O(1) dict lookups with no function call overhead.
 # ─────────────────────────────────────────────
@@ -921,7 +922,6 @@ def _build_max_output_tokens() -> "dict[TaskType, int]":
 TASK_PROVIDER_STRATEGIES: "dict[TaskType, ProviderStrategy]" = {}
 
 _LAZY_TABLES: dict[str, Any] = {
-    "COST_TABLE": _build_cost_table,
     "ROUTING_TABLE": _build_routing_table,
     "FALLBACK_CHAIN": _build_fallback_chain,
     "DEFAULT_THRESHOLDS": _build_default_thresholds,
@@ -1187,6 +1187,8 @@ class AttemptRecord:
 
     validators_failed: list[str] = field(default_factory=list)
 
+    score: float = 0.0  # evaluator score this attempt reached
+
 
 @dataclass
 class ProjectState:
@@ -1300,9 +1302,16 @@ def prompt_hash(
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
+def cost_rates(model: Model | str, default: CostDict) -> CostDict:
+    """Per-1M-token prices for *model* (enum or OpenRouter id), else *default*."""
+    if isinstance(model, str):
+        model = Model._value2member_map_.get(model.lower())  # type: ignore[assignment]
+    return COST_TABLE.get(model, default) if model is not None else default
+
+
 def estimate_cost(model: Model, input_tokens: int, output_tokens: int) -> float:
 
-    costs = COST_TABLE.get(model, {"input": 5.0, "output": 20.0})
+    costs = cost_rates(model, {"input": 5.0, "output": 20.0})
 
     return (input_tokens * costs["input"] + output_tokens * costs["output"]) / 1_000_000
 

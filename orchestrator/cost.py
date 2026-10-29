@@ -240,12 +240,15 @@ class BudgetHierarchy:
         # Job level
         if job_id and job_id in self._job_max:
             job_spent = self._job_spent.get(job_id, 0.0)
-            if (job_spent + estimated_cost) > self._job_max[job_id]:
+            # Same rule as org and team: count what concurrent runs already reserved.
+            job_reserved = self._reservations.get(job_id, 0.0)
+            if (job_spent + job_reserved + estimated_cost) > self._job_max[job_id]:
                 logger.warning(
                     "BudgetHierarchy: job '%s' cap would be exceeded "
-                    "(spent=%.4f, est=%.4f, max=%.4f)",
+                    "(spent=%.4f, reserved=%.4f, est=%.4f, max=%.4f)",
                     job_id,
                     job_spent,
+                    job_reserved,
                     estimated_cost,
                     self._job_max[job_id],
                 )

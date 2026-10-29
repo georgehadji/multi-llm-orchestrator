@@ -28,14 +28,12 @@ DEFAULT_CACHE_PATH = Path.home() / ".orchestrator_cache" / "cache.db"
 
 class DiskCache:
     """
-    SQLite-backed cache with connection pooling and TTL.
-
-    OPTIMIZATION: Connection TTL prevents stale connections in long-running
-    processes. Default TTL is 1 hour.
+    SQLite-backed response cache. Entries expire after _ENTRY_TTL: get() ignores
+    them and they are deleted whenever a connection is opened.
     """
 
-    # Connection TTL in seconds (1 hour default)
-    _CONN_TTL: float = 3600.0
+    # Entries older than this are never served and are pruned (owner decision: 30 days)
+    _ENTRY_TTL: float = 30 * 86400.0
     # Connection timeout in seconds (prevents infinite hangs)
     _CONN_TIMEOUT: float = 10.0
 
@@ -51,9 +49,6 @@ class DiskCache:
         """
         Return persistent connection, initializing schema once.
 
-        OPTIMIZATION: Connection TTL prevents stale connections.
-        If connection is older than _CONN_TTL, it's recreated.
-
         FIX CACHE-001: Added timeout and proper error handling to prevent
         connection leaks and infinite hangs on DB initialization failure.
         """
@@ -64,21 +59,6 @@ class DiskCache:
             async with self._lock:
                 # Double-check after acquiring lock
                 if self._conn is None:
-                    # Check if connection needs refresh (TTL expired)
-                    if (
-                        self._conn_created_at is not None
-                        and time.time() - self._conn_created_at > self._CONN_TTL
-                    ):
-                        logger.debug("Cache connection TTL expired, refreshing")
-                        # Close old connection if it exists
-                        if self._conn is not None:
-                            try:
-                                await self._conn.close()
-                            except Exception:
-                                pass
-                        self._conn = None
-                        self._conn_created_at = None
-
                     # Create new connection if needed
                     if self._conn is None:
                         try:
@@ -98,6 +78,10 @@ class DiskCache:
                                     created_at    REAL NOT NULL
                                 )
                             """)
+                            await self._conn.execute(
+                                "DELETE FROM cache WHERE created_at < ?",
+                                (time.time() - self._ENTRY_TTL,),
+                            )
                             await self._conn.commit()
                             self._schema_ready = True
                             logger.debug("Cache connection established, schema ready")
@@ -121,7 +105,9 @@ class DiskCache:
         h = prompt_hash(model, prompt, max_tokens, system, temperature)
         db = await self._get_conn()
         async with db.execute(
-            "SELECT response, tokens_input, tokens_output FROM cache WHERE hash = ?", (h,)
+            "SELECT response, tokens_input, tokens_output FROM cache"
+            " WHERE hash = ? AND created_at >= ?",
+            (h, time.time() - self._ENTRY_TTL),
         ) as cursor:
             row = await cursor.fetchone()
         if row:

@@ -34,13 +34,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from orchestrator.log_config import get_logger
-from orchestrator.models import Model
+from orchestrator.models import Model, cost_rates
 
-# The canonical FALLBACK_CHAIN and COST_TABLE live in orchestrator.models
-# (loaded from config/fallbacks.json and config/costs.json).  The hardcoded
-# local FALLBACK_CHAIN and MODEL_COSTS below are deprecated and should be
-# replaced with resolve_fallback_chain() from orchestrator.operations.resilience
-# and the centralized COST_TABLE from orchestrator.models.
+# The canonical FALLBACK_CHAIN and COST_TABLE live in orchestrator.models.
+# Prices come from COST_TABLE via models.cost_rates. The hardcoded local
+# FALLBACK_CHAIN below is deprecated and should be replaced with
+# resolve_fallback_chain() from orchestrator.operations.resilience.
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -138,18 +137,6 @@ class StreamingValidator:
         Model.GPT_4O,
         Model.DEEPSEEK_V4_FLASH,
     ]
-
-    # Cost per 1M tokens — DEPRECATED hardcoded dict.
-    # The canonical COST_TABLE is in orchestrator.models (from costs.json).
-    # Values synced to orchestrator/models.py COST_TABLE -- see
-    # test_streaming_validator_model_costs_matches_canonical_cost_table for
-    # the regression guard against this drifting again.
-    MODEL_COSTS = {
-        Model.DEEPSEEK_V4_FLASH: {"input": 0.14, "output": 0.28},
-        Model.CLAUDE_SONNET_5: {"input": 2.00, "output": 10.00},
-        Model.CLAUDE_OPUS_4_8: {"input": 6.00, "output": 30.00},
-        Model.GPT_4O: {"input": 2.50, "output": 10.00},
-    }
 
     def __init__(self, client=None):
         """
@@ -410,7 +397,7 @@ class StreamingValidator:
         Returns:
             Estimated cost in USD
         """
-        costs = self.MODEL_COSTS.get(model, {"input": 3.0, "output": 15.0})
+        costs = cost_rates(model, {"input": 3.0, "output": 15.0})
 
         output_cost = (tokens / 1_000_000) * costs["output"]
         return output_cost

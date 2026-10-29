@@ -1,0 +1,201 @@
+"""
+Audit Wave A — live-by-default one-line fixes
+=============================================
+Regression tests for docs/plans/2026-10-29-audit-remediation-plan.md, Wave A.
+
+A1: dashboard_core/core.py put the raw ?view= value into the error page HTML (XSS).
+A2: the dashboard, command center and MCP server bound 0.0.0.0 by default with no auth,
+    so anyone on the network could reach them.
+A3: APIServer shut down its shared, injected orchestrator after the first project, so
+    every later request ran on closed resources.
+A4: StateManager.close() kept the closed connection on success, so the next call raised
+    "Connection closed" and CLI --file runs silently wrote no output.
+A5: output_writer recorded FAILED_<name> for code that failed validation but wrote the
+    placeholder to the plain name, so the README pointed at a missing file.
+A6: PipelineRunner passed execution_order to make_state_fn by position, where the 4th
+    parameter of Orchestrator._make_state is status. The same block called
+    ProgressWriter.write_update(), which does not exist, so no progress was written.
+"""
+
+from __future__ import annotations
+
+import inspect
+import sys
+
+import pytest
+
+pytestmark = pytest.mark.unit
+
+
+async def test_a1_dashboard_error_page_escapes_view_name() -> None:
+    from orchestrator.dashboard_core.core import DashboardCore
+
+    page = await DashboardCore().render("<img src=x onerror=alert(1)>")
+
+    assert "<img" not in page
+    assert "&lt;img" in page
+
+
+def test_a2_server_signatures_default_to_loopback() -> None:
+    from orchestrator.command_center_server import CommandCenterServer
+    from orchestrator.dashboard_core.core import DashboardCore, run_dashboard
+    from orchestrator.integrations.mcp_server import MCPConfig
+
+    for fn in (DashboardCore.run, run_dashboard, CommandCenterServer.start):
+        assert inspect.signature(fn).parameters["host"].default == "127.0.0.1", fn
+    assert MCPConfig().host == "127.0.0.1"
+
+
+def test_a2_cli_entry_points_default_to_loopback(monkeypatch) -> None:
+    import orchestrator.dashboard as dashboard
+    import orchestrator.integrations.mcp_server as mcp
+
+    seen: dict[str, str] = {}
+    monkeypatch.setattr(sys, "argv", ["prog"])
+    monkeypatch.setattr(dashboard, "run_dashboard", lambda host, port: seen.update(dash=host))
+
+    async def fake_run(config):
+        seen["mcp"] = config.host
+
+    monkeypatch.setattr(mcp, "run_mcp_server", fake_run)
+
+    from orchestrator.cli_dashboard import main as dashboard_main
+
+    dashboard_main()
+    mcp.main()
+
+    assert seen == {"dash": "127.0.0.1", "mcp": "127.0.0.1"}
+
+
+def _fake_orchestrator():
+    from unittest.mock import AsyncMock, MagicMock
+
+    orch = MagicMock()
+    orch.close = AsyncMock()
+    orch.state_mgr.close = AsyncMock()
+    orch.cache.close = AsyncMock()
+    return orch
+
+
+async def test_a3_shared_orchestrator_is_not_shut_down_per_project() -> None:
+    from orchestrator.api_server import APIServer
+
+    shared = _fake_orchestrator()
+    server = APIServer(port=0, host="127.0.0.1", auth_required=False, orchestrator=shared)
+
+    async def run():
+        return None
+
+    for pid in ("p1", "p2"):
+        await (await server._launch_background_project(pid, orch=shared, run_fn=run))
+
+    shared.close.assert_not_awaited()
+    shared.state_mgr.close.assert_not_awaited()
+
+
+async def test_a3_per_request_orchestrator_is_still_shut_down() -> None:
+    from orchestrator.api_server import APIServer
+
+    server = APIServer(port=0, host="127.0.0.1", auth_required=False)
+    own = _fake_orchestrator()
+
+    async def run():
+        return None
+
+    await (await server._launch_background_project("p1", orch=own, run_fn=run))
+
+    own.close.assert_awaited_once()
+
+
+async def test_a4_state_manager_reconnects_after_close(tmp_path) -> None:
+    from orchestrator.infrastructure.state import StateManager
+
+    sm = StateManager(db_path=tmp_path / "state.db")
+    await sm._get_conn()
+    await sm.close()
+
+    conn = await sm._get_conn()
+    async with conn.execute("SELECT 1") as cur:
+        assert (await cur.fetchone())[0] == 1
+    await sm.close()
+
+
+def test_a5_invalid_code_placeholder_uses_failed_name(tmp_path, monkeypatch) -> None:
+    import orchestrator.output_writer as ow
+    from orchestrator.budget import Budget
+    from orchestrator.models import Model, ProjectState, Task, TaskResult, TaskType
+
+    monkeypatch.setattr(ow, "validate_code", lambda content, filename="": (False, ["bad"]))
+    task = Task(id="t1", type=TaskType.CODE_GEN, prompt="p")
+    state = ProjectState(
+        project_description="d",
+        success_criteria="c",
+        budget=Budget(max_usd=1.0),
+        tasks={"t1": task},
+        results={
+            "t1": TaskResult(
+                task_id="t1", output="def f(:", score=0.1, model_used=Model.GPT_4O_MINI
+            )
+        },
+        execution_order=["t1"],
+    )
+
+    ow.write_output_dir(state, tmp_path)
+
+    assert (tmp_path / "FAILED_t1_code_generation.py").exists()
+    assert not (tmp_path / "t1_code_generation.py").exists()
+
+
+async def test_a6_pipeline_runner_passes_execution_order_by_name(tmp_path) -> None:
+    from orchestrator.budget import Budget
+    from orchestrator.engine_core.pipeline_runner import PipelineRunner
+    from orchestrator.engine_core.project_planner import ProjectPlanner
+    from orchestrator.models import (
+        Model,
+        ProjectState,
+        ProjectStatus,
+        Task,
+        TaskResult,
+        TaskType,
+    )
+
+    calls: list[tuple] = []
+
+    # Same parameter order as Orchestrator._make_state.
+    def make_state(
+        desc,
+        criteria,
+        tasks,
+        status=ProjectStatus.PARTIAL_SUCCESS,
+        execution_order=None,
+        results=None,
+    ):
+        calls.append((status, execution_order))
+        return ProjectState(
+            project_description=desc,
+            success_criteria=criteria,
+            budget=Budget(max_usd=1.0),
+            tasks=tasks,
+            results=results or {},
+        )
+
+    async def run_task(task):
+        return TaskResult(task_id=task.id, output="x", score=1.0, model_used=Model.GPT_4O_MINI)
+
+    tasks = {"t1": Task(id="t1", type=TaskType.CODE_GEN, prompt="p")}
+    runner = PipelineRunner(pipeline=None, planner=ProjectPlanner(), max_parallel_tasks=1)
+    await runner.execute_all(
+        tasks,
+        ["t1"],
+        "d",
+        "c",
+        output_dir=tmp_path,
+        execute_task_fn=run_task,
+        make_state_fn=make_state,
+    )
+
+    assert calls, "make_state_fn was never called"
+    for status, order in calls:
+        assert isinstance(status, ProjectStatus), status
+        assert order == ["t1"]
+    assert (tmp_path / "PROGRESS.jsonl").exists()

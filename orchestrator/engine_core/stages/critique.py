@@ -84,19 +84,24 @@ class CritiqueStage:
         critique_prompt = await self._build_critique_prompt(ctx)
 
         try:
-            if flags.vs_code_review and ctx.task and ctx.task.type == TaskType.CODE_GEN:
-                if self._vs_sampler is not None:
-                    candidates = await self._vs_sampler.sample(
-                        prompt=critique_prompt,
-                        model=reviewer,
-                        cfg=VSConfig(k=3, temperature=0.2, fmt=ProbabilityFormat.CONFIDENCE),
-                        system_extra="You are a code reviewer. Generate 3 independent review "
-                        "hypotheses. Each must explore a different angle "
-                        "(correctness, performance, security, style, edge cases). "
-                        "Be specific and constructive.",
-                        max_tokens=2048,
-                        timeout=60,
-                    )
+            # Without a sampler, fall through to the plain review call below.
+            if (
+                flags.vs_code_review
+                and ctx.task
+                and ctx.task.type == TaskType.CODE_GEN
+                and self._vs_sampler is not None
+            ):
+                candidates = await self._vs_sampler.sample(
+                    prompt=critique_prompt,
+                    model=reviewer,
+                    cfg=VSConfig(k=3, temperature=0.2, fmt=ProbabilityFormat.CONFIDENCE),
+                    system_extra="You are a code reviewer. Generate 3 independent review "
+                    "hypotheses. Each must explore a different angle "
+                    "(correctness, performance, security, style, edge cases). "
+                    "Be specific and constructive.",
+                    max_tokens=2048,
+                    timeout=60,
+                )
                 if candidates:
                     ctx.critique = "\n\n".join(
                         f"## Review {i+1} (confidence: {c.probability:.0%})\n{c.text[:1500]}"

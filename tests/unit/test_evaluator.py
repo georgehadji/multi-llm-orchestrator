@@ -47,8 +47,10 @@ class TestParseScore:
     def test_negative_clamped(self):
         assert EvaluatorService.parse_score('{"score": -0.3}') == 0.0
 
-    def test_over_one_clamped(self):
-        assert EvaluatorService.parse_score('{"score": 3.5}') == 1.0
+    def test_over_one_rescaled_like_text(self):
+        assert EvaluatorService.parse_score('{"score": 3.5}') == 0.35
+        assert EvaluatorService.parse_score('{"score": 7}') == 0.7
+        assert EvaluatorService.parse_score("7") == 0.7
 
     def test_gibberish_default(self):
         assert EvaluatorService.parse_score("Unparseable text.") == 0.5

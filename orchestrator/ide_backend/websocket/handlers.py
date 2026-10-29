@@ -32,11 +32,8 @@ def setup_websocket_handlers(
     async def handle_chat_message(data: dict[str, Any], websocket: WebSocket):
         """Handle incoming chat message."""
         message_text = data.get("message", "")
-        session_id = data.get("session_id")
-
-        if not session_id:
-            # Get session from connection
-            session_id = connection_manager._connection_sessions.get(websocket)
+        # Identity is the socket's, never the payload's.
+        session_id = connection_manager._connection_sessions.get(websocket)
 
         if not session_id:
             await connection_manager.send_to_client(
@@ -108,9 +105,7 @@ def setup_websocket_handlers(
     @connection_manager.register_handler("session_update")
     async def handle_session_update(data: dict[str, Any], websocket: WebSocket):
         """Handle session settings update."""
-        session_id = data.get("session_id")
-        if not session_id:
-            session_id = connection_manager._connection_sessions.get(websocket)
+        session_id = connection_manager._connection_sessions.get(websocket)
 
         if not session_id:
             await connection_manager.send_to_client(
@@ -139,7 +134,7 @@ def setup_websocket_handlers(
     @connection_manager.register_handler("file_request")
     async def handle_file_request(data: dict[str, Any], websocket: WebSocket):
         """Handle file content request."""
-        session_id = data.get("session_id")
+        session_id = connection_manager._connection_sessions.get(websocket)
         file_path = data.get("path")
 
         if not session_id or not file_path:
@@ -170,7 +165,7 @@ def setup_websocket_handlers(
     @connection_manager.register_handler("file_update")
     async def handle_file_update(data: dict[str, Any], websocket: WebSocket):
         """Handle file content update."""
-        session_id = data.get("session_id")
+        session_id = connection_manager._connection_sessions.get(websocket)
         file_path = data.get("path")
         content = data.get("content")
 
@@ -185,7 +180,7 @@ def setup_websocket_handlers(
     @connection_manager.register_handler("terminal_command")
     async def handle_terminal_command(data: dict[str, Any], websocket: WebSocket):
         """Handle terminal command execution."""
-        session_id = data.get("session_id")
+        session_id = connection_manager._connection_sessions.get(websocket)
         command = data.get("command")
 
         if not session_id or not command:

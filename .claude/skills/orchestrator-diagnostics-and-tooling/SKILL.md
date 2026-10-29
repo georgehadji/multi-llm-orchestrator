@@ -52,7 +52,7 @@ python .claude/skills/orchestrator-diagnostics-and-tooling/scripts/check_config_
 **Exit codes**: `0` = no drift, `1` = drift found, `2` = could not run
 (missing `models.py` or a config JSON file).
 
-**Real output (2026-07-08, HARD DRIFT present — do not treat as clean)**:
+**Historical output (2026-07-08; `costs.json` has since been deleted, so its lines no longer appear)**:
 ```
 Checked 133 cost keys, 9 routing keys, 51 fallback pairs against 130 Model values and 9 TaskType values.
 

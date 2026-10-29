@@ -6,13 +6,14 @@ GenerateStage — LLM code/text generation
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from ..pipeline import PipelineContext
 from ...domain.ports import LLMClient
 from ...budget import Budget
 from ...crosscutting.config import flags
 from ...model_selector import ModelSelector
-from ...models import TaskType
+from ...models import FALLBACK_CHAIN, TaskType, estimate_cost
 from ...prompt_builder import SystemPrompt
 
 from ...domain.ports import VSSamplerPort
@@ -38,6 +39,7 @@ class GenerateStage:
             "budget": deps["budget"],
             "selector": deps["selector"],
             "vs_sampler": deps.get("vs_sampler"),
+            "record_failure_fn": deps.get("record_failure_fn"),
         }
 
     def __init__(
@@ -49,8 +51,11 @@ class GenerateStage:
         hook_registry: object = None,
         vs_sampler: VSSamplerPort | None = None,
         vs_selector: Any | None = None,
+        record_failure_fn: Any | None = None,
     ) -> None:
         self._client = client
+        # async (model, error) -> None; the engine late-binds its health tracker.
+        self._record_failure_fn = record_failure_fn
         self._vs_sampler = vs_sampler
         self._vs_selector = vs_selector
         self._budget = budget
@@ -64,6 +69,11 @@ class GenerateStage:
         Selects model, builds prompt, calls LLM, stores output.
         """
         task = ctx.task
+        # Cheap early exit; the standard path below also reserves per call.
+        if self._budget.remaining_usd <= 0:
+            ctx.should_abort = True
+            ctx.abort_reason = "budget_exhausted"
+            return ctx
         model = task.preferred_model or self._selector.select(task.type)
         ctx.model = model
 
@@ -139,8 +149,59 @@ class GenerateStage:
             except Exception as exc:
                 logger.warning("VS-first generation failed for %s: %s", task.id, exc)
 
-        # Standard generation path (flag off, budget model, or VS failed)
-        response = await self._client.call(
+        # Standard generation path (flag off, budget model, or VS failed).
+        # Reserve the estimate first so tasks running in parallel cannot all
+        # pass the cap check and then overspend together; commit the actual
+        # cost after the call, or release the hold if every attempt fails.
+        # A provider error gets exactly one hop down FALLBACK_CHAIN; a second
+        # failure is a named abort, never an unbounded walk.
+        reserved = self._estimate_call_cost(model, task, prompt_text, system_prompt)
+        if not await self._budget.reserve(reserved):
+            ctx.should_abort = True
+            ctx.abort_reason = "budget_exhausted"
+            return ctx
+        committed = False
+        try:
+            try:
+                response = await self._call(model, prompt_text, system_prompt, task)
+            except Exception as exc:
+                await self._record_failure(model, exc)
+                fallback = FALLBACK_CHAIN.get(model)
+                if fallback is None or fallback == model:
+                    return self._abort_provider_error(ctx, model, exc)
+                logger.warning(
+                    "Generation on %s failed for task %s (%s); retrying once on %s",
+                    getattr(model, "value", model),
+                    task.id,
+                    exc,
+                    fallback.value,
+                )
+                try:
+                    response = await self._call(fallback, prompt_text, system_prompt, task)
+                except Exception as exc2:
+                    await self._record_failure(fallback, exc2)
+                    return self._abort_provider_error(ctx, fallback, exc2)
+                ctx.model = fallback
+            # Charge at the call site, the way the VS path, the evaluator and
+            # the validator's revision call all do. ctx.cost_usd is only a
+            # per-task tally; without this the run's dominant spend never
+            # reaches Budget and max_usd caps nothing.
+            await self._budget.commit_reservation(reserved, response.cost_usd, "generation")
+            committed = True
+        finally:
+            if not committed:
+                await self._budget.release_reservation(reserved)
+
+        ctx.output = response.text
+        ctx.cost_usd += response.cost_usd
+        # APIResponse carries the counts itself; it has no `.usage`.
+        ctx.tokens_used["input"] += getattr(response, "input_tokens", 0) or 0
+        ctx.tokens_used["output"] += getattr(response, "output_tokens", 0) or 0
+
+        return ctx
+
+    async def _call(self, model: Any, prompt_text: str, system_prompt: str, task: Any) -> Any:
+        return await self._client.call(
             model=model,
             prompt=prompt_text,
             system=system_prompt,
@@ -150,19 +211,30 @@ class GenerateStage:
             retries=STAGE_RETRY_GENERATE,
         )
 
-        ctx.output = response.text
-        ctx.cost_usd += response.cost_usd
-        # Charge at the call site, the way the VS path, the evaluator and the
-        # validator's revision call all do. ctx.cost_usd is only a per-task
-        # tally; without this the run's dominant spend never reaches Budget and
-        # max_usd caps nothing (BudgetEnforcer.record_cost, the one method that
-        # would have charged it downstream, has no production callers).
-        await self._budget.charge(response.cost_usd, "generation")
-        ctx.tokens_used["input"] += (
-            getattr(response, "usage", None) and getattr(response.usage, "input_tokens", 0) or 0
-        )
-        ctx.tokens_used["output"] += (
-            getattr(response, "usage", None) and getattr(response.usage, "output_tokens", 0) or 0
-        )
+    async def _record_failure(self, model: Any, error: Exception) -> None:
+        if self._record_failure_fn is None:
+            return
+        try:
+            await self._record_failure_fn(model, error)
+        except Exception as exc:
+            logger.debug("Health tracker record_failure failed: %s", exc)
 
+    @staticmethod
+    def _abort_provider_error(
+        ctx: PipelineContext, model: Any, error: Exception
+    ) -> PipelineContext:
+        logger.error(
+            "Generation failed for task %s on %s: %s",
+            ctx.task.id,
+            getattr(model, "value", model),
+            error,
+        )
+        ctx.should_abort = True
+        ctx.abort_reason = "provider_error"
         return ctx
+
+    @staticmethod
+    def _estimate_call_cost(model, task, prompt_text: str, system_prompt: str) -> float:
+        """Worst-case cost of one call: prompt at ~4 chars/token, full output budget."""
+        input_tokens = (len(prompt_text) + len(system_prompt)) // 4
+        return estimate_cost(model, input_tokens, task.max_output_tokens)

@@ -144,10 +144,20 @@ async def test_evaluate_averages_consistent_scores():
         ("out of 10: 6", 0.6),
         ("rating: 0.8", 0.8),
         ("评分: 0.9", 0.9),
+        # Low scores must keep their scale (the scale was read from the regex
+        # pattern instead of the matched text, so "1/10" parsed as a pass).
+        ("1/10", 0.1),
+        ("Score 1/10", 0.1),
+        ("1 out of 10", 0.1),
+        ("10/100", 0.1),
+        ("5/100", 0.05),
+        ("0.5/10", 0.05),
+        ("5%", 0.05),
         # Markdown fences
         ('```json\n{"score": 0.95}\n```', 0.95),
         # Clamping
-        ('{"score": 1.5}', 1.0),
+        # JSON is rescaled like text: 1-10 is out of 10 (owner decision 2026-10-29).
+        ('{"score": 1.5}', 0.15),
         ('{"score": -0.1}', 0.0),
         # Fallback
         ("completely unparseable garbage !!!!", 0.5),
@@ -163,7 +173,9 @@ def test_parse_score_bare_float():
 
 
 def test_parse_score_clamps_to_zero_one():
-    assert EvaluatorService.parse_score('{"score": 99}') == 1.0
+    # 10-100 is out of 100; above 100 still clamps to 1.0.
+    assert EvaluatorService.parse_score('{"score": 99}') == pytest.approx(0.99)
+    assert EvaluatorService.parse_score('{"score": 150}') == 1.0
     assert EvaluatorService.parse_score('{"score": -5}') == 0.0
 
 

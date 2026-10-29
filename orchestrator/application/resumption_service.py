@@ -45,6 +45,12 @@ class ResumptionService:
     async def resume(self, state: ProjectState) -> ProjectState:
         """Resume execution from *state*, return the updated state."""
         self._restore_budget(state)
+        import dataclasses as _dc
+
+        # The live Budget now holds the saved spend and is what this run charges;
+        # keep it on the state so the saved state and final status see real spend.
+        if state.budget is not None:
+            state = _dc.replace(state, budget=self._budget)
         self._results.update(state.results)
 
         remaining = [

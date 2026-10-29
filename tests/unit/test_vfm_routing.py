@@ -19,7 +19,7 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from orchestrator.models import Model, ROUTING_TABLE, TaskType
+from orchestrator.models import COST_TABLE, Model, ROUTING_TABLE, TaskType
 
 _CONFIG = Path(__file__).resolve().parents[2] / "orchestrator" / "config"
 _TEXT_TASKS = [
@@ -33,8 +33,9 @@ _TEXT_TASKS = [
 ]
 
 
-def _costs() -> dict:
-    return json.load(open(_CONFIG / "costs.json", encoding="utf-8"))
+def _costs() -> set[str]:
+    # COST_TABLE is the one price table (costs.json was deleted, audit B7).
+    return {m.value for m in COST_TABLE}
 
 
 def _routing() -> dict:
@@ -65,7 +66,7 @@ class TestVfmModelsDeclared:
 
     @pytest.mark.parametrize("model_id", _VFM_MODELS)
     def test_model_has_cost_entry(self, model_id):
-        assert model_id in _costs(), f"{model_id} missing from costs.json"
+        assert model_id in _costs(), f"{model_id} missing from COST_TABLE"
 
 
 # ── Routing: no drops, fully priced, reliable fallback tail ─────────────────

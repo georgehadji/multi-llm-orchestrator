@@ -212,7 +212,7 @@ async def test_resume_updates_state_results():
 
 
 async def test_resume_sets_final_status_from_callback():
-    svc, _, _, _, determine_fn = _make_service(
+    svc, live_budget, _, _, determine_fn = _make_service(
         determine_status_fn=MagicMock(return_value=ProjectStatus.SUCCESS)
     )
     state = _make_state()
@@ -220,7 +220,11 @@ async def test_resume_sets_final_status_from_callback():
     result = await svc.resume(state)
 
     assert result.status == ProjectStatus.SUCCESS
-    determine_fn.assert_called_once_with(state)
+    determine_fn.assert_called_once()
+    (judged,) = determine_fn.call_args.args
+    # Status is judged on the resumed state, which carries the live Budget.
+    assert judged.project_description == state.project_description
+    assert judged.budget is live_budget
 
 
 async def test_resume_returns_new_state():

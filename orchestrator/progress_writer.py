@@ -1,7 +1,11 @@
-"""
-progress_writer — Backward-compatibility shim
-The canonical implementation lives in orchestrator/analysis/progress_writer.py.
-New code should import from `orchestrator.analysis.progress_writer` directly.
-"""
+"""Re-export shim - canonical source: orchestrator.analysis.progress_writer"""
 
-from .analysis.progress_writer import *  # noqa: F401, F403
+from orchestrator.analysis.progress_writer import *  # noqa: F401, F403
+
+import warnings
+
+warnings.warn(
+    "progress_writer is a deprecated re-export shim - import from orchestrator.analysis.progress_writer directly",
+    DeprecationWarning,
+    stacklevel=2,
+)

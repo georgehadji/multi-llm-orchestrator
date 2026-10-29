@@ -120,7 +120,9 @@ class EnhancedSelfConsistencyStage:
                 except Exception as exc:
                     logger.warning("Objective verifier failed for task %s: %s", ctx.task.id, exc)
 
-        if ctx.score >= self._quality_threshold:
+        # The task's own bar, so the retry gate and the final pass/fail agree.
+        threshold = getattr(ctx.task, "acceptance_threshold", None) or self._quality_threshold
+        if ctx.score >= threshold:
             return ctx
 
         if ctx.attempt >= self._max_attempts:
@@ -138,7 +140,8 @@ class EnhancedSelfConsistencyStage:
                 attempt_num=ctx.attempt,
                 model_used=ctx.model.value if ctx.model else "unknown",
                 output_snippet=ctx.output[:200] if ctx.output else "",
-                failure_reason=f"Score {ctx.score:.3f} below threshold {self._quality_threshold}",
+                failure_reason=f"Score {ctx.score:.3f} below threshold {threshold}",
+                score=ctx.score,
             )
         )
 
@@ -179,7 +182,7 @@ class EnhancedSelfConsistencyStage:
                     "Attempt %d score=%.3f below threshold=%.3f, " "retrying with ARA method %s",
                     ctx.attempt,
                     ctx.score,
-                    self._quality_threshold,
+                    threshold,
                     method.value,
                 )
                 ctx.task.revision_context = ctx.critique
@@ -196,7 +199,7 @@ class EnhancedSelfConsistencyStage:
                 "Attempt %d score=%.3f below threshold=%.3f, " "retrying with fallback model %s",
                 ctx.attempt,
                 ctx.score,
-                self._quality_threshold,
+                threshold,
                 fallback.value,
             )
 

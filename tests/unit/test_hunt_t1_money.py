@@ -271,7 +271,7 @@ def test_c5_project_runner_no_longer_derives_spend_from_remaining_usd():
         )
         is None
     )
-    assert "actual_spend = self._budget.spent_usd" in src
+    assert "actual_spend = max(0.0, self._budget.spent_usd - spent_before)" in src
 
 
 @pytest.mark.asyncio
@@ -313,18 +313,24 @@ async def test_c5_run_job_charges_hierarchy_with_true_overspend_not_clamped_valu
         make_state=MagicMock(return_value=_make_state()),
         determine_final_status=MagicMock(return_value=ProjectStatus.SUCCESS),
         log_summary=MagicMock(),
-        execute_all=AsyncMock(return_value=_make_state()),
+        execute_all=AsyncMock(side_effect=lambda *a, **k: _overspend()),
         generate_architecture_rules=AsyncMock(return_value=""),
         analyze_completed_project=AsyncMock(),
         client=MagicMock(),
     )
 
-    # Budget overspent its own $10 cap by $2 — remaining_usd floors at 0.0.
+    # The run overspends its own $10 cap by $2 — remaining_usd floors at 0.0.
     budget = MagicMock()
     budget.max_usd = 10.0
     budget.max_time_seconds = 3600
-    budget.spent_usd = 12.0
-    budget.remaining_usd = 0.0
+    budget.spent_usd = 0.0
+    budget.remaining_usd = 10.0
+
+    def _overspend():
+        budget.spent_usd = 12.0
+        budget.remaining_usd = 0.0
+        return _make_state()
+
     budget.elapsed_seconds = 10.0
     budget.validate_sufficient_for_tasks = MagicMock(return_value=(True, ""))
 

@@ -114,7 +114,6 @@ class EventPort(Protocol):
 class ConfigPort(Protocol):
     """Architectural configuration store. Satisfied by ConfigAdapter."""
 
-    def get_costs(self) -> dict[str, dict[str, float]]: ...
     def get_routing(self) -> dict[str, list[str]]: ...
     def get_fallbacks(self) -> dict[str, str]: ...
     def get_thresholds(self) -> dict[str, float]: ...
@@ -386,9 +385,6 @@ class NullEventBus:
 
 class NullConfig:
     """No-op config. Returns empty defaults."""
-
-    def get_costs(self) -> dict[str, dict[str, float]]:
-        return {}
 
     def get_routing(self) -> dict[str, list[str]]:
         return {}

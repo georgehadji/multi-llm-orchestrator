@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 if TYPE_CHECKING:
     from ..models import Task, ProjectState
@@ -75,21 +75,38 @@ class PipelineRunner:
         output_dir: Path | None = None,
         execute_task_fn: Callable[[Task], Any] | None = None,
         make_state_fn: Callable[..., ProjectState] | None = None,
+        persist_fn: Callable[[dict[str, Any]], Awaitable[Any]] | None = None,
     ) -> ProjectState:
-        """Execute all tasks respecting dependencies, with level-based parallelism."""
+        """Execute all tasks respecting dependencies, with level-based parallelism.
+
+        ``persist_fn`` (optional) receives a snapshot of the results after every
+        task, so a crashed or killed run leaves resumable state behind.
+        """
         levels = self._planner.get_execution_levels(tasks)
         semaphore = asyncio.Semaphore(self._max_parallel_tasks)
         results: dict[str, Any] = {}
         results_lock = asyncio.Lock()
+        persist_lock = asyncio.Lock()
+
+        async def _persist() -> None:
+            # One save at a time, each from a fresh snapshot, so a slow older save
+            # can never land after (and overwrite) a newer one.
+            async with persist_lock:
+                async with results_lock:
+                    snapshot = dict(results)
+                try:
+                    await persist_fn(snapshot)
+                except Exception as exc:
+                    logger.warning("Saving partial project state failed: %s", exc)
 
         # Progress tracking setup
         progress_writer = None
         if output_dir and make_state_fn:
             try:
-                from ..progress_writer import ProgressWriter
+                from ..analysis.progress_writer import ProgressWriter
 
                 partial_state = make_state_fn(
-                    project_desc, success_criteria, tasks, execution_order
+                    project_desc, success_criteria, tasks, execution_order=execution_order
                 )
                 partial_state.results = results
                 progress_writer = ProgressWriter(output_dir, partial_state)
@@ -120,8 +137,15 @@ class PipelineRunner:
                             res = _build_failure_result(task, str(exc))
                         async with results_lock:
                             results[tid] = res
-                            if progress_writer:
-                                await progress_writer.write_update()
+                        # Outside the lock (ProgressWriter has its own), and a failed
+                        # progress write never turns a finished task into a failure.
+                        if progress_writer:
+                            try:
+                                await progress_writer.task_completed(tid, res, task)
+                            except Exception as exc:
+                                logger.warning("Progress write failed for %s: %s", tid, exc)
+                        if persist_fn is not None:
+                            await _persist()
                         return res
                 return None
 
@@ -143,6 +167,10 @@ class PipelineRunner:
 
         if make_state_fn:
             return make_state_fn(
-                project_desc, success_criteria, tasks, execution_order, results=results
+                project_desc,
+                success_criteria,
+                tasks,
+                execution_order=execution_order,
+                results=results,
             )
         return results  # type: ignore
