@@ -8,6 +8,8 @@ C3: only PARTIAL_SUCCESS runs were resumable, but runs halted by budget or time 
     find_resumable never offered them.
 C4: resume copied the saved spend into the live Budget but returned (and saved) the old
     deserialized Budget, so the next resume saw stale spend and got fresh headroom.
+C5: the engine called audit.flush() on an attribute it never set, AuditLog had no flush(),
+    and flush_jsonl() never cleared, so policy-check records grew in memory and were lost.
 """
 
 from __future__ import annotations
@@ -98,3 +100,37 @@ async def test_c4_resumed_state_carries_the_live_budget() -> None:
 
     assert resumed.budget is live
     assert resumed.budget.spent_usd == pytest.approx(5.0)
+
+
+def _record(log, task_id="t1"):
+    log.record(task_id, "m", True, True, [], "monitor", ["p"])
+
+
+async def test_c5_audit_flush_writes_pending_records_once(tmp_path) -> None:
+    from orchestrator.infrastructure.audit import AuditLog
+
+    log = AuditLog()
+    path = tmp_path / "audit" / "policy.jsonl"
+    for i in range(3):
+        _record(log, f"t{i}")
+
+    await log.flush(path)
+    await log.flush(path)
+
+    assert len(path.read_text(encoding="utf-8").splitlines()) == 3
+    assert len(log) == 0
+
+
+async def test_c5_orchestrator_close_flushes_the_policy_audit_log(tmp_path, monkeypatch) -> None:
+    from orchestrator.crosscutting.config import settings
+    from orchestrator.engine import Orchestrator
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test-key-for-verification-only")
+    path = tmp_path / "audit.log"
+    monkeypatch.setattr(settings, "audit_log_path", str(path))
+    orch = Orchestrator()
+    _record(orch._policy_engine.audit_log)
+
+    await orch.close()
+
+    assert len(path.read_text(encoding="utf-8").splitlines()) == 1

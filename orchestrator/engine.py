@@ -754,9 +754,10 @@ class Orchestrator:
         except Exception as e:
             logger.warning("Failed to flush telemetry store: %s", e)
 
-        # 2b. Flush audit log (getattr: minimal Orchestrator may lack _audit_log).
+        # 2b. Flush the policy audit log (getattr: a minimal Orchestrator may
+        #     lack _policy_engine).
         try:
-            audit = getattr(self, "_audit_log", None)
+            audit = getattr(getattr(self, "_policy_engine", None), "audit_log", None)
             if hasattr(audit, "flush"):
                 await audit.flush()
         except Exception as e:

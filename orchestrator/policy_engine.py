@@ -134,6 +134,11 @@ class PolicyEngine:
         """
         self._audit_log = audit_log
 
+    @property
+    def audit_log(self) -> object | None:
+        """The AuditLog this engine records into (None when auditing is off)."""
+        return self._audit_log
+
     def check(
         self,
         model: Model,
