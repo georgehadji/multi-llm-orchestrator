@@ -147,7 +147,8 @@ async def test_evaluate_averages_consistent_scores():
         # Markdown fences
         ('```json\n{"score": 0.95}\n```', 0.95),
         # Clamping
-        ('{"score": 1.5}', 1.0),
+        # JSON is rescaled like text: 1-10 is out of 10 (owner decision 2026-10-29).
+        ('{"score": 1.5}', 0.15),
         ('{"score": -0.1}', 0.0),
         # Fallback
         ("completely unparseable garbage !!!!", 0.5),
@@ -163,7 +164,9 @@ def test_parse_score_bare_float():
 
 
 def test_parse_score_clamps_to_zero_one():
-    assert EvaluatorService.parse_score('{"score": 99}') == 1.0
+    # 10-100 is out of 100; above 100 still clamps to 1.0.
+    assert EvaluatorService.parse_score('{"score": 99}') == pytest.approx(0.99)
+    assert EvaluatorService.parse_score('{"score": 150}') == 1.0
     assert EvaluatorService.parse_score('{"score": -5}') == 0.0
 
 
