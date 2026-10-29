@@ -38,13 +38,7 @@ PKG = ROOT / "orchestrator"
 
 # Known offenders, kept out of the failure set so the gate can land green.
 # Each entry needs a reason and should shrink, never grow.
-BASELINE: dict[str, str] = {
-    "orchestrator/test_instructor_tenacity.py": (
-        "manual smoke script (`python -m orchestrator.test_instructor_tenacity`) whose "
-        "three module-level test functions make LIVE API calls. Renaming it would "
-        "change the root-module freeze baseline, so it is recorded rather than moved."
-    ),
-}
+BASELINE: dict[str, str] = {}
 
 
 def _is_collectable_name(name: str) -> bool:

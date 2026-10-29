@@ -6,7 +6,6 @@ Covers:
   - ObservabilityService: record_call, error_rate, ranked_by_error_rate,
     is_degraded, total_cost_usd
   - CascadePolicy: ordered_chain, to_policy fallback_chain
-  - run_with_resilience: circuit-breaker-aware skip of tripped models
 """
 
 from __future__ import annotations
@@ -26,7 +25,6 @@ from orchestrator.resilience import (
     CostTier,
     ResiliencePolicy,
     classify_model_tier,
-    run_with_resilience,
 )
 from orchestrator.services.observability import ObservabilityService
 
@@ -223,86 +221,3 @@ def test_cascade_policy_to_policy_excludes_primary_from_fallback():
     rp = cascade.to_policy()
     if rp.fallback_chain:
         assert Model.GPT_4O not in rp.fallback_chain
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# run_with_resilience + CircuitBreakerRegistry
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_run_with_resilience_skips_tripped_model():
-    """Tripped model should be skipped; fallback should be called."""
-    reg = CircuitBreakerRegistry(failure_threshold=1)
-    # Pre-trip the primary breaker
-    cb = reg.get_sync("primary")
-    try:
-        async with cb.context():
-            raise RuntimeError("force trip")
-    except RuntimeError:
-        pass
-    assert reg.tripped_models() == ["primary"]
-
-    fallback_called = False
-
-    async def primary_fn():
-        raise AssertionError("primary should not be called when circuit is OPEN")
-
-    async def fallback_fn():
-        nonlocal fallback_called
-        fallback_called = True
-        return "fallback_result"
-
-    policy = ResiliencePolicy(retries=1, timeout=5.0)
-    result = await run_with_resilience(
-        callables=[primary_fn, fallback_fn],
-        policy=policy,
-        model_ids=["primary", "fallback"],
-        registry=reg,
-    )
-    assert result == "fallback_result"
-    assert fallback_called
-
-
-@pytest.mark.asyncio
-async def test_run_with_resilience_without_registry_behaves_normally():
-    """Without a registry, behaviour is unchanged (backwards compatible)."""
-    calls = 0
-
-    async def fn():
-        nonlocal calls
-        calls += 1
-        return "ok"
-
-    policy = ResiliencePolicy(retries=1, timeout=5.0)
-    result = await run_with_resilience(callables=[fn], policy=policy)
-    assert result == "ok"
-    assert calls == 1
-
-
-@pytest.mark.asyncio
-async def test_run_with_resilience_all_tripped_raises():
-    """All models tripped → should raise CircuitBreakerOpen (last error)."""
-    reg = CircuitBreakerRegistry(failure_threshold=1)
-    for mid in ("m1", "m2"):
-        cb = reg.get_sync(mid)
-        try:
-            async with cb.context():
-                raise RuntimeError("trip")
-        except RuntimeError:
-            pass
-
-    async def fn1():
-        return "should not reach"
-
-    async def fn2():
-        return "should not reach"
-
-    policy = ResiliencePolicy(retries=1, timeout=5.0)
-    with pytest.raises(CircuitBreakerOpen):
-        await run_with_resilience(
-            callables=[fn1, fn2],
-            policy=policy,
-            model_ids=["m1", "m2"],
-            registry=reg,
-        )

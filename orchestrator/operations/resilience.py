@@ -14,10 +14,10 @@ This eliminates the dual retry paths in api_clients.py and makes model-level
 cascade fallback explicit and testable.
 
 Usage:
-    from orchestrator.resilience import ResiliencePolicy, RetryTemplate, run_with_resilience
+    from orchestrator.resilience import RetryTemplate
 
     policy = RetryTemplate.CODE_GEN.to_policy()
-    result = await run_with_resilience([primary_fn, fallback_fn], policy)
+    # Callers pass `policy` to the client; the SDK does the retries.
 """
 
 from __future__ import annotations
@@ -205,143 +205,6 @@ def resolve_fallback_chain(model: Model, max_depth: int = 3) -> list[Model]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Execution helper
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-async def run_with_resilience(
-    callables: list[Callable[[], Awaitable[T]]],
-    policy: ResiliencePolicy,
-    model_ids: list[str] | None = None,
-    registry: CircuitBreakerRegistry | None = None,
-) -> T:
-    """
-    Execute *callables* in order, retrying each per *policy*.
-
-    The first callable that succeeds (after its retries) determines the result.
-    If all callables exhaust their retries, the last exception is re-raised.
-
-    Args:
-        callables:  Ordered list of async callables (primary first, then fallbacks).
-        policy:     Resilience policy governing retries and backoff.
-        model_ids:  Optional list of model IDs parallel to *callables*.  When
-                    provided together with *registry*, each callable is wrapped
-                    in its per-model circuit breaker — tripped models are skipped
-                    immediately without wasting retries or budget.
-        registry:   Per-model CircuitBreakerRegistry.  If None, no circuit-breaker
-                    gating is applied (backwards-compatible).
-
-    Returns:
-        The result of the first successful callable.
-
-    Raises:
-        The last exception raised by the final callable after all retries.
-    """
-    if not callables:
-        raise ValueError("run_with_resilience requires at least one callable")
-
-    # Build circuit-breaker-aware wrappers when registry is supplied
-    if registry is not None and model_ids is not None:
-        assert len(model_ids) == len(callables), "model_ids must be the same length as callables"
-        breaker_callables: list[Callable[[], Awaitable[T]]] = []
-        for fn, mid in zip(callables, model_ids):
-            # Use the async-safe registry.get() to avoid the race condition in
-            # get_sync() where two concurrent callers create duplicate breakers
-            # for the same model_id, splitting failure counts across two objects.
-            cb = await registry.get(mid)
-
-            async def _wrapped(fn=fn, cb=cb) -> T:  # type: ignore[return]
-                async with cb.context():
-                    return await fn()
-
-            breaker_callables.append(_wrapped)
-        callables = breaker_callables
-
-    # Lazy-import tenacity so this module loads even if tenacity is absent.
-    try:
-        from tenacity import (
-            AsyncRetrying,
-            before_sleep_log,
-            retry_if_exception,
-            stop_after_attempt,
-            stop_after_delay,
-            wait_exponential,
-            wait_random,
-        )
-
-        # Custom retry predicate that uses ApplicationError.is_retriable()
-        # instead of hardcoded exception type lists.  This ensures the
-        # retriable flag on the ApplicationError hierarchy (including
-        # RateLimitError with retriable=True) is always respected.
-        from ..domain.exceptions import ApplicationError as _AppErr
-
-        def _should_retry(exc: BaseException) -> bool:
-            return _AppErr.is_retriable(exc) if isinstance(exc, Exception) else False
-
-        _retry_predicate = retry_if_exception(_should_retry)
-    except ImportError as exc:
-        logger.warning("tenacity not available; running callables without retry: %s", exc)
-        last_exc: Exception | None = None
-        for fn in callables:
-            try:
-                return await fn()
-            except Exception as e:
-                last_exc = e
-        raise last_exc or RuntimeError("All resilience callables failed")
-
-    # Build tenacity wait strategy
-    wait_strategy = wait_exponential(
-        multiplier=policy.backoff_base, min=1.0, max=policy.backoff_max
-    )
-    if policy.jitter:
-        wait_strategy = wait_strategy + wait_random(min=1.0 * 0.2, max=policy.backoff_max * 0.2)
-
-    last_error: Exception | None = None
-
-    for idx, fn in enumerate(callables):
-        retrying = AsyncRetrying(
-            stop=stop_after_attempt(policy.retries) | stop_after_delay(int(policy.timeout)),
-            wait=wait_strategy,
-            retry=_retry_predicate,
-            before_sleep=before_sleep_log(logger, logging.WARNING),
-            reraise=True,
-        )
-
-        try:
-            async for attempt in retrying:
-                with attempt:
-                    return await fn()
-        except CircuitBreakerOpen as exc:
-            # Circuit is OPEN — skip immediately, no retries
-            last_error = exc
-            remaining = len(callables) - idx - 1
-            if remaining > 0:
-                logger.info(
-                    "Callable %d/%d skipped (circuit OPEN: %s); " "trying fallback (%d remaining)",
-                    idx + 1,
-                    len(callables),
-                    exc,
-                    remaining,
-                )
-            continue
-        except Exception as exc:
-            last_error = exc
-            remaining = len(callables) - idx - 1
-            if remaining > 0:
-                logger.warning(
-                    "Callable %d/%d failed after retries (%s); " "trying fallback (%d remaining)",
-                    idx + 1,
-                    len(callables),
-                    type(exc).__name__,
-                    remaining,
-                )
-            continue
-
-    # All callables exhausted
-    raise last_error or RuntimeError("All resilience callables failed")
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Event stub (for later UnifiedEventBus integration)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -420,8 +283,8 @@ class CascadePolicy:
         chain = policy.ordered_chain
         # [GPT_4O_MINI, <budget_fallback>, <premium_fallback>]
 
-    When paired with CircuitBreakerRegistry and run_with_resilience, tripped
-    models are skipped automatically without wasting budget on retries.
+    Paired with CircuitBreakerRegistry.tripped_models(), callers can skip
+    tripped models without wasting budget on retries.
     """
 
     primary_model: Model

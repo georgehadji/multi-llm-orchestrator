@@ -14,7 +14,6 @@ from orchestrator.operations.resilience import (
     RetryTemplate,
     classify_model_tier,
     resolve_fallback_chain,
-    run_with_resilience,
 )
 
 # Explicit re-export so this shim's names are importable by name (mypy treats
@@ -27,5 +26,4 @@ __all__ = [
     "RetryTemplate",
     "classify_model_tier",
     "resolve_fallback_chain",
-    "run_with_resilience",
 ]

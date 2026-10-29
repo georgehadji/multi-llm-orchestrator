@@ -13,7 +13,6 @@ from orchestrator.resilience import (
     ResiliencePolicy,
     RetryTemplate,
     resolve_fallback_chain,
-    run_with_resilience,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -83,73 +82,6 @@ def test_resolve_fallback_chain_cycle_protection():
     # FALLBACK_CHAIN has no cycles in production, but test the guard
     chain = resolve_fallback_chain(Model.GPT_4O, max_depth=1)
     assert len(chain) == 1
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# run_with_resilience
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_run_with_resilience_happy_path():
-    async def _ok():
-        return "success"
-
-    policy = ResiliencePolicy(retries=2)
-    result = await run_with_resilience([_ok], policy)
-    assert result == "success"
-
-
-@pytest.mark.asyncio
-async def test_run_with_resilience_fallback_on_failure():
-    call_order = []
-
-    async def _fail():
-        call_order.append("fail")
-        raise ConnectionError("primary down")
-
-    async def _fallback():
-        call_order.append("fallback")
-        return "fallback_success"
-
-    policy = ResiliencePolicy(retries=1, timeout=5.0)
-    result = await run_with_resilience([_fail, _fallback], policy)
-    assert result == "fallback_success"
-    assert call_order == ["fail", "fallback"]
-
-
-@pytest.mark.asyncio
-async def test_run_with_resilience_retry_then_success():
-    attempts = 0
-
-    async def _flaky():
-        nonlocal attempts
-        attempts += 1
-        if attempts < 3:
-            raise ConnectionError("transient")
-        return "recovered"
-
-    policy = ResiliencePolicy(retries=3, timeout=5.0, backoff_max=1.0)
-    result = await run_with_resilience([_flaky], policy)
-    assert result == "recovered"
-    assert attempts == 3
-
-
-@pytest.mark.asyncio
-async def test_run_with_resilience_exhaustion():
-    async def _always_fail():
-        raise ConnectionError("down")
-
-    policy = ResiliencePolicy(retries=1, timeout=2.0, backoff_max=0.5)
-    with pytest.raises(ConnectionError, match="down"):
-        await run_with_resilience([_always_fail], policy)
-
-
-@pytest.mark.asyncio
-async def test_run_with_resilience_empty_callables():
-    policy = ResiliencePolicy()
-    with pytest.raises(ValueError, match="at least one callable"):
-        await run_with_resilience([], policy)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

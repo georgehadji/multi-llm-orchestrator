@@ -5,7 +5,7 @@ Author: Georgios-Chrysovalantis Chatzivantsidis
 
 ⚠️  DEPRECATED (Phase 1 — Resilience Unification).  All retry/fallback/
 circuit-breaker logic should use the canonical path in ``operations/resilience.py``
-via ``run_with_resilience()`` and ``ResiliencePolicy``.
+via ``ResiliencePolicy`` and ``resolve_fallback_chain()``.
 
 The binary health-tracking and circuit-breaker logic here duplicates
 ``CircuitBreakerRegistry`` (circuit_breaker.py) and ``resolve_fallback_chain()``
@@ -54,7 +54,7 @@ class FallbackHandler:
         """
         Initialize fallback handler.
 
-        ⚠️  DEPRECATED — use ``run_with_resilience()`` and ``CircuitBreakerRegistry``
+        ⚠️  DEPRECATED — use ``resolve_fallback_chain()`` and ``CircuitBreakerRegistry``
         from ``operations/resilience.py`` / ``circuit_breaker.py`` instead.
 
         Args:
@@ -63,7 +63,7 @@ class FallbackHandler:
         import warnings
 
         warnings.warn(
-            "FallbackHandler is deprecated — use run_with_resilience() from "
+            "FallbackHandler is deprecated — use resolve_fallback_chain() from "
             "orchestrator.operations.resilience",
             DeprecationWarning,
             stacklevel=2,
