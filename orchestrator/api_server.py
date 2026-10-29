@@ -47,6 +47,7 @@ else:
 from .crosscutting.config import flags
 from .domain.security import Permission, Principal, parse_permissions
 from .safety.api_keys import KeyStoreError, get_key_store
+from .safety.secure_execution import PathTraversalError, SecurePath
 
 logger = logging.getLogger("orchestrator.api_server")
 
@@ -166,6 +167,8 @@ class APIServer:
         self.max_request_size = max_request_size
         self.supervisor = supervisor
         self._orchestrator = orchestrator
+        # spec_dir requests must stay under the directory the server started in.
+        self._spec_root = Path.cwd().resolve()
 
         self.app = web.Application(client_max_size=self.max_request_size)
         self.runner: web.AppRunner | None = None
@@ -643,12 +646,15 @@ class APIServer:
         budget_usd = _safe_float(data.get("budget"), 8.0)
         max_concurrency = _safe_int(data.get("max_concurrency"), 3)
 
-        # Validate spec_dir
-        spec_path = Path(spec_dir)
-        if not spec_path.is_dir():
+        # Validate spec_dir: inside the server's root, and never echoed back.
+        try:
+            spec_path = SecurePath(self._spec_root, str(spec_dir)).resolved
+        except PathTraversalError:
+            spec_path = None
+        if spec_path is None or not spec_path.is_dir():
             self._update_request_stats(success=False)
             return web.json_response(
-                {"error": f"spec_dir not found or not a directory: {spec_dir}"},
+                {"error": "spec_dir not found, not a directory, or outside the allowed root"},
                 status=400,
             )
 
@@ -661,10 +667,12 @@ class APIServer:
 
         adapter = SpecKitAdapter(file_reader=_LocalFileReader())
         try:
-            artifacts = await adapter.load(spec_dir)
+            artifacts = await adapter.load(str(spec_path))
         except FileNotFoundError as exc:
+            # The exception text holds the resolved server path; log it, do not return it.
+            logger.info("Spec-Kit load failed: %s", exc)
             self._update_request_stats(success=False)
-            return web.json_response({"error": str(exc)}, status=400)
+            return web.json_response({"error": "Spec-Kit artifacts missing in spec_dir"}, status=400)
         except ValueError as exc:
             self._update_request_stats(success=False)
             return web.json_response({"error": str(exc)}, status=400)

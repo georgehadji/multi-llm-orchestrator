@@ -219,3 +219,80 @@ class TestRateLimiter:
         clock[0] += 61
         await limiter.is_allowed("10.0.0.200")
         assert set(limiter._buckets) == {"10.0.0.200"}
+
+
+# ── D5, D7, D8: api_server input validation ─────────────────────────────────
+
+
+async def _api_client(**kwargs):
+    from aiohttp.test_utils import TestClient as AioClient
+    from aiohttp.test_utils import TestServer
+
+    from orchestrator.api_server import APIServer
+
+    kwargs.setdefault("auth_required", False)
+    server = APIServer(port=0, rate_limit=1000, **kwargs)
+    client = AioClient(TestServer(server.app))
+    await client.start_server()
+    return client
+
+
+class TestSpecDirContainment:
+    @pytest.mark.asyncio
+    async def test_spec_dir_outside_root_is_400_without_echo(self, tmp_path, monkeypatch) -> None:
+        root = tmp_path / "root"
+        root.mkdir()
+        outside = tmp_path / "secret-outside"
+        outside.mkdir()
+        monkeypatch.chdir(root)
+        client = await _api_client()
+        try:
+            resp = await client.post("/execute/from-speckit", json={"spec_dir": str(outside)})
+            assert resp.status == 400
+            assert "secret-outside" not in await resp.text()
+        finally:
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_missing_spec_dir_does_not_echo_path(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        client = await _api_client()
+        try:
+            resp = await client.post("/execute/from-speckit", json={"spec_dir": "no-such-dir"})
+            assert resp.status == 400
+            assert "no-such-dir" not in await resp.text()
+        finally:
+            await client.close()
+
+
+class TestCorsPreflight:
+    @pytest.mark.asyncio
+    async def test_preflight_from_allowed_origin_is_204(self) -> None:
+        origin = "http://localhost:3000"
+        client = await _api_client(auth_required=True, cors_origins=[origin])
+        try:
+            resp = await client.options(
+                "/execute/project",
+                headers={"Origin": origin, "Access-Control-Request-Method": "POST"},
+            )
+            assert resp.status == 204
+            assert resp.headers["Access-Control-Allow-Origin"] == origin
+        finally:
+            await client.close()
+
+
+class TestBadTaskType:
+    @pytest.mark.asyncio
+    async def test_unknown_task_type_is_400(self) -> None:
+        client = await _api_client()
+        try:
+            resp = await client.post(
+                "/execute/tasks",
+                json={
+                    "project_description": "p",
+                    "tasks": [{"id": "T1", "type": "not_a_type", "prompt": "x"}],
+                },
+            )
+            assert resp.status == 400
+        finally:
+            await client.close()
