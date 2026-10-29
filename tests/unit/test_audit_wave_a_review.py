@@ -6,6 +6,8 @@ Regression tests for the code review of PR #32 (fix/wave-a-defaults).
 R1: a per-call budget passed to run_project/run_job only rebound _run_ctx.budget, while
     every stage kept the container Budget, so a shared orchestrator carried spend from
     one project into the next.
+R2: ProgressWriter._write_task_file prepended a SECURITY WARNING header to the stored
+    TaskResult.output and built its filename from the raw task_id.
 """
 
 from __future__ import annotations
@@ -61,6 +63,33 @@ async def test_r1_run_job_applies_spec_budget_to_the_shared_budget(monkeypatch) 
     assert orch._run_ctx.budget is shared
     assert shared.max_usd == 0.5 and shared.spent_usd == 0.0
     await orch.close()
+
+
+async def test_r2_progress_writer_keeps_result_and_stays_in_output_dir(
+    tmp_path, monkeypatch
+) -> None:
+    from types import SimpleNamespace
+
+    import orchestrator.code_validator as cv
+    from orchestrator.analysis.progress_writer import ProgressWriter
+    from orchestrator.budget import Budget
+    from orchestrator.models import Model, ProjectState, Task, TaskResult, TaskType
+
+    invalid = SimpleNamespace(
+        is_valid=False, errors=["bad"], warnings=[], dangerous_patterns_found=[]
+    )
+    monkeypatch.setattr(cv, "validate_code", lambda code, config: invalid)
+    out = tmp_path / "a" / "b"
+    task = Task(id="../../x", type=TaskType.CODE_GEN, prompt="p")
+    result = TaskResult(task_id=task.id, output="print(1)", score=1.0, model_used=Model.GPT_4O_MINI)
+    state = ProjectState(project_description="d", success_criteria="c", budget=Budget())
+
+    await ProgressWriter(out, state).task_completed(task.id, result, task)
+
+    assert result.output == "print(1)"
+    assert not list(tmp_path.glob("x_*"))
+    written = [p for p in out.iterdir() if p.name.endswith(".py")]
+    assert len(written) == 1 and "SECURITY WARNING" in written[0].read_text(encoding="utf-8")
 
 
 async def test_r1_reset_without_budget_keeps_cumulative_spend() -> None:
