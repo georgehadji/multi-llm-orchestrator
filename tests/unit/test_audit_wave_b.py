@@ -7,6 +7,7 @@ B2: run_job charged the BudgetHierarchy the Budget's total spent_usd, which is n
     reset between runs on a reused Orchestrator, so run 2 was charged run 1's spend too.
 B3: a run that raised only released its reservation, so its real spend was never
     charged; a cancelled run (CancelledError is a BaseException) did not even release it.
+B4: the job-level cap ignored in-flight reservations, unlike the org and team caps.
 """
 
 from __future__ import annotations
@@ -92,3 +93,12 @@ async def test_b3_failed_or_cancelled_run_settles_spend_and_reservation(exc) -> 
 
     assert hierarchy.to_dict()["org"]["spent"] == pytest.approx(4.0)
     assert hierarchy.remaining("org") == pytest.approx(996.0)  # reservation released
+
+
+def test_b4_job_cap_counts_inflight_reservations() -> None:
+    from orchestrator.cost import BudgetHierarchy
+
+    hierarchy = BudgetHierarchy(org_max_usd=1000.0, job_budgets={"j": 1.0})
+
+    assert hierarchy.can_afford_job("j", "", 0.8) is True
+    assert hierarchy.can_afford_job("j", "", 0.8) is False
