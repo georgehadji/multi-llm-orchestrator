@@ -3,6 +3,10 @@ Audit Wave C — durability and resume
 ====================================
 Regression tests for docs/plans/2026-10-29-audit-remediation-plan.md, Wave C.
 
+C1: the project lock stored time.monotonic() (resets at boot) in a persistent DB with a
+    30 s expiry that was never refreshed, and was only released in __aexit__, which the
+    CLI never enters.
+
 C3: only PARTIAL_SUCCESS runs were resumable, but runs halted by budget or time end as
     BUDGET_EXHAUSTED or TIMEOUT, so --resume re-decomposed them from scratch and
     find_resumable never offered them.
@@ -35,6 +39,59 @@ def _state(status, description="build a weather dashboard"):
         budget=Budget(),
         status=status,
     )
+
+
+async def test_c1_lease_outlives_the_lock_ttl_while_held(tmp_path) -> None:
+    import asyncio
+
+    from orchestrator.infrastructure.state import StateManager
+
+    holder, rival = StateManager(db_path=tmp_path / "s.db"), StateManager(db_path=tmp_path / "s.db")
+    holder._LOCK_TTL = rival._LOCK_TTL = 0.3
+
+    async with holder.project_lease("p") as acquired:
+        assert acquired
+        await asyncio.sleep(0.8)  # well past the TTL; the heartbeat must keep it
+        assert await rival.acquire_project_lock("p") is False
+
+    assert await rival.acquire_project_lock("p") is True  # released on exit
+    await holder.close()
+    await rival.close()
+
+
+async def test_c1_lock_left_by_a_previous_boot_is_stale(tmp_path) -> None:
+    import os
+    import time
+
+    from orchestrator.infrastructure.state import StateManager
+
+    sm = StateManager(db_path=tmp_path / "s.db")
+    db = await sm._get_conn()
+    # A crashed run before a reboot: its monotonic stamp is ahead of today's clock.
+    await db.execute(
+        "INSERT INTO project_locks (project_id, locked_at, locked_by) VALUES (?, ?, ?)",
+        ("p", time.monotonic() + 3600, os.getpid()),
+    )
+    await db.commit()
+
+    assert await sm.acquire_project_lock("p") is True
+    await sm.close()
+
+
+async def test_c1_run_project_releases_the_lock_without_a_context_manager(monkeypatch) -> None:
+    from unittest.mock import AsyncMock
+
+    from orchestrator.engine import Orchestrator
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test-key-for-verification-only")
+    orch = Orchestrator()
+    orch._project_runner.run_project = AsyncMock(return_value=None)
+
+    await orch.run_project("build x", "it works", project_id="cli-run")
+
+    assert await orch.state_mgr.acquire_project_lock("cli-run") is True
+    await orch.state_mgr.release_project_lock("cli-run")
+    await orch.close()
 
 
 async def test_c3_find_resumable_offers_runs_halted_by_time_or_budget(tmp_path) -> None:
