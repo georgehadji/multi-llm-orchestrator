@@ -62,3 +62,55 @@ class TestPerModelBreaker:
                 raise asyncio.CancelledError
         assert cb.total_failures == 0
         assert cb.is_closed
+
+
+# ── E3: retries= reaches the SDK ────────────────────────────────────────────
+
+
+class TestRetriesReachSdk:
+    @pytest.mark.asyncio
+    async def test_two_transient_failures_then_success_with_retries_2(self, monkeypatch) -> None:
+        from types import SimpleNamespace
+
+        import httpx
+        from openai import AsyncOpenAI
+
+        monkeypatch.setattr("openai._base_client.AsyncAPIClient._calculate_retry_timeout",
+                            lambda *a, **k: 0.0)
+        hits = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            hits.append(1)
+            if len(hits) <= 2:
+                return httpx.Response(503, json={"error": {"message": "busy"}})
+            return httpx.Response(
+                200,
+                json={
+                    "id": "c1",
+                    "object": "chat.completion",
+                    "created": 0,
+                    "model": "m",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "finish_reason": "stop",
+                            "message": {"role": "assistant", "content": "done"},
+                        }
+                    ],
+                    "usage": {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5},
+                },
+            )
+
+        sdk = AsyncOpenAI(
+            api_key="test",
+            base_url="http://fake.local/v1",
+            max_retries=0,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+        client = _client()
+        client._get_client_for_model = AsyncMock(return_value=SimpleNamespace(client=sdk))
+
+        resp = await client.call(Model.GPT_4O, "p", retries=2, bypass_cache=True)
+
+        assert resp.text == "done"
+        assert len(hits) == 3

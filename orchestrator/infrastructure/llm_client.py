@@ -324,7 +324,8 @@ class UnifiedClient:
 
         timeout = kwargs.pop("timeout", _REQUEST_TIMEOUT_SECONDS)
         # Pop other non-standard arguments from older client interface
-        kwargs.pop("retries", None)
+        # Callers ask for retries by name; the SDK does the retrying.
+        kwargs["max_retries"] = kwargs.pop("retries", _MAX_RETRIES)
         kwargs.pop("task_type", None)
         kwargs.pop("response_schema", None)
         kwargs.pop("fallback_models", None)
@@ -456,8 +457,9 @@ class UnifiedClient:
         """Surgically isolated method to perform the raw API request, allowing tests to mock it."""
         # Opt-in OpenRouter server-side JSON repair for structured-output requests.
         _maybe_add_response_healing(kwargs, getattr(self, "_or_opts", None))
+        max_retries = kwargs.pop("max_retries", _MAX_RETRIES)
         if "response_model" not in kwargs:
-            return await client.client.chat.completions.create(
+            return await client.client.with_options(max_retries=max_retries).chat.completions.create(
                 model=model_id,
                 messages=messages,
                 max_tokens=max_tokens,
