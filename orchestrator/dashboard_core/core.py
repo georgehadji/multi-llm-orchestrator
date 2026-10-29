@@ -273,6 +273,11 @@ class DashboardCore:
 
     async def handle_websocket(self, websocket: WebSocket) -> None:
         """Handle WebSocket connection."""
+        from ..security.ws_origin import check_ws_origin
+
+        if not check_ws_origin(websocket.headers):
+            await websocket.close(code=1008)
+            return
         await websocket.accept()
         self._websocket_clients.append(websocket)
         logger.info(f"WebSocket client connected. Total: {len(self._websocket_clients)}")

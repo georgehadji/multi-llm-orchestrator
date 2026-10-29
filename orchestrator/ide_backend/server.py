@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 from .api.routes import router as api_router
 from .auth import AuthError, authenticate, owns
 from .integration.orchestrator_bridge import get_orchestrator_bridge
+from ..security.ws_origin import check_ws_origin
 from .security import allowed_origins, remote_allowed, validate_bind_target
 from .session_manager import get_session_manager
 from .websocket.handlers import setup_websocket_handlers
@@ -80,6 +81,9 @@ def create_app(
         same `auth` module the REST routes use — a socket that authenticates
         differently from the routes is a second policy waiting to drift.
         """
+        if not check_ws_origin(websocket.headers, allowed_origins()):
+            await websocket.close(code=1008)
+            return
         try:
             principal = authenticate(websocket.headers)
         except AuthError:
