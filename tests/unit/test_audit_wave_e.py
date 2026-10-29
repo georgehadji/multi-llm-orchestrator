@@ -180,3 +180,42 @@ class TestKeepBestAttempt:
         assert result.output == "good"
         assert result.model_used == Model.GPT_4O
         assert result.attempt_history[0]["score"] == 0.8
+
+
+# ── E6: ARA pipelines import, and a fallback never reads as a pass ─────────
+
+
+class TestAraPipelines:
+    def test_every_relative_import_resolves(self) -> None:
+        import ast
+        import importlib
+        import importlib.util
+        from pathlib import Path
+
+        import orchestrator.reasoning.ara_pipelines as mod
+
+        tree = ast.parse(Path(mod.__file__).read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.level:
+                name = importlib.util.resolve_name(
+                    "." * node.level + (node.module or ""), mod.__package__
+                )
+                target = importlib.import_module(name)
+                for alias in node.names:
+                    assert hasattr(target, alias.name), f"{name}.{alias.name}"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "module", ["orchestrator.ara_integration", "orchestrator.reasoning.ara_integration"]
+    )
+    async def test_fallback_scores_zero(self, module) -> None:
+        import importlib
+
+        from orchestrator.models import Task, TaskType
+
+        cls = importlib.import_module(module).ARAPipelineIntegration
+        ara = cls.__new__(cls)
+        ara.client = MagicMock(call=AsyncMock(return_value=MagicMock(text="out")))
+        ara._get_available_models = lambda _t: [Model.GPT_4O_MINI]
+        result = await ara._fallback_execute(Task(id="t", type=TaskType.CODE_GEN, prompt="p"), "")
+        assert result.score == 0.0
