@@ -47,6 +47,7 @@ else:
 from .crosscutting.config import flags
 from .domain.security import Permission, Principal, parse_permissions
 from .safety.api_keys import KeyStoreError, get_key_store
+from .safety.secure_execution import PathTraversalError, SecurePath
 
 logger = logging.getLogger("orchestrator.api_server")
 
@@ -74,6 +75,7 @@ class TokenBucketRateLimiter:
             lambda: {"tokens": rate, "last_update": time.time()}
         )
         self._lock = asyncio.Lock()
+        self._last_sweep = time.time()
 
     async def is_allowed(self, client_id: str) -> bool:
         """
@@ -86,8 +88,18 @@ class TokenBucketRateLimiter:
             True if allowed
         """
         async with self._lock:
-            bucket = self._buckets[client_id]
             now = time.time()
+            # A bucket idle a whole window is full again, so dropping it loses
+            # nothing; this keeps one-shot client ids from growing the map.
+            if now - self._last_sweep >= self.window_seconds:
+                self._last_sweep = now
+                for key in [
+                    k
+                    for k, b in self._buckets.items()
+                    if now - b["last_update"] >= self.window_seconds
+                ]:
+                    del self._buckets[key]
+            bucket = self._buckets[client_id]
 
             # Refill tokens
             elapsed = now - bucket["last_update"]
@@ -160,6 +172,8 @@ class APIServer:
         self.max_request_size = max_request_size
         self.supervisor = supervisor
         self._orchestrator = orchestrator
+        # spec_dir requests must stay under the directory the server started in.
+        self._spec_root = Path.cwd().resolve()
 
         self.app = web.Application(client_max_size=self.max_request_size)
         self.runner: web.AppRunner | None = None
@@ -257,7 +271,11 @@ class APIServer:
 
         async def cors_middleware(app, handler):
             async def middleware_handler(request):
-                response = await handler(request)
+                # Preflight has no route and carries no credentials: answer it here.
+                if request.method == "OPTIONS":
+                    response = web.Response(status=204)
+                else:
+                    response = await handler(request)
 
                 # Check origin against allowlist
                 origin = request.headers.get("Origin", "")
@@ -286,8 +304,9 @@ class APIServer:
         """
 
         async def middleware_handler(request):
-            # Get client identifier (IP address or API key)
-            client_id = request.headers.get("X-API-Key", request.remote or "unknown")
+            # The peer address only: a client-chosen header would let each
+            # request claim a fresh bucket.
+            client_id = request.remote or "unknown"
 
             # Check rate limit
             if not await self.rate_limiter.is_allowed(client_id):
@@ -562,9 +581,14 @@ class APIServer:
         tasks: dict[str, Task] = {}
         for t in tasks_data:
             tid = t.get("id", f"T{len(tasks) + 1:03d}")
+            try:
+                task_type = TaskType(t.get("type", "code_generation"))
+            except (ValueError, AttributeError):
+                self._update_request_stats(success=False)
+                return web.json_response({"error": "Unknown task type"}, status=400)
             task = Task(
                 id=tid,
-                type=TaskType(t.get("type", "code_generation")),
+                type=task_type,
                 prompt=t.get("prompt", ""),
                 context=t.get("context", ""),
                 target_path=t.get("target_path", ""),
@@ -636,12 +660,15 @@ class APIServer:
         budget_usd = _safe_float(data.get("budget"), 8.0)
         max_concurrency = _safe_int(data.get("max_concurrency"), 3)
 
-        # Validate spec_dir
-        spec_path = Path(spec_dir)
-        if not spec_path.is_dir():
+        # Validate spec_dir: inside the server's root, and never echoed back.
+        try:
+            spec_path = SecurePath(self._spec_root, str(spec_dir)).resolved
+        except PathTraversalError:
+            spec_path = None
+        if spec_path is None or not spec_path.is_dir():
             self._update_request_stats(success=False)
             return web.json_response(
-                {"error": f"spec_dir not found or not a directory: {spec_dir}"},
+                {"error": "spec_dir not found, not a directory, or outside the allowed root"},
                 status=400,
             )
 
@@ -654,10 +681,14 @@ class APIServer:
 
         adapter = SpecKitAdapter(file_reader=_LocalFileReader())
         try:
-            artifacts = await adapter.load(spec_dir)
+            artifacts = await adapter.load(str(spec_path))
         except FileNotFoundError as exc:
+            # The exception text holds the resolved server path; log it, do not return it.
+            logger.info("Spec-Kit load failed: %s", exc)
             self._update_request_stats(success=False)
-            return web.json_response({"error": str(exc)}, status=400)
+            return web.json_response(
+                {"error": "Spec-Kit artifacts missing in spec_dir"}, status=400
+            )
         except ValueError as exc:
             self._update_request_stats(success=False)
             return web.json_response({"error": str(exc)}, status=400)
