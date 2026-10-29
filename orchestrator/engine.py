@@ -1189,6 +1189,7 @@ class Orchestrator:
         project_desc: str,
         success_criteria: str,
         output_dir: "Path | None" = None,  # noqa: F821
+        persist_fn: Any = None,
     ) -> ProjectState:
         """
         Execute all tasks respecting dependencies, with intra-level parallelism.
@@ -1202,6 +1203,7 @@ class Orchestrator:
             output_dir=output_dir,
             execute_task_fn=self._execute_task,
             make_state_fn=self._make_state,
+            persist_fn=persist_fn,
         )
 
     async def _warm_cache_for_level(self, tasks: Dict[str, Task], runnable: List[str]) -> None:

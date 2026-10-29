@@ -393,8 +393,25 @@ class ProjectRunner:
 
                 # ── Phases 2-5: Execute ──────────────────────────────────
                 logger.info("Starting task execution...")
+
+                async def _save_partial(results: dict[str, Any]) -> None:
+                    # Saved as PARTIAL_SUCCESS (a resumable status) after every
+                    # task, so a crash mid-run leaves something to --resume.
+                    partial = self._callables.make_state(
+                        project_description,
+                        success_criteria,
+                        tasks,
+                        execution_order=execution_order,
+                        results=results,
+                    )
+                    await self._state_mgr.save_project(project_id, partial)
+
                 state = await self._callables.execute_all(
-                    tasks, execution_order, project_description, success_criteria
+                    tasks,
+                    execution_order,
+                    project_description,
+                    success_criteria,
+                    persist_fn=_save_partial,
                 )
                 logger.info("Task execution completed.")
 

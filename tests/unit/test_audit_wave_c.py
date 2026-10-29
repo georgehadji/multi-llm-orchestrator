@@ -6,6 +6,8 @@ Regression tests for docs/plans/2026-10-29-audit-remediation-plan.md, Wave C.
 C1: the project lock stored time.monotonic() (resets at boot) in a persistent DB with a
     30 s expiry that was never refreshed, and was only released in __aexit__, which the
     CLI never enters.
+C2: state was saved only after every task finished, so a crash at task 9 of 10 left
+    nothing to resume.
 
 C3: only PARTIAL_SUCCESS runs were resumable, but runs halted by budget or time end as
     BUDGET_EXHAUSTED or TIMEOUT, so --resume re-decomposed them from scratch and
@@ -92,6 +94,81 @@ async def test_c1_run_project_releases_the_lock_without_a_context_manager(monkey
     assert await orch.state_mgr.acquire_project_lock("cli-run") is True
     await orch.state_mgr.release_project_lock("cli-run")
     await orch.close()
+
+
+async def test_c2_pipeline_runner_persists_after_each_task() -> None:
+    from orchestrator.engine_core.pipeline_runner import PipelineRunner
+    from orchestrator.engine_core.project_planner import ProjectPlanner
+    from orchestrator.models import Model, Task, TaskResult, TaskType
+
+    saved: list[set[str]] = []
+
+    async def persist(results):
+        saved.append(set(results))
+
+    async def run_task(task):
+        if task.id == "t2":
+            raise RuntimeError("process killed here")
+        return TaskResult(task_id=task.id, output="x", score=1.0, model_used=Model.GPT_4O_MINI)
+
+    tasks = {
+        "t1": Task(id="t1", type=TaskType.CODE_GEN, prompt="p"),
+        "t2": Task(id="t2", type=TaskType.CODE_GEN, prompt="p", dependencies=["t1"]),
+    }
+    runner = PipelineRunner(pipeline=None, planner=ProjectPlanner(), max_parallel_tasks=1)
+    await runner.execute_all(
+        tasks, ["t1", "t2"], "d", "c", execute_task_fn=run_task, persist_fn=persist
+    )
+
+    assert saved[0] == {"t1"}  # t1 was durable before t2 ever ran
+    assert saved[-1] == {"t1", "t2"}
+
+
+async def test_c2_project_runner_wires_a_partial_state_save(monkeypatch) -> None:
+    from orchestrator.application.project_runner import ProjectRunner
+    from orchestrator.application.project_runner_deps import ProjectRunState
+    from orchestrator.budget import Budget
+    from orchestrator.models import ProjectStatus
+
+    monkeypatch.setenv("ORCH_UNATTENDED_GUARD", "false")
+    captured = {}
+
+    async def execute_all(*args, **kwargs):
+        captured["persist_fn"] = kwargs.get("persist_fn")
+        await kwargs["persist_fn"]({})
+        return _state(ProjectStatus.SUCCESS)
+
+    callables = MagicMock()
+    callables.execute_all = execute_all
+    callables.generate_architecture_rules = AsyncMock(return_value="")
+    callables.make_state = MagicMock(return_value=_state(ProjectStatus.PARTIAL_SUCCESS))
+    callables.determine_final_status = MagicMock(return_value=ProjectStatus.SUCCESS)
+    state_mgr = AsyncMock()
+    state_mgr.load_project = AsyncMock(return_value=None)
+    generator = AsyncMock()
+    generator.decompose = AsyncMock(
+        return_value=MagicMock(succeeded=True, tasks={"t1": MagicMock()}, error="")
+    )
+    runner = ProjectRunner(
+        callables=callables,
+        run_state=ProjectRunState(entered=True),
+        state_mgr=state_mgr,
+        budget=Budget(),
+        event_bus=None,
+        resumption_svc=AsyncMock(),
+        dashboard_bridge=MagicMock(),
+        git_bridge=MagicMock(),
+        generator=generator,
+        meta_v2=None,
+        cache=AsyncMock(),
+        api_health={},
+    )
+
+    await runner.run_project(project_description="d", success_criteria="c", project_id="p1")
+
+    assert captured["persist_fn"] is not None
+    first_save = state_mgr.save_project.await_args_list[0]
+    assert first_save.args[0] == "p1"
 
 
 async def test_c3_find_resumable_offers_runs_halted_by_time_or_budget(tmp_path) -> None:
