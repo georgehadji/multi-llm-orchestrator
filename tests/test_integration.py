@@ -13,7 +13,6 @@ pytestmark = pytest.mark.unit
 from orchestrator.models import Budget
 from orchestrator.circuit_breaker import CircuitBreaker, CircuitState
 from orchestrator.operations.autonomy_config import AutonomyConfig, AutonomyLevel
-from orchestrator.cost_tracker import CostTracker
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Workflow: Task Execution with Budget Tracking
@@ -27,22 +26,14 @@ class TestBudgetTaskWorkflow:
     async def test_complete_workflow(self, tmp_path):
         """Full workflow: reserve -> charge -> complete."""
         budget = Budget(max_usd=5.0)
-        # Isolated storage dir: CostTracker persists to ~/.orchestrator_cache and
-        # would otherwise load cost accumulated by prior tests/runs.
-        tracker = CostTracker(storage_dir=str(tmp_path))
-
         # Reserve budget
         reserved = await budget.reserve(2.0)
         assert reserved
-
-        # Simulate API call
-        tracker.record("gpt-4o", 1000, 500, 0.15, 1200.0)
 
         # Commit actual cost
         await budget.commit_reservation(2.0, 0.15, "generation")
         assert budget.spent_usd == 0.15
         assert budget.remaining_usd == 4.85
-        assert tracker.total_cost_usd == 0.15
 
     @pytest.mark.asyncio
     async def test_budget_exhaustion_stops_workflow(self):

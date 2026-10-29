@@ -385,23 +385,6 @@ async def test_c5_run_job_charges_hierarchy_with_true_overspend_not_clamped_valu
 
 
 @pytest.mark.unit
-def test_b1_cost_1_track_usage_known_model_does_not_raise():
-    """Fires B1-COST-1 without the fix; passes with it. Violated property:
-    track_usage() must price a model already in COST_TABLE, not only run
-    the unknown-model fallback branch. CostAnalytics.track_usage() indexed
-    the string-keyed CostDict positionally (cost_entry[0]/[1])."""
-    from orchestrator.costing.analytics import CostAnalytics
-    from orchestrator.models import Model
-
-    analytics = CostAnalytics()
-    try:
-        cost = analytics.track_usage(Model.GPT_OSS_120B, input_tokens=1000, output_tokens=500)
-    except KeyError:
-        pytest.fail("defect still present: track_usage() indexed CostDict positionally")
-    assert cost > 0
-
-
-@pytest.mark.unit
 def test_b1_cost_2_repeated_preflight_same_job_id_does_not_leak_reservation():
     """Fires B1-COST-2 without the fix; passes with it. Violated property:
     _reserved_usd/_team_reserved must return to 0 once every reservation

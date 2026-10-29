@@ -87,16 +87,6 @@ def test_c2_ara_reasoning_pipeline_imports_succeed():
     assert MethodSelector is not None
 
 
-def test_c3_routing_package_and_model_routing_import_succeed():
-    """routing/__init__.py's reference to a nonexistent selector.py broke
-    orchestrator.routing and, transitively, orchestrator.model_routing
-    (parent package __init__.py always runs first)."""
-    import orchestrator.model_routing
-    import orchestrator.routing
-
-    assert hasattr(orchestrator.model_routing, "TIER_ROUTING")
-
-
 def test_c4_meta_integration_shim_matches_canonical():
     """meta/integration.py must resolve to the same, already-fixed class as
     the canonical root orchestrator.meta_integration — not a stale copy that

@@ -28,3 +28,34 @@ def test_run_with_resilience_is_deleted() -> None:
 
     assert not hasattr(canonical, "run_with_resilience")
     assert not hasattr(shim, "run_with_resilience")
+
+
+# ── F1: dead modules are deleted, with their re-export shims ────────────────
+
+
+@pytest.mark.parametrize(
+    "module",
+    [
+        "orchestrator.engine_core.engine_deps",
+        "orchestrator.engine_core.evaluation",
+        "orchestrator.engine_core.escalation",
+        "orchestrator.costing.tracker",
+        "orchestrator.costing.analytics",
+        "orchestrator.cost_tracker",
+        "orchestrator.cost_analytics",
+        "orchestrator.routing",
+        "orchestrator.model_routing",
+    ],
+)
+def test_dead_module_is_deleted(module) -> None:
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module(module)
+
+
+def test_container_has_no_dep_resolver_stub() -> None:
+    # ProjectPlanner already falls back when dep_resolver is None.
+    import inspect
+
+    import orchestrator.engine_core.container as container
+
+    assert "_DepResolver" not in inspect.getsource(container)
