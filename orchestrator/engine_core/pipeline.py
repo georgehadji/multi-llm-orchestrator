@@ -102,7 +102,7 @@ class PipelineContext:
             critique=self.critique,
             attempt_history=[
                 (
-                    {"attempt": a.attempt_num, "score": 0.0}
+                    {"attempt": a.attempt_num, "score": getattr(a, "score", 0.0)}
                     if hasattr(a, "attempt_num")
                     else {"attempt": a.get("attempt", 0), "score": a.get("score", 0.0)}
                 )

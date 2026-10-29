@@ -133,3 +133,50 @@ class TestRetryThreshold:
         result = await SelfConsistencyStage(**SelfConsistencyStage.build_kwargs()).process(ctx)
         assert result.should_abort is True
         assert result.abort_reason == "retry_for_quality"
+
+
+# ── E5: the executor keeps the best attempt, and records each score ────────
+
+
+class TestKeepBestAttempt:
+    @pytest.mark.asyncio
+    async def test_better_first_attempt_wins(self) -> None:
+        from orchestrator.engine_core.pipeline_executor import PipelineExecutor
+        from orchestrator.models import AttemptRecord, Task, TaskType
+
+        scores = iter([(0.8, "good", Model.GPT_4O), (0.6, "worse", Model.GPT_4O_MINI)])
+
+        async def run(ctx):
+            ctx.score, ctx.output, ctx.model = next(scores)
+            if ctx.attempt == 0:
+                ctx.attempt_history.append(
+                    AttemptRecord(
+                        attempt_num=0,
+                        model_used=ctx.model.value,
+                        output_snippet="good",
+                        failure_reason="below",
+                        score=ctx.score,
+                    )
+                )
+                ctx.attempt = 1
+                ctx.should_abort = True
+                ctx.abort_reason = "retry_for_quality"
+            return ctx
+
+        executor = PipelineExecutor(
+            pipeline=MagicMock(run=AsyncMock(side_effect=run)),
+            selector=MagicMock(select=MagicMock(return_value=None)),
+            background_tasks=set(),
+        )
+        executor._build_skill_prefix = AsyncMock(return_value="")
+        executor._enrich_with_visual_context = AsyncMock(side_effect=lambda t: t)
+        executor._check_anti_slop = MagicMock()
+        executor._record_trajectory = AsyncMock()
+
+        task = Task(id="t1", type=TaskType.CODE_GEN, prompt="p", acceptance_threshold=0.9)
+        result = await executor.execute(task)
+
+        assert result.score == 0.8
+        assert result.output == "good"
+        assert result.model_used == Model.GPT_4O
+        assert result.attempt_history[0]["score"] == 0.8
