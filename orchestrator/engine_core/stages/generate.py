@@ -158,11 +158,8 @@ class GenerateStage:
         # max_usd caps nothing (BudgetEnforcer.record_cost, the one method that
         # would have charged it downstream, has no production callers).
         await self._budget.charge(response.cost_usd, "generation")
-        ctx.tokens_used["input"] += (
-            getattr(response, "usage", None) and getattr(response.usage, "input_tokens", 0) or 0
-        )
-        ctx.tokens_used["output"] += (
-            getattr(response, "usage", None) and getattr(response.usage, "output_tokens", 0) or 0
-        )
+        # APIResponse carries the counts itself; it has no `.usage`.
+        ctx.tokens_used["input"] += getattr(response, "input_tokens", 0) or 0
+        ctx.tokens_used["output"] += getattr(response, "output_tokens", 0) or 0
 
         return ctx

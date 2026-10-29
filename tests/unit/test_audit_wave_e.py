@@ -219,3 +219,45 @@ class TestAraPipelines:
         ara._get_available_models = lambda _t: [Model.GPT_4O_MINI]
         result = await ara._fallback_execute(Task(id="t", type=TaskType.CODE_GEN, prompt="p"), "")
         assert result.score == 0.0
+
+
+# ── E7: real token counts; critique runs when VS review has no sampler ─────
+
+
+class TestGenerateTokensAndCritique:
+    @pytest.mark.asyncio
+    async def test_generate_records_response_tokens(self, monkeypatch) -> None:
+        from orchestrator.api_clients import APIResponse
+        from orchestrator.crosscutting.config import flags
+        from orchestrator.engine_core.pipeline import PipelineContext
+        from orchestrator.engine_core.stages.generate import GenerateStage
+        from orchestrator.models import Task, TaskType
+
+        monkeypatch.setattr(flags, "vs_generate", False, raising=False)
+        resp = APIResponse(text="x", model=Model.GPT_4O, input_tokens=12, output_tokens=7)
+        stage = GenerateStage(
+            client=MagicMock(call=AsyncMock(return_value=resp)),
+            budget=MagicMock(charge=AsyncMock(), remaining_usd=10.0),
+            selector=MagicMock(),
+        )
+        task = Task(id="t", type=TaskType.CODE_GEN, prompt="p", preferred_model=Model.GPT_4O)
+        ctx = await stage.process(
+            PipelineContext(task=task, tokens_used={"input": 0, "output": 0})
+        )
+        assert ctx.tokens_used == {"input": 12, "output": 7}
+
+    @pytest.mark.asyncio
+    async def test_vs_review_flag_without_sampler_still_critiques(self, monkeypatch) -> None:
+        from orchestrator.crosscutting.config import flags
+        from orchestrator.engine_core.pipeline import PipelineContext
+        from orchestrator.engine_core.stages.critique import CritiqueStage
+        from orchestrator.models import Task, TaskType
+
+        monkeypatch.setattr(flags, "vs_code_review", True, raising=False)
+        client = MagicMock(call=AsyncMock(return_value=MagicMock(text="needs tests", cost_usd=0.0)))
+        stage = CritiqueStage(client=client, get_reviewer_fn=lambda *a, **k: Model.GPT_4O)
+        task = Task(id="t", type=TaskType.CODE_GEN, prompt="p")
+        ctx = PipelineContext(task=task, model=Model.GPT_4O_MINI)
+        ctx.output = "def f(): pass"
+        ctx = await stage.process(ctx)
+        assert ctx.critique == "needs tests"
