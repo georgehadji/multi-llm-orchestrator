@@ -10,6 +10,7 @@ C4: resume copied the saved spend into the live Budget but returned (and saved) 
     deserialized Budget, so the next resume saw stale spend and got fresh headroom.
 C5: the engine called audit.flush() on an attribute it never set, AuditLog had no flush(),
     and flush_jsonl() never cleared, so policy-check records grew in memory and were lost.
+C6: cache.db rows were never deleted and get() served responses of any age.
 """
 
 from __future__ import annotations
@@ -134,3 +135,41 @@ async def test_c5_orchestrator_close_flushes_the_policy_audit_log(tmp_path, monk
     await orch.close()
 
     assert len(path.read_text(encoding="utf-8").splitlines()) == 1
+
+
+async def _age_all_rows(cache, days):
+    import time
+
+    db = await cache._get_conn()
+    await db.execute("UPDATE cache SET created_at = ?", (time.time() - days * 86400,))
+    await db.commit()
+
+
+async def test_c6_cache_does_not_serve_entries_older_than_30_days(tmp_path) -> None:
+    from orchestrator.infrastructure.cache import DiskCache
+
+    cache = DiskCache(tmp_path / "cache.db")
+    await cache.put("m", "p", 10, "fresh answer")
+    await _age_all_rows(cache, 31)
+
+    assert await cache.get("m", "p", 10) is None
+    await cache.close()
+
+
+async def test_c6_cache_prunes_expired_rows_on_open(tmp_path) -> None:
+    from orchestrator.infrastructure.cache import DiskCache
+
+    path = tmp_path / "cache.db"
+    cache = DiskCache(path)
+    await cache.put("m", "old", 10, "old answer")
+    await _age_all_rows(cache, 31)
+    await cache.put("m", "new", 10, "new answer")
+    await cache.close()
+
+    reopened = DiskCache(path)
+    db = await reopened._get_conn()
+    async with db.execute("SELECT COUNT(*) FROM cache") as cur:
+        (rows,) = await cur.fetchone()
+    await reopened.close()
+
+    assert rows == 1
