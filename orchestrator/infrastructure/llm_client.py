@@ -208,11 +208,10 @@ class UnifiedClient:
 
         self.cache = cache or DiskCache()
 
-        # Set up circuit breaker for compatibility
-        from ..circuit_breaker import CircuitBreaker
+        # One breaker per model: a failing model must not block the others.
+        from ..circuit_breaker import CircuitBreakerRegistry
 
-        self.circuit_breaker = kwargs.get("circuit_breaker") or CircuitBreaker(
-            name="openrouter",
+        self.circuit_breakers = kwargs.get("circuit_breakers") or CircuitBreakerRegistry(
             failure_threshold=5,
             reset_timeout=60.0,
             success_threshold=2,
@@ -321,14 +320,15 @@ class UnifiedClient:
 
         timeout = kwargs.pop("timeout", _REQUEST_TIMEOUT_SECONDS)
         # Pop other non-standard arguments from older client interface
-        kwargs.pop("retries", None)
+        # Callers ask for retries by name; the SDK does the retrying.
+        kwargs["max_retries"] = kwargs.pop("retries", _MAX_RETRIES)
         kwargs.pop("task_type", None)
         kwargs.pop("response_schema", None)
         kwargs.pop("fallback_models", None)
         kwargs.pop("policy", None)
 
         try:
-            async with self.circuit_breaker.context():
+            async with (await self.circuit_breakers.get(model_id)).context():
                 try:
                     dispatch_res = await self._dispatch(
                         client=client,
@@ -453,8 +453,11 @@ class UnifiedClient:
         """Surgically isolated method to perform the raw API request, allowing tests to mock it."""
         # Opt-in OpenRouter server-side JSON repair for structured-output requests.
         _maybe_add_response_healing(kwargs, getattr(self, "_or_opts", None))
+        max_retries = kwargs.pop("max_retries", _MAX_RETRIES)
         if "response_model" not in kwargs:
-            return await client.client.chat.completions.create(
+            return await client.client.with_options(
+                max_retries=max_retries
+            ).chat.completions.create(
                 model=model_id,
                 messages=messages,
                 max_tokens=max_tokens,

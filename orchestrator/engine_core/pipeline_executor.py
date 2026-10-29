@@ -107,13 +107,19 @@ class PipelineExecutor:
             skill_prefix=skill_prefix,
         )
 
-        # Loop for self-consistency / ARA retries
+        # Loop for self-consistency / ARA retries. A retry can score lower than
+        # the attempt it replaced, so keep the best one seen, not the last.
+        best: tuple[float, str, Any, str] | None = None
         while True:
             ctx = await self._pipeline.run(ctx)
+            if best is None or ctx.score > best[0]:
+                best = (ctx.score, ctx.output, ctx.model, ctx.critique)
             if ctx.abort_reason not in ("retry_for_quality", "ara_retry", "vs_retry_escape"):
                 break
             # Reset for next attempt
             ctx.reset_for_retry()
+        if best is not None and best[0] > ctx.score:
+            ctx.score, ctx.output, ctx.model, ctx.critique = best
 
         # Determine final status
         status = TaskStatus.COMPLETED

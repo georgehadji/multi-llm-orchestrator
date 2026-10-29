@@ -365,12 +365,16 @@ class EvaluatorService:
 
             if isinstance(data, dict):
                 score = float(data.get("score", data.get("Score", 0.5)))
-                score = max(0.0, min(1.0, score))
             elif isinstance(data, (int, float)):
                 score = float(data)
             else:
                 match = re.search(r"([0-9]*\.?[0-9]+)", str(data))
                 score = float(match.group(1)) if match else 0.5
+            # Same scale rules as the text patterns: >10 is out of 100, >1 out of 10.
+            if score > 10:
+                score = score / 100.0
+            elif score > 1:
+                score = score / 10.0
 
             logger.debug("parse_score: JSON score=%.3f", score)
             return max(0.0, min(1.0, score))

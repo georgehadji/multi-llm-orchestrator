@@ -73,13 +73,13 @@ def test_mvos1_state_is_null(orchestrator):
 
 
 def test_mvos2_client_circuit_breaker_closed(orchestrator):
-    """MVOS-2: The top-level circuit breaker on UnifiedClient starts CLOSED."""
-    cb = orchestrator.client.circuit_breaker
+    """MVOS-2: A model's circuit breaker on UnifiedClient starts CLOSED."""
+    cb = orchestrator.client.circuit_breakers.get_sync("openai/gpt-4o-mini")
     assert cb._state.state == CircuitState.CLOSED
 
 
 def test_mvos2_circuit_breaker_has_expected_thresholds(orchestrator):
-    cb = orchestrator.client.circuit_breaker
+    cb = orchestrator.client.circuit_breakers.get_sync("openai/gpt-4o-mini")
     assert cb.failure_threshold >= 3  # at least 3 failures before tripping
     assert cb.reset_timeout >= 30.0  # at least 30s before probe
 
@@ -92,6 +92,8 @@ def test_mvos2_circuit_breaker_has_expected_thresholds(orchestrator):
 def test_mvos3_registry_is_present(orchestrator):
     """MVOS-3: Per-model CB registry must be a CircuitBreakerRegistry."""
     assert isinstance(orchestrator._cb_registry, CircuitBreakerRegistry)
+    # One registry: the engine sees the breakers the client trips.
+    assert orchestrator._cb_registry is orchestrator.client.circuit_breakers
 
 
 def test_mvos3_registry_starts_empty(orchestrator):

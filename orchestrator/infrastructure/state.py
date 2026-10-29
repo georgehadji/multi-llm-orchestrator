@@ -129,6 +129,7 @@ def _attempt_to_dict(a) -> dict:
             "output_snippet": a.output_snippet,
             "failure_reason": a.failure_reason,
             "validators_failed": getattr(a, "validators_failed", []),
+            "score": getattr(a, "score", 0.0),
         }
     # Fallback for raw dict
     return {
@@ -137,6 +138,7 @@ def _attempt_to_dict(a) -> dict:
         "output_snippet": a.get("output_snippet", "") if isinstance(a, dict) else "",
         "failure_reason": a.get("failure_reason", "") if isinstance(a, dict) else "",
         "validators_failed": a.get("validators_failed", []) if isinstance(a, dict) else [],
+        "score": a.get("score", 0.0) if isinstance(a, dict) else 0.0,
     }
 
 
@@ -147,6 +149,7 @@ def _attempt_from_dict(d: dict) -> AttemptRecord:
         output_snippet=d.get("output_snippet", ""),
         failure_reason=d.get("failure_reason", ""),
         validators_failed=d.get("validators_failed", []),
+        score=d.get("score", 0.0),
     )
 
 
