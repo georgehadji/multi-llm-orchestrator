@@ -481,6 +481,8 @@ class ProjectRunner:
         BudgetEnforcer.enforce_hierarchy_job(
             self._budget_hierarchy, job_id, team, spec.budget.max_usd
         )
+        # The Budget may be shared across runs, so charge only this run's spend.
+        spent_before = self._budget.spent_usd
         try:
             state = await self.run_project(
                 project_description=spec.project_description,
@@ -497,7 +499,7 @@ class ProjectRunner:
             # `max_usd - remaining_usd` silently clamps at max_usd whenever the
             # run overspends its own per-run cap, because remaining_usd floors
             # at 0.0 — the excess would never reach the cross-run hierarchy.
-            actual_spend = self._budget.spent_usd
+            actual_spend = max(0.0, self._budget.spent_usd - spent_before)
             BudgetEnforcer.enforce_hierarchy_job(
                 self._budget_hierarchy, job_id, team, spec.budget.max_usd, actual_spend
             )
