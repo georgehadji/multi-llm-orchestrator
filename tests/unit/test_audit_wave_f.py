@@ -119,6 +119,16 @@ def test_unused_selector_helpers_are_deleted() -> None:
     [
         ("orchestrator.preflight", "orchestrator.quality.preflight", "PreflightValidator"),
         ("orchestrator.streaming", "orchestrator.infrastructure.streaming", "ProjectEventBus"),
+        ("orchestrator.visualization", "orchestrator.analysis.visualization", "DagRenderer"),
+        ("orchestrator.diff_generator", "orchestrator.generators.diff_generator", "DiffGenerator"),
+        ("orchestrator.metrics", "orchestrator.analysis.metrics", "MetricsExporter"),
+        ("orchestrator.tdd_config", "orchestrator.quality.tdd_config", "TDDModelConfig"),
+        ("orchestrator.product_manager", "orchestrator.product.product_manager", "ProductManager"),
+        (
+            "orchestrator.gradual_rollout",
+            "orchestrator.operations.gradual_rollout",
+            "GradualRolloutManager",
+        ),
         (
             "orchestrator.progressive_output",
             "orchestrator.analysis.progressive_output",
