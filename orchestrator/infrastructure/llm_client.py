@@ -199,12 +199,9 @@ class UnifiedClient:
                 "environment variable."
             )
 
-        # Per-provider clients, lazily initialized
+        # Per-provider clients, lazily initialized. Instance-scoped, so close()
+        # only ever clears THIS instance's cache.
         self._provider_clients: dict[Provider, "AsyncInstructor[AsyncOpenAI]"] = {}
-        # Per-model clients (XAI path). Instance-scoped: shadows the
-        # class-level default below so close() only ever clears THIS
-        # instance's cache, not every UnifiedClient in the process.
-        self._clients: dict[str, "AsyncInstructor[AsyncOpenAI]"] = {}
 
         # Set up disk cache for compatibility
         from ..cache import DiskCache
@@ -223,7 +220,7 @@ class UnifiedClient:
 
     async def close(self) -> None:
         """Close all cached HTTP clients and release connection pools."""
-        clients = list(self._clients.values()) + list(self._provider_clients.values())
+        clients = list(self._provider_clients.values())
         if self._default_client is not None:
             clients.append(self._default_client)
 
@@ -234,7 +231,6 @@ class UnifiedClient:
             except Exception:
                 logger.warning("Failed to close LLM client", exc_info=True)
 
-        self._clients.clear()
         self._provider_clients.clear()
         self._default_client = None
 
