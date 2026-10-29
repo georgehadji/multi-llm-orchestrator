@@ -33,7 +33,6 @@ ALLOWLIST: frozenset[str] = frozenset(
         "architecture_rules.py",
         "assembler.py",
         "autonomous_debugger.py",
-        "capability_logger.py",
         "checkpoints.py",
         "circuit_breaker.py",
         "component_library.py",
@@ -43,7 +42,6 @@ ALLOWLIST: frozenset[str] = frozenset(
         "dashboard_bridge.py",
         "deployment_feedback.py",
         "design_system.py",
-        "design_to_code.py",
         "enhancer.py",
         "federated_learning.py",
         "frontend_security.py",
@@ -67,7 +65,6 @@ ALLOWLIST: frozenset[str] = frozenset(
         "session_watcher.py",
         "swiftstack_integration.py",
         "transfer_learning.py",
-        "triggers.py",
         "website_generator.py",
     }
 )

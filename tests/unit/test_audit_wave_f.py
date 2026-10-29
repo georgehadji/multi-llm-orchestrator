@@ -119,6 +119,17 @@ def test_unused_selector_helpers_are_deleted() -> None:
     [
         ("orchestrator.preflight", "orchestrator.quality.preflight", "PreflightValidator"),
         ("orchestrator.streaming", "orchestrator.infrastructure.streaming", "ProjectEventBus"),
+        (
+            "orchestrator.design_to_code",
+            "orchestrator.design.design_to_code",
+            "DesignToCodePipeline",
+        ),
+        ("orchestrator.triggers", "orchestrator.events.triggers", "TriggerManager"),
+        (
+            "orchestrator.capability_logger",
+            "orchestrator.state_mgmt.capability_logger",
+            "CapabilityLogger",
+        ),
         ("orchestrator.progress", "orchestrator.analysis.progress", "ProgressRenderer"),
         ("orchestrator.progress_writer", "orchestrator.analysis.progress_writer", "ProgressWriter"),
         (
