@@ -12,7 +12,7 @@ from ...domain.ports import LLMClient
 from ...budget import Budget
 from ...crosscutting.config import flags
 from ...model_selector import ModelSelector
-from ...models import TaskType
+from ...models import TaskType, estimate_cost
 from ...prompt_builder import SystemPrompt
 
 from ...domain.ports import VSSamplerPort
@@ -64,8 +64,7 @@ class GenerateStage:
         Selects model, builds prompt, calls LLM, stores output.
         """
         task = ctx.task
-        # shortcut: tasks already running in parallel can each still finish one
-        # attempt past the cap; use Budget.reserve per call if that overspend matters.
+        # Cheap early exit; the standard path below also reserves per call.
         if self._budget.remaining_usd <= 0:
             ctx.should_abort = True
             ctx.abort_reason = "budget_exhausted"
@@ -145,25 +144,38 @@ class GenerateStage:
             except Exception as exc:
                 logger.warning("VS-first generation failed for %s: %s", task.id, exc)
 
-        # Standard generation path (flag off, budget model, or VS failed)
-        response = await self._client.call(
-            model=model,
-            prompt=prompt_text,
-            system=system_prompt,
-            max_tokens=task.max_output_tokens,
-            temperature=0.3,
-            timeout=160,
-            retries=STAGE_RETRY_GENERATE,
-        )
+        # Standard generation path (flag off, budget model, or VS failed).
+        # Reserve the estimate first so tasks running in parallel cannot all
+        # pass the cap check and then overspend together; commit the actual
+        # cost after the call, or release the hold if it fails.
+        reserved = self._estimate_call_cost(model, task, prompt_text, system_prompt)
+        if not await self._budget.reserve(reserved):
+            ctx.should_abort = True
+            ctx.abort_reason = "budget_exhausted"
+            return ctx
+        committed = False
+        try:
+            response = await self._client.call(
+                model=model,
+                prompt=prompt_text,
+                system=system_prompt,
+                max_tokens=task.max_output_tokens,
+                temperature=0.3,
+                timeout=160,
+                retries=STAGE_RETRY_GENERATE,
+            )
+            # Charge at the call site, the way the VS path, the evaluator and
+            # the validator's revision call all do. ctx.cost_usd is only a
+            # per-task tally; without this the run's dominant spend never
+            # reaches Budget and max_usd caps nothing.
+            await self._budget.commit_reservation(reserved, response.cost_usd, "generation")
+            committed = True
+        finally:
+            if not committed:
+                await self._budget.release_reservation(reserved)
 
         ctx.output = response.text
         ctx.cost_usd += response.cost_usd
-        # Charge at the call site, the way the VS path, the evaluator and the
-        # validator's revision call all do. ctx.cost_usd is only a per-task
-        # tally; without this the run's dominant spend never reaches Budget and
-        # max_usd caps nothing (BudgetEnforcer.record_cost, the one method that
-        # would have charged it downstream, has no production callers).
-        await self._budget.charge(response.cost_usd, "generation")
         ctx.tokens_used["input"] += (
             getattr(response, "usage", None) and getattr(response.usage, "input_tokens", 0) or 0
         )
@@ -172,3 +184,9 @@ class GenerateStage:
         )
 
         return ctx
+
+    @staticmethod
+    def _estimate_call_cost(model, task, prompt_text: str, system_prompt: str) -> float:
+        """Worst-case cost of one call: prompt at ~4 chars/token, full output budget."""
+        input_tokens = (len(prompt_text) + len(system_prompt)) // 4
+        return estimate_cost(model, input_tokens, task.max_output_tokens)
