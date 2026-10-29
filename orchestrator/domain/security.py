@@ -12,6 +12,7 @@ access, whatever it was registered with.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -19,6 +20,7 @@ __all__ = [
     "PERMISSION_IMPLIES",
     "Permission",
     "Principal",
+    "is_safe_id",
     "parse_permissions",
     "principal_has_permission",
 ]
@@ -96,3 +98,19 @@ def parse_permissions(raw: object) -> frozenset[Permission]:
         return frozenset()
     known = {member.value: member for member in Permission}
     return frozenset(known[item] for item in raw if isinstance(item, str) and item in known)
+
+
+_SAFE_ID = re.compile(r"[A-Za-z0-9_.-]+")
+
+
+def is_safe_id(value: object) -> bool:
+    """True if `value` can be used as a file-name component.
+
+    Task ids come from LLM output and end up in file names; no separators,
+    no glob characters, and never ``.`` or ``..``.
+    """
+    return (
+        isinstance(value, str)
+        and _SAFE_ID.fullmatch(value) is not None
+        and value not in {".", ".."}
+    )

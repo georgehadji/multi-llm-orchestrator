@@ -296,3 +296,90 @@ class TestBadTaskType:
             assert resp.status == 400
         finally:
             await client.close()
+
+
+# ── D6: task ids from LLM output never become path components ───────────────
+
+
+class TestTaskIdTraversal:
+    def test_is_safe_id(self) -> None:
+        from orchestrator.domain.security import is_safe_id
+
+        assert is_safe_id("task_001")
+        assert is_safe_id("T1.a-b")
+        for bad in ("../../x", "..", "a/b", "a\b", "", "x*", "c:evil", None, 7):
+            assert not is_safe_id(bad), bad
+
+    def _decomposer(self):
+        from unittest.mock import MagicMock
+
+        from orchestrator.application.decomposer import Decomposer
+
+        return Decomposer(client=MagicMock(), selector=MagicMock())
+
+    def test_decomposition_drops_traversing_ids(self) -> None:
+        import json
+
+        text = json.dumps(
+            [
+                {"id": "../../x", "type": "code_generation", "prompt": "evil"},
+                {"id": "task_001", "type": "code_generation", "prompt": "ok"},
+            ]
+        )
+        tasks = self._decomposer()._parse_decomposition(text)
+        assert list(tasks) == ["task_001"]
+
+    def test_partial_repair_drops_traversing_ids(self) -> None:
+        tasks = self._decomposer()._repair_partial_tasks(
+            [
+                {"id": "../../x", "type": "code_generation", "prompt": "evil"},
+                {"id": "task_001", "type": "code_generation", "prompt": "ok"},
+            ]
+        )
+        assert list(tasks) == ["task_001"]
+
+    def test_output_writer_keeps_files_inside_out(self, tmp_path) -> None:
+        from orchestrator.budget import Budget
+        from orchestrator.models import (
+            Model,
+            ProjectState,
+            ProjectStatus,
+            Task,
+            TaskResult,
+            TaskStatus,
+            TaskType,
+        )
+        from orchestrator.output_writer import write_output_dir
+
+        tid = "../../escaped"
+        task = Task(id=tid, type=TaskType.WRITING, prompt="p")
+        result = TaskResult(
+            task_id=tid,
+            output="hello",
+            score=1.0,
+            model_used=Model.GPT_4O_MINI,
+            status=TaskStatus.COMPLETED,
+        )
+        state = ProjectState(
+            project_description="d",
+            success_criteria="s",
+            budget=Budget(max_usd=1.0),
+            tasks={tid: task},
+            results={tid: result},
+            status=ProjectStatus.SUCCESS,
+            execution_order=[tid],
+        )
+        out = tmp_path / "a" / "b" / "out"
+        write_output_dir(state, out)
+        assert not list((tmp_path / "a").glob("escaped*"))
+        assert list(out.glob("escaped_*"))
+
+    @pytest.mark.asyncio
+    async def test_checkpoints_refuse_unsafe_ids(self, tmp_path) -> None:
+        from orchestrator.checkpoints import CheckpointManager
+
+        manager = CheckpointManager(checkpoint_dir=str(tmp_path / "cp"))
+        with pytest.raises(ValueError):
+            await manager.save_checkpoint({"a": 1}, "../../x")
+        with pytest.raises(ValueError):
+            await manager.load_checkpoint("*")

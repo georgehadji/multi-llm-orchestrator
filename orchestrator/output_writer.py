@@ -246,7 +246,8 @@ def write_output_dir(
         ext = _ext_for(
             task.type, result.output, target_language=getattr(task, "target_language", "")
         )
-        filename = f"{task_id}_{task.type.value}{ext}"
+        # Second guard: ids are checked at decomposition, but never trust a path part.
+        filename = f"{Path(str(task_id)).name}_{task.type.value}{ext}"
         dest = out / filename
 
         content = _render_content(task.type, result.output, ext, filename)
