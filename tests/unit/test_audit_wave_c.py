@@ -11,6 +11,7 @@ C4: resume copied the saved spend into the live Budget but returned (and saved) 
 C5: the engine called audit.flush() on an attribute it never set, AuditLog had no flush(),
     and flush_jsonl() never cleared, so policy-check records grew in memory and were lost.
 C6: cache.db rows were never deleted and get() served responses of any age.
+C8: APIServer kept every project's status dict in memory for the life of the process.
 """
 
 from __future__ import annotations
@@ -173,3 +174,23 @@ async def test_c6_cache_prunes_expired_rows_on_open(tmp_path) -> None:
     await reopened.close()
 
     assert rows == 1
+
+
+async def test_c8_api_server_keeps_only_recent_finished_project_states() -> None:
+    from orchestrator.api_server import APIServer
+
+    server = APIServer(port=0, host="127.0.0.1", auth_required=False)
+    server._MAX_FINISHED_STATES = 2
+
+    async def run():
+        return None
+
+    for i in range(4):
+        pid = f"p{i}"
+        server._active_project_state[pid] = {"project_id": pid, "status": "accepted"}
+        orch = MagicMock(close=AsyncMock())
+        orch.state_mgr.close = AsyncMock()
+        orch.cache.close = AsyncMock()
+        await (await server._launch_background_project(pid, orch=orch, run_fn=run))
+
+    assert list(server._active_project_state) == ["p2", "p3"]
