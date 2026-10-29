@@ -107,8 +107,9 @@ class TokenBudget:
         OptimizationPhase.CONDENSING: 1000,  # Summary
     }
 
-    # Cost per 1K tokens (USD) - approximate
-    COST_PER_1K = {
+    # Cost per 1M tokens (USD) - approximate. These are per-million list prices;
+    # they used to be divided by 1000, which overstated every cost 1000x.
+    COST_PER_1M = {
         "input": {
             "claude-opus": 15.0,
             "claude-sonnet": 3.0,
@@ -138,11 +139,11 @@ class TokenBudget:
         """
         self.metrics = TokenBudgetMetrics()
         self._limits = {**self.DEFAULT_LIMITS, **(custom_limits or {})}
-        # COST_PER_1K is a nested class-level dict, unlike DEFAULT_LIMITS
+        # COST_PER_1M is a nested class-level dict, unlike DEFAULT_LIMITS
         # above (already de-aliased via the spread). Left as a class
         # attribute, every instance shares the exact same dict object --
         # an unsynchronized de facto global hiding behind a class attribute.
-        self._cost_per_1k = copy.deepcopy(self.COST_PER_1K)
+        self._cost_per_1m = copy.deepcopy(self.COST_PER_1M)
         self._usage: dict[str, TokenUsage] = {}
 
     def get_limit(self, phase: OptimizationPhase) -> int:
@@ -284,20 +285,20 @@ class TokenBudget:
             Cost in USD
         """
         model_key = model.lower()
-        cost_dict = self._cost_per_1k.get(token_type, {})
+        cost_dict = self._cost_per_1m.get(token_type, {})
 
         # Find matching model cost
-        cost_per_1k = 1.0  # Default
+        cost_per_1m = 1.0  # Default
         # Longest-key-first: "gpt-4" is a substring of both "gpt-4-turbo"
         # and "gpt-4o", and dict-insertion order put "gpt-4" first, so
         # iterating in insertion order matched the wrong (shorter, earlier)
         # key before ever reaching the correct, more specific one.
         for key, cost in sorted(cost_dict.items(), key=lambda kv: len(kv[0]), reverse=True):
             if key in model_key:
-                cost_per_1k = cost
+                cost_per_1m = cost
                 break
 
-        return (tokens / 1000) * cost_per_1k
+        return (tokens / 1_000_000) * cost_per_1m
 
     def get_usage(self, model: str | None = None) -> dict[str, Any]:
         """

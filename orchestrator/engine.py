@@ -1079,7 +1079,7 @@ class Orchestrator:
         """
         validate_job_spec(spec)
         async with self._job_lock:
-            self._run_ctx.budget = spec.budget
+            self._run_ctx.apply_budget(spec.budget)
             self._run_ctx.active_policies = spec.policy_set
             self._run_ctx.quality_mode = getattr(spec, "quality_mode", "standard")
             # JobSpec may override the per-task parallelism limit

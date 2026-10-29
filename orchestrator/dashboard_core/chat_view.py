@@ -43,6 +43,11 @@ except ImportError:
 
 async def handle_chat_websocket(websocket: WebSocket) -> None:  # type: ignore[valid-type]
     """Manage one chat session over a WebSocket connection."""
+    from ..security.ws_origin import check_ws_origin
+
+    if not check_ws_origin(websocket.headers):
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
 
     try:

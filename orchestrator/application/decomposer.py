@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from ..api_clients import UnifiedClient
+from ..domain.security import is_safe_id
 from ..crosscutting.config import flags
 from ..exceptions import OrchestratorError, TaskError
 from ..models import Model, Task, TaskType, VSConfig
@@ -546,6 +547,10 @@ Each task JSON element MUST also include:
             task_type_str = obj.get("type", "") or obj.get("task_type", "") or ""
             prompt = obj.get("prompt", "") or obj.get("description", "")
 
+            if task_id and not is_safe_id(task_id):
+                # Ids become file names; refuse traversal at the trust boundary.
+                logger.warning("Dropping task with unsafe id %r", task_id)
+                continue
             if task_id and prompt and task_type_str:
                 try:
                     task_type = TaskType(task_type_str)
@@ -640,6 +645,10 @@ Each task JSON element MUST also include:
             prompt = item.get("prompt") or item.get("description", "")
 
             if not task_id or not task_type or not prompt:
+                continue
+            if not is_safe_id(task_id):
+                # Ids become file names; refuse traversal at the trust boundary.
+                logger.warning("Dropping task with unsafe id %r", task_id)
                 continue
 
             # Normalize task type

@@ -72,7 +72,7 @@ class MCPConfig:
 
     http_mode: bool = False
     port: int = 8181
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     daemon: bool = False
     collections: list[str] = None
 
@@ -631,7 +631,7 @@ def main():
     parser = argparse.ArgumentParser(description="Orchestrator MCP Server")
     parser.add_argument("--http", action="store_true", help="Run in HTTP mode")
     parser.add_argument("--port", type=int, default=8181, help="HTTP port")
-    parser.add_argument("--host", type=str, default="0.0.0.0", help="HTTP host")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="HTTP host")
     parser.add_argument("--daemon", action="store_true", help="Run as daemon")
 
     args = parser.parse_args()

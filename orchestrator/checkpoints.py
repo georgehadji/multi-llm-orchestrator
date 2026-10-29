@@ -26,6 +26,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from .domain.security import is_safe_id
+
 logger = logging.getLogger("orchestrator.checkpoints")
 
 
@@ -91,6 +93,8 @@ class CheckpointManager:
         Returns:
             str: The path to the saved checkpoint file
         """
+        if not is_safe_id(task_id):
+            raise ValueError(f"unsafe task id for a checkpoint file name: {task_id!r}")
         # Create checkpoint object
         checkpoint = Checkpoint(task_id=task_id, data=data, timestamp=datetime.now())
 
@@ -121,6 +125,8 @@ class CheckpointManager:
         Returns:
             Checkpoint: The loaded checkpoint or None if not found
         """
+        if not is_safe_id(task_id):
+            raise ValueError(f"unsafe task id for a checkpoint file name: {task_id!r}")
         # Find the most recent checkpoint file for this task
         checkpoint_files = list(self.checkpoint_dir.glob(f"checkpoint_{task_id}_*.json"))
 

@@ -21,8 +21,10 @@ logger = logging.getLogger("ide_backend")
 from typing import TYPE_CHECKING
 
 from .api.routes import router as api_router
+from . import auth
 from .auth import AuthError, authenticate, owns
 from .integration.orchestrator_bridge import get_orchestrator_bridge
+from ..security.ws_origin import check_ws_origin
 from .security import allowed_origins, remote_allowed, validate_bind_target
 from .session_manager import get_session_manager
 from .websocket.handlers import setup_websocket_handlers
@@ -62,6 +64,8 @@ def create_app(
     # Initialize managers
     connection_manager = get_connection_manager()
     session_manager = get_session_manager()
+    # Once per app, not per connection: handlers are app-wide.
+    setup_websocket_handlers(connection_manager, session_manager)
 
     # Initialize orchestrator bridge if orchestrator provided
     if orchestrator:
@@ -80,6 +84,9 @@ def create_app(
         same `auth` module the REST routes use — a socket that authenticates
         differently from the routes is a second policy waiting to drift.
         """
+        if not check_ws_origin(websocket.headers, allowed_origins()):
+            await websocket.close(code=1008)
+            return
         try:
             principal = authenticate(websocket.headers)
         except AuthError:
@@ -97,9 +104,6 @@ def create_app(
             return
 
         await connection_manager.connect(websocket, session_id)
-
-        # Set up event handlers for this connection
-        setup_websocket_handlers(connection_manager, session_manager)
 
         await connection_manager.send_to_client(websocket, "session_state", session.to_dict())
 
@@ -161,7 +165,6 @@ def run_ide_server(
     orchestrator: Any | None = None,
     frontend_path: Path | None = None,
     reload: bool = False,
-    auth_required: bool = False,
 ):
     """Run the IDE server.
 
@@ -174,7 +177,8 @@ def run_ide_server(
     validate_bind_target(
         host,
         allow_remote=remote_allowed(),
-        auth_required=auth_required,
+        # The flag the routes enforce, so there is one source of truth.
+        auth_required=auth.auth_required(),
     )
 
     app = create_app(orchestrator=orchestrator, frontend_path=frontend_path)

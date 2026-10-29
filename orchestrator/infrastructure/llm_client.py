@@ -199,12 +199,9 @@ class UnifiedClient:
                 "environment variable."
             )
 
-        # Per-provider clients, lazily initialized
+        # Per-provider clients, lazily initialized. Instance-scoped, so close()
+        # only ever clears THIS instance's cache.
         self._provider_clients: dict[Provider, "AsyncInstructor[AsyncOpenAI]"] = {}
-        # Per-model clients (XAI path). Instance-scoped: shadows the
-        # class-level default below so close() only ever clears THIS
-        # instance's cache, not every UnifiedClient in the process.
-        self._clients: dict[str, "AsyncInstructor[AsyncOpenAI]"] = {}
 
         # Set up disk cache for compatibility
         from ..cache import DiskCache
@@ -223,7 +220,7 @@ class UnifiedClient:
 
     async def close(self) -> None:
         """Close all cached HTTP clients and release connection pools."""
-        clients = list(self._clients.values()) + list(self._provider_clients.values())
+        clients = list(self._provider_clients.values())
         if self._default_client is not None:
             clients.append(self._default_client)
 
@@ -234,7 +231,6 @@ class UnifiedClient:
             except Exception:
                 logger.warning("Failed to close LLM client", exc_info=True)
 
-        self._clients.clear()
         self._provider_clients.clear()
         self._default_client = None
 
@@ -489,27 +485,8 @@ class UnifiedClient:
                 "Falling back to OpenRouter."
             )
 
-        # XAI-specific client with fallback
-        if provider == "xai":
-            xai_api_key = os.environ.get("XAI_API_KEY")
-            if xai_api_key:
-                logger.info("Using XAI API client for model %s", model.value)
-                import instructor
-
-                client = instructor.from_openai(
-                    AsyncOpenAI(
-                        base_url="https://api.xai.com/v1/",
-                        api_key=xai_api_key,
-                    ),
-                    mode=self._instructor_mode(),
-                )
-                self._clients[model] = client
-                return client
-            else:
-                logger.warning(
-                    "XAI model specified, but no XAI_API_KEY found. " "Falling back to OpenRouter."
-                )
-
+        # Grok (x-ai/*) models go through OpenRouter like the rest. A direct xAI
+        # client needs api.x.ai plus xAI-native model ids; add it with that mapping.
         # Default to OpenRouter client
         return await self._get_openrouter_client()
 

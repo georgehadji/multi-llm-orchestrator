@@ -306,6 +306,18 @@ def run() -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+async def _load_final_state(state_mgr: Any, project_id: str) -> Any:
+    """Load a finished run's saved state, then close the manager again.
+
+    run_project already closed the StateManager, so this load reopens a
+    connection; aiosqlite's worker thread is non-daemon and would block exit.
+    """
+    try:
+        return await state_mgr.load_project(project_id)
+    finally:
+        await state_mgr.close()
+
+
 async def _async_list_projects() -> None:
     sm = StateManager()
     try:
@@ -448,7 +460,7 @@ async def _async_file_project(args: Any) -> None:
     actual_project_id = getattr(orch, "_project_id", None) or project_id
 
     try:
-        state = await orch.state_mgr.load_project(actual_project_id)
+        state = await _load_final_state(orch.state_mgr, actual_project_id)
     except Exception:
         state = None
 
@@ -656,7 +668,7 @@ async def _async_new_project(args: Any) -> None:
     ):
         renderer.handle(event)
 
-    state = await orch.state_mgr.load_project(orch._project_id)
+    state = await _load_final_state(orch.state_mgr, orch._project_id)
     _print_results(state, orch)
     output_dir = args.output_dir or _default_output_dir(orch._project_id)
     path = write_output_dir(state, output_dir, project_id=orch._project_id)
@@ -796,7 +808,7 @@ async def _async_speckit_project(args: Any) -> None:
     actual_project_id = getattr(orch, "_project_id", None) or project_id
 
     try:
-        state = state if state else await orch.state_mgr.load_project(actual_project_id)
+        state = state if state else await _load_final_state(orch.state_mgr, actual_project_id)
     except Exception:
         pass
 

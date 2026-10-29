@@ -64,6 +64,12 @@ class GenerateStage:
         Selects model, builds prompt, calls LLM, stores output.
         """
         task = ctx.task
+        # shortcut: tasks already running in parallel can each still finish one
+        # attempt past the cap; use Budget.reserve per call if that overspend matters.
+        if self._budget.remaining_usd <= 0:
+            ctx.should_abort = True
+            ctx.abort_reason = "budget_exhausted"
+            return ctx
         model = task.preferred_model or self._selector.select(task.type)
         ctx.model = model
 
