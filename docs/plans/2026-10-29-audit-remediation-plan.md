@@ -158,13 +158,18 @@ Run `bandit -r orchestrator/ --severity-level high -x tests,docs` after each ite
 | `infrastructure/state.py` | A4, C1, C3 | A → C |
 | `engine_core/container.py` | B5, B8, E2, F1 | B → E → F |
 
-## 10. Open decisions for the owner
+## 10. Owner decisions (answered 2026-10-29)
 
-1. **B6:** add per-call reservations now, or keep the `shortcut:` until overspend is measured?
-2. **C6:** cache TTL (30 days proposed).
-3. **D5:** allowed root for `spec_dir`.
-4. **E8:** rescale JSON scores, or keep the clamp and tighten the evaluator prompt?
-5. **F3:** approve the new "no twin over 40 lines" ratchet gate.
+1. **B6:** do it. Add per-call reservations now and remove the `shortcut:` comment.
+2. **C6:** cache TTL is 30 days.
+3. **D5:** the owner delegated the choice. The allowed root is the server's working
+   directory, resolved once at `APIServer` start (`Path.cwd().resolve()`). Any `spec_dir`
+   outside it returns 400.
+4. **E8:** rescale JSON scores like text scores (above 10: divide by 100; above 1: divide
+   by 10). Update the tests that pin the old clamp: `{"score": 3.5}`, `{"score": 1.5}` and
+   `{"score": 99}` in `tests/test_evaluator_service.py` and `tests/unit/test_evaluator.py:51`.
+   Values above 100 still clamp to 1.0.
+5. **F3:** approved. Add the "no root twin over 40 lines" ratchet gate.
 
 ## 11. Done means
 
