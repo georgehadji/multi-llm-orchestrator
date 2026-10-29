@@ -11,6 +11,8 @@ C4: resume copied the saved spend into the live Budget but returned (and saved) 
 C5: the engine called audit.flush() on an attribute it never set, AuditLog had no flush(),
     and flush_jsonl() never cleared, so policy-check records grew in memory and were lost.
 C6: cache.db rows were never deleted and get() served responses of any age.
+C7: IDE sessions were saved to disk but never loaded back after a restart, saves truncated
+    the file before writing, and update_file reported success for a missing path.
 C8: APIServer kept every project's status dict in memory for the life of the process.
 """
 
@@ -174,6 +176,47 @@ async def test_c6_cache_prunes_expired_rows_on_open(tmp_path) -> None:
     await reopened.close()
 
     assert rows == 1
+
+
+async def test_c7_ide_session_survives_a_restart(tmp_path) -> None:
+    from orchestrator.ide_backend.session_manager import SessionManager
+
+    created = await SessionManager(tmp_path).create_session(project_name="demo", owner_id="u1")
+
+    restarted = SessionManager(tmp_path)
+    session = await restarted.get_session(created.id)
+
+    assert session is not None and session.project_name == "demo"
+    # Once loaded it is cached, so later mutations find it too.
+    assert await restarted.update_session(created.id, status="active") is not None
+
+
+async def test_c7_ide_session_save_never_leaves_a_truncated_file(tmp_path, monkeypatch) -> None:
+    import json
+
+    from orchestrator.ide_backend import session_manager as sm_mod
+
+    manager = sm_mod.SessionManager(tmp_path)
+    session = await manager.create_session(project_name="before", owner_id="u1")
+    path = tmp_path / f"{session.id}.json"
+
+    def crash(*args, **kwargs):
+        raise OSError("disk full mid-write")
+
+    monkeypatch.setattr(sm_mod.json, "dump", crash)
+    session.project_name = "after"
+    await manager._save_session(session)
+
+    assert json.loads(path.read_text(encoding="utf-8"))["project"]["name"] == "before"
+
+
+async def test_c7_update_file_reports_a_missing_path(tmp_path) -> None:
+    from orchestrator.ide_backend.session_manager import SessionManager
+
+    manager = SessionManager(tmp_path)
+    session = await manager.create_session(owner_id="u1")
+
+    assert await manager.update_file(session.id, "does/not/exist.py", "x") is False
 
 
 async def test_c8_api_server_keeps_only_recent_finished_project_states() -> None:
