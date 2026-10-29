@@ -21,6 +21,7 @@ logger = logging.getLogger("ide_backend")
 from typing import TYPE_CHECKING
 
 from .api.routes import router as api_router
+from . import auth
 from .auth import AuthError, authenticate, owns
 from .integration.orchestrator_bridge import get_orchestrator_bridge
 from ..security.ws_origin import check_ws_origin
@@ -164,7 +165,6 @@ def run_ide_server(
     orchestrator: Any | None = None,
     frontend_path: Path | None = None,
     reload: bool = False,
-    auth_required: bool = False,
 ):
     """Run the IDE server.
 
@@ -177,7 +177,8 @@ def run_ide_server(
     validate_bind_target(
         host,
         allow_remote=remote_allowed(),
-        auth_required=auth_required,
+        # The flag the routes enforce, so there is one source of truth.
+        auth_required=auth.auth_required(),
     )
 
     app = create_app(orchestrator=orchestrator, frontend_path=frontend_path)

@@ -160,3 +160,22 @@ class TestIdeHandlerRegistry:
         )
 
         sm.update_file.assert_awaited_once_with(attacker.id, "a.py", "x")
+
+
+# ── D3: IDE bind policy reads the same auth flag the routes enforce ─────────
+
+
+class TestIdeBindUsesEnvAuth:
+    def test_remote_bind_refused_when_env_auth_off(self, monkeypatch) -> None:
+        import inspect
+
+        from orchestrator.ide_backend import auth as ide_auth
+        from orchestrator.ide_backend.security import InsecureBindError
+        from orchestrator.ide_backend.server import run_ide_server
+
+        monkeypatch.setenv("ORCHESTRATOR_IDE_ALLOW_REMOTE", "true")
+        monkeypatch.delenv(ide_auth.AUTH_REQUIRED_ENV, raising=False)
+        # No caller flag can claim auth that the routes do not enforce.
+        assert "auth_required" not in inspect.signature(run_ide_server).parameters
+        with pytest.raises(InsecureBindError):
+            run_ide_server(host="0.0.0.0")
