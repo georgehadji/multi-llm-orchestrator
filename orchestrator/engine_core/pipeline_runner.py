@@ -86,7 +86,7 @@ class PipelineRunner:
         progress_writer = None
         if output_dir and make_state_fn:
             try:
-                from ..progress_writer import ProgressWriter
+                from ..analysis.progress_writer import ProgressWriter
 
                 partial_state = make_state_fn(
                     project_desc, success_criteria, tasks, execution_order=execution_order
