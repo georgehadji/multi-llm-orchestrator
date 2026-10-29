@@ -10,6 +10,8 @@ B3: a run that raised only released its reservation, so its real spend was never
 B4: the job-level cap ignored in-flight reservations, unlike the org and team caps.
 B5: three paid LLM calls never charged the Budget: DesignCritiqueStage, the assumption
     gate, and a failed Instructor decomposition attempt.
+B8: cost_optimization kept three private price tables that disagreed with COST_TABLE,
+    and TokenBudget divided per-1M prices by 1000 (1000x too high).
 """
 
 from __future__ import annotations
@@ -183,3 +185,19 @@ async def test_b5_failed_instructor_decomposition_is_still_charged(monkeypatch) 
     )
 
     assert charged and charged[0] > 0
+
+
+def test_b8_cascader_prices_come_from_cost_table() -> None:
+    from orchestrator.cost_optimization.model_cascading import ModelCascader
+    from orchestrator.models import Model, estimate_cost
+
+    cost = ModelCascader()._estimate_cost(Model.DEEPSEEK_V4_FLASH.value, "a" * 4000)
+
+    assert cost == pytest.approx(estimate_cost(Model.DEEPSEEK_V4_FLASH, 0, 1000))
+
+
+def test_b8_token_budget_uses_per_million_prices() -> None:
+    from orchestrator.cost_optimization.token_budget import TokenBudget
+
+    # Claude Sonnet output is $15 per 1M tokens, so 1K tokens cost $0.015.
+    assert TokenBudget()._calculate_cost("claude-sonnet", 1000, "output") == pytest.approx(0.015)
