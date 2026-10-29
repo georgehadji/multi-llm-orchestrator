@@ -74,6 +74,7 @@ class TokenBucketRateLimiter:
             lambda: {"tokens": rate, "last_update": time.time()}
         )
         self._lock = asyncio.Lock()
+        self._last_sweep = time.time()
 
     async def is_allowed(self, client_id: str) -> bool:
         """
@@ -86,8 +87,18 @@ class TokenBucketRateLimiter:
             True if allowed
         """
         async with self._lock:
-            bucket = self._buckets[client_id]
             now = time.time()
+            # A bucket idle a whole window is full again, so dropping it loses
+            # nothing; this keeps one-shot client ids from growing the map.
+            if now - self._last_sweep >= self.window_seconds:
+                self._last_sweep = now
+                for key in [
+                    k
+                    for k, b in self._buckets.items()
+                    if now - b["last_update"] >= self.window_seconds
+                ]:
+                    del self._buckets[key]
+            bucket = self._buckets[client_id]
 
             # Refill tokens
             elapsed = now - bucket["last_update"]
@@ -281,8 +292,9 @@ class APIServer:
         """
 
         async def middleware_handler(request):
-            # Get client identifier (IP address or API key)
-            client_id = request.headers.get("X-API-Key", request.remote or "unknown")
+            # The peer address only: a client-chosen header would let each
+            # request claim a fresh bucket.
+            client_id = request.remote or "unknown"
 
             # Check rate limit
             if not await self.rate_limiter.is_allowed(client_id):

@@ -179,3 +179,43 @@ class TestIdeBindUsesEnvAuth:
         assert "auth_required" not in inspect.signature(run_ide_server).parameters
         with pytest.raises(InsecureBindError):
             run_ide_server(host="0.0.0.0")
+
+
+# ── D4: rate limiter keyed on the peer, with bounded state ──────────────────
+
+
+class TestRateLimiter:
+    @pytest.mark.asyncio
+    async def test_random_api_key_per_request_is_still_limited(self) -> None:
+        import uuid
+
+        from aiohttp.test_utils import TestClient as AioClient
+        from aiohttp.test_utils import TestServer
+
+        from orchestrator.api_server import APIServer
+
+        server = APIServer(port=0, auth_required=False, rate_limit=1, rate_window=60)
+        client = AioClient(TestServer(server.app))
+        await client.start_server()
+        try:
+            statuses = [
+                (await client.get("/health", headers={"X-API-Key": uuid.uuid4().hex})).status
+                for _ in range(3)
+            ]
+            assert statuses[0] == 200
+            assert 429 in statuses[1:]
+        finally:
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_idle_buckets_are_dropped(self, monkeypatch) -> None:
+        import orchestrator.api_server as mod
+
+        clock = [1000.0]
+        monkeypatch.setattr(mod.time, "time", lambda: clock[0])
+        limiter = mod.TokenBucketRateLimiter(rate=5, window_seconds=60)
+        for i in range(50):
+            await limiter.is_allowed(f"10.0.0.{i}")
+        clock[0] += 61
+        await limiter.is_allowed("10.0.0.200")
+        assert set(limiter._buckets) == {"10.0.0.200"}
