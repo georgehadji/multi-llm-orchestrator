@@ -63,6 +63,8 @@ def create_app(
     # Initialize managers
     connection_manager = get_connection_manager()
     session_manager = get_session_manager()
+    # Once per app, not per connection: handlers are app-wide.
+    setup_websocket_handlers(connection_manager, session_manager)
 
     # Initialize orchestrator bridge if orchestrator provided
     if orchestrator:
@@ -101,9 +103,6 @@ def create_app(
             return
 
         await connection_manager.connect(websocket, session_id)
-
-        # Set up event handlers for this connection
-        setup_websocket_handlers(connection_manager, session_manager)
 
         await connection_manager.send_to_client(websocket, "session_state", session.to_dict())
 
