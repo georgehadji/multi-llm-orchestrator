@@ -67,7 +67,6 @@ ALLOWLIST: frozenset[str] = frozenset(
         "product_manager.py",
         "progress.py",
         "progress_writer.py",
-        "progressive_output.py",
         "prompt_builder.py",
         "quality_control.py",
         "rate_limiter.py",
