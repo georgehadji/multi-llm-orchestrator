@@ -130,23 +130,10 @@ class TaskValidator:
         Returns:
             List of applicable hard validator names.
         """
-        if not task.hard_validators:
-            return []
+        # One implementation: quality/validators.py is the one the engine ran.
+        from ..quality.validators import filter_validators_for_task
 
-        # Detect if this is a Python task
-        is_python = False
-        if output.startswith("import") or output.startswith("from"):
-            is_python = True
-        if task.type.value in ("code_generation", "code_review"):
-            is_python = True
-
-        # Filter validators
-        if is_python:
-            return task.hard_validators
-
-        # For non-Python tasks, remove Python-specific validators
-        python_specific = {"python_syntax", "pytest", "ruff", "black", "mypy"}
-        return [v for v in task.hard_validators if v not in python_specific]
+        return filter_validators_for_task(task, output)
 
     # ── Preflight delivery gate ──────────────────────────────────────────
 
