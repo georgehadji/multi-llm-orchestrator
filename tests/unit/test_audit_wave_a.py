@@ -6,6 +6,8 @@ Regression tests for docs/plans/2026-10-29-audit-remediation-plan.md, Wave A.
 A1: dashboard_core/core.py put the raw ?view= value into the error page HTML (XSS).
 A2: the dashboard, command center and MCP server bound 0.0.0.0 by default with no auth,
     so anyone on the network could reach them.
+A3: APIServer shut down its shared, injected orchestrator after the first project, so
+    every later request ran on closed resources.
 A4: StateManager.close() kept the closed connection on success, so the next call raised
     "Connection closed" and CLI --file runs silently wrote no output.
 A5: output_writer recorded FAILED_<name> for code that failed validation but wrote the
@@ -65,6 +67,46 @@ def test_a2_cli_entry_points_default_to_loopback(monkeypatch) -> None:
     mcp.main()
 
     assert seen == {"dash": "127.0.0.1", "mcp": "127.0.0.1"}
+
+
+def _fake_orchestrator():
+    from unittest.mock import AsyncMock, MagicMock
+
+    orch = MagicMock()
+    orch.close = AsyncMock()
+    orch.state_mgr.close = AsyncMock()
+    orch.cache.close = AsyncMock()
+    return orch
+
+
+async def test_a3_shared_orchestrator_is_not_shut_down_per_project() -> None:
+    from orchestrator.api_server import APIServer
+
+    shared = _fake_orchestrator()
+    server = APIServer(port=0, host="127.0.0.1", auth_required=False, orchestrator=shared)
+
+    async def run():
+        return None
+
+    for pid in ("p1", "p2"):
+        await (await server._launch_background_project(pid, orch=shared, run_fn=run))
+
+    shared.close.assert_not_awaited()
+    shared.state_mgr.close.assert_not_awaited()
+
+
+async def test_a3_per_request_orchestrator_is_still_shut_down() -> None:
+    from orchestrator.api_server import APIServer
+
+    server = APIServer(port=0, host="127.0.0.1", auth_required=False)
+    own = _fake_orchestrator()
+
+    async def run():
+        return None
+
+    await (await server._launch_background_project("p1", orch=own, run_fn=run))
+
+    own.close.assert_awaited_once()
 
 
 async def test_a4_state_manager_reconnects_after_close(tmp_path) -> None:

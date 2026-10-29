@@ -738,7 +738,7 @@ class APIServer:
 
         Args:
             project_id: Unique project identifier.
-            orch: Orchestrator instance (shut down in finally).
+            orch: Orchestrator instance (shut down in finally unless it is the shared one).
             run_fn: Zero-argument async callable returning a ProjectState-like object.
 
         Returns:
@@ -777,7 +777,9 @@ class APIServer:
             finally:
                 async with self._active_project_lock:
                     self._active_projects.pop(project_id, None)
-                await _safe_shutdown_async(orch)
+                # Only close what this request built; the injected one is shared.
+                if orch is not self._orchestrator:
+                    await _safe_shutdown_async(orch)
 
         task = asyncio.create_task(_run_and_store())
         async with self._active_project_lock:
