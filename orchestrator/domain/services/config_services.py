@@ -47,8 +47,11 @@ class CostService:
 
     def get_cost(self, model: Model) -> dict[str, float]:
         """Returns input/output costs per 1M tokens."""
-        costs = self._config.get_costs()
-        return costs.get(model.value, {"input": 0.0, "output": 0.0})
+        # COST_TABLE is the OpenRouter-synced table that estimates and budgets
+        # use; costs.json had drifted from it, so billing read wrong prices.
+        from ...models import COST_TABLE
+
+        return dict(COST_TABLE.get(model, {"input": 0.0, "output": 0.0}))
 
 
 class ConfigurationService:
