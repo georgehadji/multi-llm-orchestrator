@@ -95,6 +95,22 @@ class Budget:
         """Return phase budget limits (compatibility with BudgetEnforcer)."""
         return BUDGET_PARTITIONS
 
+    def reset_limits(self, other: Budget) -> None:
+        """Start a new run in place with *other*'s limits and nothing spent.
+
+        Stages hold a reference to this object, so a per-run budget must be
+        applied here rather than by swapping in a new Budget.
+        """
+        now = time.time()
+        self.max_usd = other.max_usd
+        self.max_time_seconds = other.max_time_seconds
+        self.spent_usd = 0.0
+        self._reserved_usd = 0.0
+        self.start_time = now
+        self.original_start_time = now
+        self.phase_spent = dict.fromkeys(self.phase_spent, 0.0)
+        self.phase_tokens = {k: {"input": 0, "output": 0} for k in self.phase_tokens}
+
     def can_afford(self, estimated_cost: float) -> bool:
         """Check if budget can afford estimated cost (non-atomic, for non-concurrent use)."""
         return self.remaining_usd >= estimated_cost

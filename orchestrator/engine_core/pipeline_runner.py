@@ -86,10 +86,10 @@ class PipelineRunner:
         progress_writer = None
         if output_dir and make_state_fn:
             try:
-                from ..progress_writer import ProgressWriter
+                from ..analysis.progress_writer import ProgressWriter
 
                 partial_state = make_state_fn(
-                    project_desc, success_criteria, tasks, execution_order
+                    project_desc, success_criteria, tasks, execution_order=execution_order
                 )
                 partial_state.results = results
                 progress_writer = ProgressWriter(output_dir, partial_state)
@@ -120,8 +120,13 @@ class PipelineRunner:
                             res = _build_failure_result(task, str(exc))
                         async with results_lock:
                             results[tid] = res
-                            if progress_writer:
-                                await progress_writer.write_update()
+                        # Outside the lock (ProgressWriter has its own), and a failed
+                        # progress write never turns a finished task into a failure.
+                        if progress_writer:
+                            try:
+                                await progress_writer.task_completed(tid, res, task)
+                            except Exception as exc:
+                                logger.warning("Progress write failed for %s: %s", tid, exc)
                         return res
                 return None
 
@@ -143,6 +148,10 @@ class PipelineRunner:
 
         if make_state_fn:
             return make_state_fn(
-                project_desc, success_criteria, tasks, execution_order, results=results
+                project_desc,
+                success_criteria,
+                tasks,
+                execution_order=execution_order,
+                results=results,
             )
         return results  # type: ignore
