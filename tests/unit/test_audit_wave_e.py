@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from orchestrator.budget import Budget
 from orchestrator.models import Model
 
 pytestmark = pytest.mark.unit
@@ -238,7 +239,7 @@ class TestGenerateTokensAndCritique:
         resp = APIResponse(text="x", model=Model.GPT_4O, input_tokens=12, output_tokens=7)
         stage = GenerateStage(
             client=MagicMock(call=AsyncMock(return_value=resp)),
-            budget=MagicMock(charge=AsyncMock(), remaining_usd=10.0),
+            budget=Budget(max_usd=10.0),
             selector=MagicMock(),
         )
         task = Task(id="t", type=TaskType.CODE_GEN, prompt="p", preferred_model=Model.GPT_4O)
@@ -270,7 +271,7 @@ def _generate_stage(call, record_failure_fn=None):
 
     return GenerateStage(
         client=MagicMock(call=AsyncMock(side_effect=call)),
-        budget=MagicMock(charge=AsyncMock(), remaining_usd=10.0),
+        budget=Budget(max_usd=10.0),
         selector=MagicMock(),
         record_failure_fn=record_failure_fn,
     )

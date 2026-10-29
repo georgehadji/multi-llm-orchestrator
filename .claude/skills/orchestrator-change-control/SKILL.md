@@ -61,7 +61,7 @@ size timeline. Current live count as of 2026-07-11: 1,284 lines — `wc -l orche
 ### Rule 2: `models.py` = pure data
 Only dataclasses and enums. No I/O, no asyncio, no behavior, no imports from outer layers.
 
-**Incident class.** `models.py` defines the `Model` enum whose `.value` strings are the join key for every config JSON (`orchestrator/config/costs.json`, `routing.json`, `fallbacks.json`). Repeated drift incidents (2026-06-23 fix of 9 entries; resync again in `ab17b5f4`, 2026-07-01) happened because config builders do **not** resolve aliases — a JSON key that doesn't exactly equal an enum value **silently drops** the entry: no error, models just vanish from routing/pricing. Purity of `models.py` is what makes it a stable source of truth; the domain-purity import contract (below) enforces the layering half of this rule mechanically.
+**Incident class.** `models.py` defines the `Model` enum whose `.value` strings are the join key for every config JSON (`orchestrator/config/routing.json`, `fallbacks.json`; prices live in `COST_TABLE` in `models.py` itself since `costs.json` was deleted). Repeated drift incidents (2026-06-23 fix of 9 entries; resync again in `ab17b5f4`, 2026-07-01) happened because config builders do **not** resolve aliases — a JSON key that doesn't exactly equal an enum value **silently drops** the entry: no error, models just vanish from routing/pricing. Purity of `models.py` is what makes it a stable source of truth; the domain-purity import contract (below) enforces the layering half of this rule mechanically.
 
 ### Rule 3: TDD without exceptions
 First a failing test (RED), then the minimal implementation (GREEN), then commit. No implementation-first "I'll add tests after".
@@ -192,7 +192,7 @@ Concretely banned without explicit human approval:
 **Rationale:** every gate in this repo was installed AFTER the failure it prevents had already happened (§2, §3 incidents). Weakening one re-arms the incident. A weakened gate is worse than no gate — it still radiates "this is checked" confidence while checking nothing.
 
 ### Unwritten Rule 2: Config JSON keys ≡ Model enum values, and run drift tests after touching either
-Keys in `orchestrator/config/costs.json`, `routing.json`, `fallbacks.json` MUST exactly equal `Model.X.value` strings from `orchestrator/models.py`. The config builders do not resolve aliases; a mismatched key **silently drops** the entry — no exception, no log, the model just disappears from pricing/routing/fallbacks.
+Keys in `orchestrator/config/routing.json` and `fallbacks.json` MUST exactly equal `Model.X.value` strings from `orchestrator/models.py`. The config builders do not resolve aliases; a mismatched key **silently drops** the entry — no exception, no log, the model just disappears from routing/fallbacks.
 
 **Rationale:** this exact silent drop has bitten repeatedly (9 entries fixed 2026-06-23; resync again in `ab17b5f4` 2026-07-01). After touching `models.py` enum values OR any config JSON:
 

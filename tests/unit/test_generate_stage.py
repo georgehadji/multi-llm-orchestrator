@@ -65,6 +65,16 @@ def mock_budget():
             self.spent_usd += amount
             return self.spent_usd
 
+        # Matches the real Budget reservation contract used per call (B6).
+        async def reserve(self, amount):
+            return True
+
+        async def commit_reservation(self, reserved_amount, actual_amount, phase="generation"):
+            self.spent_usd += actual_amount
+
+        async def release_reservation(self, amount):
+            return None
+
         async def can_charge(self, model, tokens):
             return True
 

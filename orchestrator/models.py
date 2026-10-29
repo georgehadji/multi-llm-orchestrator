@@ -884,11 +884,6 @@ def _load_static_config(filename: str) -> dict[str, Any]:
         return {}
 
 
-def _build_cost_table() -> "dict[Model, dict[str, float]]":
-    data = _load_static_config("costs.json")
-    return {Model(k): v for k, v in data.items() if k in Model._value2member_map_}
-
-
 def _build_routing_table() -> "dict[TaskType, list[Model]]":
     data = _load_static_config("routing.json")
     return {
@@ -919,7 +914,7 @@ def _build_max_output_tokens() -> "dict[TaskType, int]":
 
 # ─────────────────────────────────────────────
 # Lazy-loaded tables — no disk I/O at import time (Rule #2).
-# The five dicts below are populated on first access via __getattr__.
+# The four dicts below are populated on first access via __getattr__.
 # After the first access the value is written into module globals so
 # subsequent reads are O(1) dict lookups with no function call overhead.
 # ─────────────────────────────────────────────
@@ -927,7 +922,6 @@ def _build_max_output_tokens() -> "dict[TaskType, int]":
 TASK_PROVIDER_STRATEGIES: "dict[TaskType, ProviderStrategy]" = {}
 
 _LAZY_TABLES: dict[str, Any] = {
-    "COST_TABLE": _build_cost_table,
     "ROUTING_TABLE": _build_routing_table,
     "FALLBACK_CHAIN": _build_fallback_chain,
     "DEFAULT_THRESHOLDS": _build_default_thresholds,

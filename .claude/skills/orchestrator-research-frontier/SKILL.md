@@ -64,11 +64,11 @@ would nail.
 
 ### This project's asset (verified)
 - `orchestrator/models.py::ROUTING_TABLE` + `orchestrator/config/routing.json` +
-  `orchestrator/config/costs.json` implement **VFM (value-for-money) free-tier-first
+  `COST_TABLE` (`orchestrator/models.py`) implement **VFM (value-for-money) free-tier-first
   routing**: `tests/unit/test_vfm_routing.py` exists and is a live contract test. It
   asserts, per text `TaskType` (CODE_GEN, CODE_REVIEW, REASONING, WRITING,
   DATA_EXTRACT, SUMMARIZE, EVALUATE), that 2026 VFM/free-tier models are declared with
-  a real `Model` enum member and a priced `costs.json` entry, and that routing tries a
+  a real `Model` enum member and a priced `COST_TABLE` entry, and that routing tries a
   free/ultra-cheap model before escalating to premium. This is a **routing-order
   guarantee**, not a measured quality outcome — the test proves the frontier is wired,
   not that it's good.
