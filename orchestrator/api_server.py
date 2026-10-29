@@ -576,9 +576,14 @@ class APIServer:
         tasks: dict[str, Task] = {}
         for t in tasks_data:
             tid = t.get("id", f"T{len(tasks) + 1:03d}")
+            try:
+                task_type = TaskType(t.get("type", "code_generation"))
+            except (ValueError, AttributeError):
+                self._update_request_stats(success=False)
+                return web.json_response({"error": "Unknown task type"}, status=400)
             task = Task(
                 id=tid,
-                type=TaskType(t.get("type", "code_generation")),
+                type=task_type,
                 prompt=t.get("prompt", ""),
                 context=t.get("context", ""),
                 target_path=t.get("target_path", ""),
