@@ -144,6 +144,15 @@ async def test_evaluate_averages_consistent_scores():
         ("out of 10: 6", 0.6),
         ("rating: 0.8", 0.8),
         ("评分: 0.9", 0.9),
+        # Low scores must keep their scale (the scale was read from the regex
+        # pattern instead of the matched text, so "1/10" parsed as a pass).
+        ("1/10", 0.1),
+        ("Score 1/10", 0.1),
+        ("1 out of 10", 0.1),
+        ("10/100", 0.1),
+        ("5/100", 0.05),
+        ("0.5/10", 0.05),
+        ("5%", 0.05),
         # Markdown fences
         ('```json\n{"score": 0.95}\n```', 0.95),
         # Clamping
