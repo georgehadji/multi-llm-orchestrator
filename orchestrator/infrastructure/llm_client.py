@@ -211,11 +211,10 @@ class UnifiedClient:
 
         self.cache = cache or DiskCache()
 
-        # Set up circuit breaker for compatibility
-        from ..circuit_breaker import CircuitBreaker
+        # One breaker per model: a failing model must not block the others.
+        from ..circuit_breaker import CircuitBreakerRegistry
 
-        self.circuit_breaker = kwargs.get("circuit_breaker") or CircuitBreaker(
-            name="openrouter",
+        self.circuit_breakers = kwargs.get("circuit_breakers") or CircuitBreakerRegistry(
             failure_threshold=5,
             reset_timeout=60.0,
             success_threshold=2,
@@ -332,7 +331,7 @@ class UnifiedClient:
         kwargs.pop("policy", None)
 
         try:
-            async with self.circuit_breaker.context():
+            async with (await self.circuit_breakers.get(model_id)).context():
                 try:
                     dispatch_res = await self._dispatch(
                         client=client,

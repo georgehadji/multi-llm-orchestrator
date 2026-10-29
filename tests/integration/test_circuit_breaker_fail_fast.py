@@ -69,7 +69,7 @@ async def test_circuit_breaker_open_raises_immediately(orchestrator_fixture):
         pass
 
     # Manually trip the circuit breaker
-    cb = orch.client.circuit_breaker
+    cb = await orch.client.circuit_breakers.get("openai/gpt-4o-mini")
     for _ in range(cb.failure_threshold):
         await cb.record_failure()
 

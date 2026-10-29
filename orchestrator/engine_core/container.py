@@ -950,13 +950,8 @@ class ServiceContainer:
         hitl = HumanInTheLoop()  # no channel → fail-closed unless ORCH_HITL_AUTOAPPROVE=true
 
         # Circuit breaker registry
-        cb_registry = None
-        try:
-            from ..circuit_breaker import CircuitBreakerRegistry
-
-            cb_registry = CircuitBreakerRegistry()
-        except ImportError:
-            pass
+        # The client's own per-model registry, so routing sees what the client trips.
+        cb_registry = client.circuit_breakers
 
         # ── Inline infra imports (consolidated from engine.py) ────────────
         # SkillStore with SkillDbAdapter
