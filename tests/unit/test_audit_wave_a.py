@@ -6,6 +6,8 @@ Regression tests for docs/plans/2026-10-29-audit-remediation-plan.md, Wave A.
 A1: dashboard_core/core.py put the raw ?view= value into the error page HTML (XSS).
 A2: the dashboard, command center and MCP server bound 0.0.0.0 by default with no auth,
     so anyone on the network could reach them.
+A4: StateManager.close() kept the closed connection on success, so the next call raised
+    "Connection closed" and CLI --file runs silently wrote no output.
 """
 
 from __future__ import annotations
@@ -58,3 +60,16 @@ def test_a2_cli_entry_points_default_to_loopback(monkeypatch) -> None:
     mcp.main()
 
     assert seen == {"dash": "127.0.0.1", "mcp": "127.0.0.1"}
+
+
+async def test_a4_state_manager_reconnects_after_close(tmp_path) -> None:
+    from orchestrator.infrastructure.state import StateManager
+
+    sm = StateManager(db_path=tmp_path / "state.db")
+    await sm._get_conn()
+    await sm.close()
+
+    conn = await sm._get_conn()
+    async with conn.execute("SELECT 1") as cur:
+        assert (await cur.fetchone())[0] == 1
+    await sm.close()

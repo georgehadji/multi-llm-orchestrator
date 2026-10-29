@@ -577,6 +577,9 @@ class StateManager:
                 await self._conn.close()
                 await asyncio.sleep(0)
             except Exception:
+                pass
+            finally:
+                # Always drop the handle, so the next _get_conn() reconnects.
                 self._conn = None
 
     async def acquire_project_lock(self, project_id: str) -> bool:
