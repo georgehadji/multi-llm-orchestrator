@@ -114,3 +114,22 @@ class TestRetriesReachSdk:
 
         assert resp.text == "done"
         assert len(hits) == 3
+
+
+# ── E4: the retry gate uses the task's own acceptance threshold ─────────────
+
+
+class TestRetryThreshold:
+    @pytest.mark.asyncio
+    async def test_score_between_default_and_task_threshold_retries(self) -> None:
+        from orchestrator.engine_core.pipeline import PipelineContext
+        from orchestrator.engine_core.stages import SelfConsistencyStage
+        from orchestrator.models import Task, TaskType
+
+        task = Task(id="t1", type=TaskType.CODE_GEN, prompt="p", acceptance_threshold=0.85)
+        ctx = PipelineContext(task=task)
+        ctx.score = 0.8
+        ctx.model = Model.GPT_4O_MINI
+        result = await SelfConsistencyStage(**SelfConsistencyStage.build_kwargs()).process(ctx)
+        assert result.should_abort is True
+        assert result.abort_reason == "retry_for_quality"
