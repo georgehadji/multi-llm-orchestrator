@@ -135,6 +135,10 @@ class TokenBucketRateLimiter:
 class APIServer:
     """REST API server for the orchestrator."""
 
+    # Finished projects whose status stays in memory; older ones are dropped and
+    # get_project_status falls back to StateManager for them.
+    _MAX_FINISHED_STATES = 500
+
     def __init__(
         self,
         port: int = 8000,
@@ -813,6 +817,14 @@ class APIServer:
             finally:
                 async with self._active_project_lock:
                     self._active_projects.pop(project_id, None)
+                    # Dicts keep insertion order, so the oldest finished entries go first.
+                    finished = [
+                        pid
+                        for pid in self._active_project_state
+                        if pid not in self._active_projects
+                    ]
+                    for pid in finished[: max(0, len(finished) - self._MAX_FINISHED_STATES)]:
+                        del self._active_project_state[pid]
                 # Only close what this request built; the injected one is shared.
                 if orch is not self._orchestrator:
                     await _safe_shutdown_async(orch)

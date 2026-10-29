@@ -15,10 +15,13 @@ FIX #10: Migrated from sync sqlite3 to async aiosqlite for consistency
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
+import os
 import socket
 import time
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Optional
 
@@ -26,6 +29,7 @@ import aiosqlite
 
 from ..budget import Budget
 from ..models import (
+    RESUMABLE_STATUSES,
     AttemptRecord,
     Model,
     ProjectState,
@@ -238,6 +242,8 @@ class StateManager:
 
     # Connection timeout in seconds (prevents infinite hangs)
     _CONN_TIMEOUT: float = 10.0
+    # A project lock lapses this long after its last heartbeat.
+    _LOCK_TTL: float = 30.0
 
     def __init__(self, db_path: Path = DEFAULT_STATE_PATH):
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -507,38 +513,30 @@ class StateManager:
         """Find projects with matching keywords that are resumable.
 
         Returns list of dicts with: project_id, description, keywords, status, updated_at
-        Only returns PARTIAL_SUCCESS or IN_PROGRESS projects.
+        Only returns projects whose status is in RESUMABLE_STATUSES.
         ``updated_at`` is a Unix timestamp float from the DB.
         """
         db = await self._get_conn()
 
-        # Build a query that matches projects with any of the provided keywords
-        # We'll do a text-based search in the keywords_json column
+        # Match any of the provided keywords with a text search in keywords_json;
+        # no keywords returns every resumable project. Only "?" placeholders are
+        # interpolated into the SQL, never values.
+        statuses = sorted(s.value for s in RESUMABLE_STATUSES)
+        params: list[str] = list(statuses)
+        keyword_clause = ""
         if keywords:
-            keyword_conditions = " OR ".join(["keywords_json LIKE ?"] * len(keywords))
-            query_params = [f'%"{kw}"%' for kw in keywords]
+            keyword_clause = "AND (" + " OR ".join(["keywords_json LIKE ?"] * len(keywords)) + ")"
+            params += [f'%"{kw}"%' for kw in keywords]
 
-            query = f"""SELECT project_id, project_description, keywords_json, status, updated_at
-                       FROM projects
-                       WHERE status IN ('PARTIAL_SUCCESS', 'IN_PROGRESS')
-                       AND keywords_json IS NOT NULL
-                       AND ({keyword_conditions})
-                       ORDER BY updated_at DESC
-                       LIMIT 50"""
-
-            async with db.execute(query, query_params) as cursor:
-                rows = await cursor.fetchall()
-        else:
-            # If no keywords provided, return all resumable projects
-            async with db.execute(
-                """SELECT project_id, project_description, keywords_json, status, updated_at
+        query = f"""SELECT project_id, project_description, keywords_json, status, updated_at
                    FROM projects
-                   WHERE status IN ('PARTIAL_SUCCESS', 'IN_PROGRESS')
+                   WHERE status IN ({", ".join("?" * len(statuses))})
                    AND keywords_json IS NOT NULL
+                   {keyword_clause}
                    ORDER BY updated_at DESC
-                   LIMIT 50""",
-            ) as cursor:
-                rows = await cursor.fetchall()
+                   LIMIT 50"""
+        async with db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
 
         result = []
         for row in rows:
@@ -583,19 +581,21 @@ class StateManager:
                 self._conn = None
 
     async def acquire_project_lock(self, project_id: str) -> bool:
-        """Acquire advisory lock for *project_id* with 30s auto-expiry.
+        """Acquire advisory lock for *project_id*; it expires _LOCK_TTL after its last refresh.
 
+        Wall-clock time, because the row outlives the process and the boot:
+        a time.monotonic() stamp from before a reboot looked fresh for hours.
         Returns True if acquired, False if held by another instance.
         """
         conn = await self._get_conn()
         try:
             await conn.execute(
                 "DELETE FROM project_locks WHERE locked_at < ?",
-                (time.monotonic() - 30.0,),
+                (time.time() - self._LOCK_TTL,),
             )
             await conn.execute(
                 "INSERT INTO project_locks (project_id, locked_at, locked_by) VALUES (?, ?, ?)",
-                (project_id, time.monotonic(), __import__("os").getpid()),
+                (project_id, time.time(), os.getpid()),
             )
             await conn.commit()
             return True
@@ -614,6 +614,53 @@ class StateManager:
             await conn.commit()
         except Exception:
             await conn.rollback()
+
+    async def _lock_db_execute(self, sql: str, params: tuple) -> None:
+        """Run one lock statement on its own short-lived connection.
+
+        The lease outlives the run, and a run closes the shared connection at
+        its end (project_runner), so the heartbeat and release must not depend on it.
+        """
+        async with aiosqlite.connect(self._db_path, timeout=self._CONN_TIMEOUT) as db:
+            await db.execute(sql, params)
+            await db.commit()
+
+    @contextlib.asynccontextmanager
+    async def project_lease(self, project_id: str) -> AsyncIterator[bool]:
+        """Hold the project lock for the whole block, released on any exit.
+
+        Yields False (and holds nothing) when another instance has the lock.
+        A heartbeat refreshes the row every _LOCK_TTL / 3, so a run longer
+        than the TTL keeps its lock; a crashed run's lock lapses after the TTL.
+        """
+        if not await self.acquire_project_lock(project_id):
+            yield False
+            return
+
+        async def heartbeat() -> None:
+            while True:
+                await asyncio.sleep(self._LOCK_TTL / 3)
+                try:
+                    await self._lock_db_execute(
+                        "UPDATE project_locks SET locked_at = ? WHERE project_id = ? AND locked_by = ?",
+                        (time.time(), project_id, os.getpid()),
+                    )
+                except Exception as exc:
+                    logger.warning("Project lock refresh failed for %s: %s", project_id, exc)
+
+        beat = asyncio.create_task(heartbeat())
+        try:
+            yield True
+        finally:
+            beat.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await beat
+            try:
+                await self._lock_db_execute(
+                    "DELETE FROM project_locks WHERE project_id = ?", (project_id,)
+                )
+            except Exception as exc:
+                logger.warning("Failed to release project lock for %s: %s", project_id, exc)
 
 
 # ─────────────────────────────────────────────

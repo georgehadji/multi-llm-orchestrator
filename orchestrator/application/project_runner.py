@@ -28,7 +28,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ..models import ProjectState, ProjectStatus, TaskStatus, TaskType
+from ..models import RESUMABLE_STATUSES, ProjectState, ProjectStatus, TaskStatus, TaskType
 from ..resilience import RetryTemplate
 from .project_runner_deps import ProjectRunnerCallables, ProjectRunState
 from .unattended_guard import RunContext, UnattendedGuard
@@ -251,7 +251,7 @@ class ProjectRunner:
             try:
                 # ── Resume detection ────────────────────────────────────
                 existing = await self._state_mgr.load_project(project_id)
-                if existing and existing.status == ProjectStatus.PARTIAL_SUCCESS:
+                if existing and existing.status in RESUMABLE_STATUSES:
                     logger.info("Resuming project %s from checkpoint", project_id)
                     state = await self._resumption_svc.resume(existing)
                     await self._state_mgr.save_project(project_id, state)
@@ -395,8 +395,25 @@ class ProjectRunner:
 
                 # ── Phases 2-5: Execute ──────────────────────────────────
                 logger.info("Starting task execution...")
+
+                async def _save_partial(results: dict[str, Any]) -> None:
+                    # Saved as PARTIAL_SUCCESS (a resumable status) after every
+                    # task, so a crash mid-run leaves something to --resume.
+                    partial = self._callables.make_state(
+                        project_description,
+                        success_criteria,
+                        tasks,
+                        execution_order=execution_order,
+                        results=results,
+                    )
+                    await self._state_mgr.save_project(project_id, partial)
+
                 state = await self._callables.execute_all(
-                    tasks, execution_order, project_description, success_criteria
+                    tasks,
+                    execution_order,
+                    project_description,
+                    success_criteria,
+                    persist_fn=_save_partial,
                 )
                 logger.info("Task execution completed.")
 
