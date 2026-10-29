@@ -279,7 +279,9 @@ class ProjectRunner:
                         from ..assumption_gate import surface_assumptions
 
                         report = await surface_assumptions(
-                            project_description, self._callables.client
+                            project_description,
+                            self._callables.client,
+                            charge_fn=self._charge_decomposition,
                         )
                         if report.has_ambiguity:
                             logger.info(
@@ -452,6 +454,10 @@ class ProjectRunner:
                     await self._state_mgr.close()
                     await self._cache.close()
 
+    async def _charge_decomposition(self, amount: float) -> None:
+        """Charge planning-phase LLM calls (e.g. the assumption gate) to the run budget."""
+        await self._budget.charge(amount, "decomposition")
+
     async def run_job(self, spec: Any) -> Any:
         """
         Policy-driven entry point. Accepts a JobSpec that bundles project
@@ -529,7 +535,11 @@ class ProjectRunner:
         try:
             from ..assumption_gate import surface_assumptions
 
-            report = await surface_assumptions(project_description, self._callables.client)
+            report = await surface_assumptions(
+                project_description,
+                self._callables.client,
+                charge_fn=self._charge_decomposition,
+            )
             if report.has_ambiguity:
                 logger.info(
                     "Assumptions surfaced: %d assumptions, %d questions",

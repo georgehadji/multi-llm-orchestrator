@@ -8,6 +8,8 @@ B2: run_job charged the BudgetHierarchy the Budget's total spent_usd, which is n
 B3: a run that raised only released its reservation, so its real spend was never
     charged; a cancelled run (CancelledError is a BaseException) did not even release it.
 B4: the job-level cap ignored in-flight reservations, unlike the org and team caps.
+B5: three paid LLM calls never charged the Budget: DesignCritiqueStage, the assumption
+    gate, and a failed Instructor decomposition attempt.
 """
 
 from __future__ import annotations
@@ -102,3 +104,82 @@ def test_b4_job_cap_counts_inflight_reservations() -> None:
 
     assert hierarchy.can_afford_job("j", "", 0.8) is True
     assert hierarchy.can_afford_job("j", "", 0.8) is False
+
+
+def _paid_client(text="{}", cost=0.1):
+    client = MagicMock()
+    client.call = AsyncMock(return_value=SimpleNamespace(text=text, cost_usd=cost))
+    return client
+
+
+async def test_b5_design_critique_charges_the_budget() -> None:
+    from orchestrator.budget import Budget
+    from orchestrator.engine_core.pipeline import PipelineContext
+    from orchestrator.engine_core.stages.design_critique import DesignCritiqueStage
+    from orchestrator.models import Model, Task, TaskType
+
+    budget = Budget(max_usd=10.0)
+    stage = DesignCritiqueStage(client=_paid_client("score: 7"), budget=budget)
+    task = Task(id="t1", type=TaskType.CODE_GEN, prompt="build a landing page in React")
+    ctx = PipelineContext(task=task, output="<div/>", model=Model.GPT_4O_MINI)
+
+    await stage.process(ctx)
+
+    assert budget.spent_usd == pytest.approx(0.1)
+
+
+async def test_b5_assumption_gate_charges_through_charge_fn() -> None:
+    from orchestrator.assumption_gate import surface_assumptions
+
+    charged: list[float] = []
+
+    async def charge(amount):
+        charged.append(amount)
+
+    await surface_assumptions(
+        "make it better", _paid_client('{"has_ambiguity": false}', 0.05), charge_fn=charge
+    )
+
+    assert charged == [pytest.approx(0.05)]
+
+
+async def test_b5_failed_instructor_decomposition_is_still_charged(monkeypatch) -> None:
+    import sys
+    import types
+
+    from orchestrator.application.decomposer_service import decompose_project
+    from orchestrator.models import Model
+
+    class FailingDecomposer:
+        def __init__(self, api_client):
+            pass
+
+        async def decompose(self, **kwargs):
+            raise RuntimeError("schema validation failed")
+
+        def _calculate_decomposition_tokens(self, project):
+            return 1000
+
+    fake = types.ModuleType("orchestrator.structured_outputs")
+    fake.TaskDecomposer = FailingDecomposer
+    monkeypatch.setitem(sys.modules, "orchestrator.structured_outputs", fake)
+    charged: list[float] = []
+
+    async def charge(amount):
+        charged.append(amount)
+
+    fallback = MagicMock()
+    fallback.decompose = AsyncMock(return_value={})
+
+    await decompose_project(
+        project="p",
+        criteria="c",
+        model=Model.GPT_4O_MINI,
+        client=MagicMock(),
+        decomposer=fallback,
+        api_health={},
+        record_failure_fn=MagicMock(),
+        charge_fn=charge,
+    )
+
+    assert charged and charged[0] > 0

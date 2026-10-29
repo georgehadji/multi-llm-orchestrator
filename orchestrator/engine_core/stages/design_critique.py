@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 
 from ..pipeline import PipelineContext
+from ...budget import Budget
 from ...design.design_rubric import DefaultDesignRubric
 from ...design.frontend_detect import is_web_frontend_task
 from ...domain.ports import LLMClient
@@ -33,15 +34,17 @@ class DesignCritiqueStage:
         # Must supply every required __init__ argument. Returning {} made
         # ServiceContainer.build() raise TypeError once stage discovery was
         # repaired: __init__ requires `client`.
-        return {"client": deps["client"]}
+        return {"client": deps["client"], "budget": deps.get("budget")}
 
     def __init__(
         self,
         client: LLMClient,
         rubric: DefaultDesignRubric | None = None,
         get_reviewer_fn: object = None,
+        budget: Budget | None = None,
     ) -> None:
         self._client = client
+        self._budget = budget
         self._rubric = rubric or DefaultDesignRubric()
         self._get_reviewer_fn = get_reviewer_fn
 
@@ -69,6 +72,8 @@ class DesignCritiqueStage:
                 timeout=60,
                 retries=1,
             )
+            if self._budget is not None:
+                await self._budget.charge(response.cost_usd, "cross_review")
             ctx.design_critique = response.text[:2000]
             ctx.design_score = self._rubric.parse_score(response.text)
 
