@@ -151,7 +151,7 @@ class OrchestratorSettings(BaseSettings):
     dashboard_port: int = 8000
     dashboard_host: str = "127.0.0.1"
     mcp_port: int = 8181
-    mcp_host: str = "0.0.0.0"
+    mcp_host: str = "127.0.0.1"
     mcp_http_mode: bool = False
     log_level: str = "INFO"
     log_format: str = "json"
