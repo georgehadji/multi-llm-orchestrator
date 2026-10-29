@@ -53,7 +53,11 @@ class TestPerCallReservation:
         results = await asyncio.gather(*(stage.process(_ctx(f"t{i}")) for i in range(3)))
 
         assert client.call.await_count == 1
-        assert sorted(r.abort_reason for r in results) == ["", "budget_exhausted", "budget_exhausted"]
+        assert sorted(r.abort_reason for r in results) == [
+            "",
+            "budget_exhausted",
+            "budget_exhausted",
+        ]
         assert budget.spent_usd == pytest.approx(est)
         assert budget._reserved_usd == pytest.approx(0.0)
 
