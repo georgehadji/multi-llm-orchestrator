@@ -242,7 +242,7 @@ class TestAssumptionGateModelReference:
 
     def test_assumption_model_is_valid_model_enum(self):
         """_ASSUMPTION_MODEL must be a Model enum member."""
-        from orchestrator.assumption_gate import _ASSUMPTION_MODEL
+        from orchestrator.analysis.assumption_gate import _ASSUMPTION_MODEL
         from orchestrator.models import Model
 
         assert isinstance(_ASSUMPTION_MODEL, Model), (
