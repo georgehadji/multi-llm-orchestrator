@@ -10,6 +10,7 @@ R2: ProgressWriter._write_task_file prepended a SECURITY WARNING header to the s
     TaskResult.output and built its filename from the raw task_id.
 R3: a failing progress write escaped run_one after the result was stored, so a finished
     task was logged as failed; the write also ran while holding results_lock.
+R6: writing the FAILED_ placeholder left an earlier run's plain-name file in place.
 """
 
 from __future__ import annotations
@@ -135,6 +136,33 @@ async def test_r3_progress_write_failure_does_not_fail_the_task(
     assert state.results["t1"].output == "x"
     assert "failed in level" not in caplog.text
     assert "disk full" in caplog.text
+
+
+def test_r6_failed_placeholder_removes_stale_plain_file(tmp_path, monkeypatch) -> None:
+    import orchestrator.output_writer as ow
+    from orchestrator.budget import Budget
+    from orchestrator.models import Model, ProjectState, Task, TaskResult, TaskType
+
+    stale = tmp_path / "t1_code_generation.py"
+    stale.write_text("old = True\n", encoding="utf-8")
+    monkeypatch.setattr(ow, "validate_code", lambda content, filename="": (False, ["bad"]))
+    state = ProjectState(
+        project_description="d",
+        success_criteria="c",
+        budget=Budget(),
+        tasks={"t1": Task(id="t1", type=TaskType.CODE_GEN, prompt="p")},
+        results={
+            "t1": TaskResult(
+                task_id="t1", output="def f(:", score=0.1, model_used=Model.GPT_4O_MINI
+            )
+        },
+        execution_order=["t1"],
+    )
+
+    ow.write_output_dir(state, tmp_path)
+
+    assert not stale.exists()
+    assert (tmp_path / "FAILED_t1_code_generation.py").exists()
 
 
 async def test_r1_reset_without_budget_keeps_cumulative_spend() -> None:

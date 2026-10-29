@@ -281,6 +281,7 @@ raise RuntimeError(
                 # Mark task as failed in the file map
                 file_map[task_id] = f"FAILED_{filename}"
                 (out / f"FAILED_{filename}").write_text(content, encoding="utf-8")
+                dest.unlink(missing_ok=True)  # a previous run's code must not linger
                 logger.error(f"  → Wrote error placeholder: FAILED_{filename}")
                 continue  # Skip to next task - don't process this invalid code further
 
