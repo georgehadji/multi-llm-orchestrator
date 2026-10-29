@@ -38,14 +38,12 @@ async def test_a1_dashboard_error_page_escapes_view_name() -> None:
 
 def test_a2_server_signatures_default_to_loopback() -> None:
     from orchestrator.command_center_server import CommandCenterServer
-    from orchestrator.crosscutting.config import OrchestratorSettings
     from orchestrator.dashboard_core.core import DashboardCore, run_dashboard
     from orchestrator.integrations.mcp_server import MCPConfig
 
     for fn in (DashboardCore.run, run_dashboard, CommandCenterServer.start):
         assert inspect.signature(fn).parameters["host"].default == "127.0.0.1", fn
     assert MCPConfig().host == "127.0.0.1"
-    assert OrchestratorSettings.model_fields["mcp_host"].default == "127.0.0.1"
 
 
 def test_a2_cli_entry_points_default_to_loopback(monkeypatch) -> None:

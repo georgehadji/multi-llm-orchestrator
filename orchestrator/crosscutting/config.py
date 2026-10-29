@@ -148,11 +148,7 @@ class OrchestratorSettings(BaseSettings):
     rate_limit_per_minute: int = 60
     cache_ttl_hours: int = 48
     semantic_cache_threshold: float = 0.85
-    dashboard_port: int = 8000
-    dashboard_host: str = "127.0.0.1"
-    mcp_port: int = 8181
-    mcp_host: str = "127.0.0.1"
-    mcp_http_mode: bool = False
+    # Server host/port defaults live with each server (dashboard_core, integrations.mcp_server).
     log_level: str = "INFO"
     log_format: str = "json"
     audit_log_path: str = "~/.orchestrator_cache/audit.log"
