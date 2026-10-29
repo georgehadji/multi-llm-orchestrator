@@ -36,6 +36,7 @@ from typing import Any
 
 from orchestrator.crosscutting.config import flags
 from orchestrator.log_config import get_logger
+from orchestrator.models import cost_rates
 
 # Lazy import for Verifier protocol (avoids circular import at module level)
 _Verifier: Any | None = None
@@ -127,15 +128,6 @@ class ModelCascader:
             ("deepseek/deepseek-v4-flash", 0.70),
             ("claude-sonnet-4.6", 0.0),
         ],
-    }
-
-    # Cost per 1M tokens (for savings estimation)
-    MODEL_COSTS = {
-        "deepseek/deepseek-v4-flash": {"input": 1.0, "output": 4.0},
-        "claude-sonnet-4.6": {"input": 3.0, "output": 15.0},
-        "claude-opus-4.8": {"input": 18.0, "output": 90.0},
-        "gpt-4o": {"input": 5.0, "output": 15.0},
-        "gpt-4": {"input": 30.0, "output": 60.0},
     }
 
     def __init__(self, client=None, evaluator_client=None, verifier=None):
@@ -512,8 +504,7 @@ class ModelCascader:
         input_tokens = len(prompt) / 4 if prompt else 0
 
         # Get model costs
-        model_key = model.lower()
-        costs = self.MODEL_COSTS.get(model_key, {"input": 3.0, "output": 15.0})
+        costs = cost_rates(model, {"input": 3.0, "output": 15.0})
 
         input_cost = (input_tokens / 1_000_000) * costs["input"]
         output_cost = (output_tokens / 1_000_000) * costs["output"]
@@ -540,8 +531,7 @@ class ModelCascader:
         input_tokens = len(prompt) / 4
         output_tokens = max_tokens
 
-        model_key = premium_model.lower()
-        costs = self.MODEL_COSTS.get(model_key, {"input": 15.0, "output": 75.0})
+        costs = cost_rates(premium_model, {"input": 15.0, "output": 75.0})
 
         input_cost = (input_tokens / 1_000_000) * costs["input"]
         output_cost = (output_tokens / 1_000_000) * costs["output"]

@@ -304,21 +304,16 @@ async def test_t1b3_07_cost_uses_token_estimate_not_char_count():
 
 def test_t1b3_08_model_costs_matches_canonical_cost_table():
     """Fires T1B3-08 without the fix; passes with it. Violated property:
-    the local MODEL_COSTS duplicate must match orchestrator.models.COST_TABLE
-    for every model it lists (was stale by 1.5x-14x per model)."""
+    StreamingValidator must price models from orchestrator.models.COST_TABLE
+    (its local MODEL_COSTS copy was stale by 1.5x-14x per model and is gone)."""
     from orchestrator.cost_optimization.streaming_validator import StreamingValidator
     from orchestrator.models import COST_TABLE
 
-    for model, local_prices in StreamingValidator.MODEL_COSTS.items():
-        canonical = COST_TABLE[model]
-        assert local_prices["input"] == canonical["input"], (
-            f"{model}: stale input price {local_prices['input']} != "
-            f"canonical {canonical['input']}"
-        )
-        assert local_prices["output"] == canonical["output"], (
-            f"{model}: stale output price {local_prices['output']} != "
-            f"canonical {canonical['output']}"
-        )
+    validator = StreamingValidator()
+    for model in StreamingValidator.FALLBACK_CHAIN:
+        assert validator._estimate_cost(model, 1_000_000) == pytest.approx(
+            COST_TABLE[model]["output"]
+        ), f"{model}: output price does not come from COST_TABLE"
 
 
 def test_t1b3_09_fallback_relative_to_failed_model():
@@ -413,17 +408,19 @@ async def test_casc_02_cache_key_includes_task_type(monkeypatch):
 
 def test_spec_01_default_cheap_model_id_matches_cost_table():
     """Fires SPEC-01 without the fix (id mismatch); passes with it.
-    Violated property: a model id used for generation must be a valid
-    MODEL_COSTS lookup key, or cost accounting silently uses the wrong
-    (more expensive, generic-default) price."""
+    Violated property: a model id used for generation must be priced in
+    COST_TABLE, or cost accounting silently uses the wrong (more expensive,
+    generic-default) price."""
     from orchestrator.cost_optimization.speculative_gen import SpeculativeGenerator
+    from orchestrator.models import COST_TABLE, Model
 
     gen = SpeculativeGenerator()
     for task_type, pair in gen.DEFAULT_MODEL_PAIRS.items():
         cheap_id = pair["cheap"]
+        model = Model._value2member_map_.get(cheap_id.lower())
         assert (
-            cheap_id.lower() in gen.MODEL_COSTS
-        ), f"{task_type}: cheap model id {cheap_id!r} has no MODEL_COSTS entry"
+            model in COST_TABLE
+        ), f"{task_type}: cheap model id {cheap_id!r} has no COST_TABLE entry"
 
 
 @pytest.mark.asyncio
@@ -680,18 +677,18 @@ def test_recov1_cost_table_mutation_does_not_leak_into_other_instances():
     """Fires RECOV-1 without the fix; passes with it. Violated property:
     each TokenBudget instance's cost calculations are isolated from
     mutations reachable through another instance's (or the class's)
-    COST_PER_1K reference (a shared class-level nested dict)."""
+    COST_PER_1M reference (a shared class-level nested dict)."""
     from orchestrator.cost_optimization.token_budget import TokenBudget
 
     victim = TokenBudget()
     baseline = victim._calculate_cost("gpt-4", 1000, "input")
 
     attacker = TokenBudget()
-    attacker.COST_PER_1K["input"]["gpt-4"] = 0.0
+    attacker.COST_PER_1M["input"]["gpt-4"] = 0.0
 
     after = victim._calculate_cost("gpt-4", 1000, "input")
     assert after == baseline, (
-        f"mutating COST_PER_1K through one instance changed another's cost calc "
+        f"mutating COST_PER_1M through one instance changed another's cost calc "
         f"({baseline} -> {after})"
     )
 
@@ -708,8 +705,9 @@ def test_recov8_gpt4_turbo_and_gpt4o_not_billed_as_gpt4():
     turbo_cost = budget._calculate_cost("gpt-4-turbo", 1000, "input")
     o_cost = budget._calculate_cost("gpt-4o", 1000, "input")
 
-    assert turbo_cost == pytest.approx(10.0)
-    assert o_cost == pytest.approx(5.0)
+    # Per-1M prices: 1K input tokens at $10/1M and $5/1M.
+    assert turbo_cost == pytest.approx(0.010)
+    assert o_cost == pytest.approx(0.005)
 
 
 class _FakeDockerClient:
