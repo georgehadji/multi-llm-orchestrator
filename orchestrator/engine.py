@@ -590,6 +590,7 @@ class Orchestrator:
             skill_manager=getattr(self, "_skill_manager", None),
             taste_skill_service=self._taste_skill_service,
             background_tasks=self._background_tasks,
+            record_failure_fn=self._record_failure,
         )
 
         logger.info("Orchestrator initialized via ServiceContainer")
