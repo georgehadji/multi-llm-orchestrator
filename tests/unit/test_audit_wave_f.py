@@ -109,3 +109,24 @@ def test_unused_selector_helpers_are_deleted() -> None:
 
     assert not hasattr(ModelSelector, "fallback")
     assert not hasattr(TieredModelRouter, "cheapest_available")
+
+
+# ── F3: collapsed pairs, the root module re-exports the subpackage one ──────
+
+
+@pytest.mark.parametrize(
+    ("root", "canonical", "name"),
+    [
+        ("orchestrator.preflight", "orchestrator.quality.preflight", "PreflightValidator"),
+    ],
+)
+def test_root_twin_is_a_shim(root, canonical, name) -> None:
+    assert getattr(importlib.import_module(root), name) is getattr(
+        importlib.import_module(canonical), name
+    )
+
+
+def test_preflight_keeps_production_readiness_check_type() -> None:
+    from orchestrator.quality.preflight import CheckType
+
+    assert CheckType.PRODUCTION_READINESS.value == "production_readiness"

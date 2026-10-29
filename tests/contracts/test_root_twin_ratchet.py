@@ -64,7 +64,6 @@ ALLOWLIST: frozenset[str] = frozenset(
         "models.py",
         "performance.py",
         "phase_aware_models.py",
-        "preflight.py",
         "product_manager.py",
         "progress.py",
         "progress_writer.py",
