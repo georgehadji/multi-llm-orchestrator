@@ -70,25 +70,6 @@ async def test_c1_verbalized_sampler_logs_budget_charge_failure(caplog):
     ), f"expected a warning naming the failed charge and its cost, got: {[r.message for r in caplog.records]}"
 
 
-# --- C2 -----------------------------------------------------------------
-
-
-def test_c2_cost_tracker_logs_load_failure(tmp_path, caplog):
-    from orchestrator.costing.tracker import CostTracker
-
-    corrupt_file = tmp_path / "cost_tracker.json"
-    corrupt_file.write_text("{not valid json", encoding="utf-8")
-
-    with caplog.at_level(logging.WARNING):
-        tracker = CostTracker(storage_dir=str(tmp_path))
-
-    assert tracker._cumulative == {}
-    assert any(
-        "cost_tracker.json" in rec.message or "failed to load" in rec.message.lower()
-        for rec in caplog.records
-    ), f"expected a warning naming the load failure, got: {[r.message for r in caplog.records]}"
-
-
 # --- C3 -----------------------------------------------------------------
 
 

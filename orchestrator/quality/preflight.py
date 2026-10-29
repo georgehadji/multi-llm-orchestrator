@@ -66,6 +66,7 @@ class CheckType(Enum):
     FORMAT = "format"
     PRIVACY = "privacy"
     SECURITY = "security"
+    PRODUCTION_READINESS = "production_readiness"
 
 
 @dataclass

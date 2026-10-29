@@ -541,21 +541,6 @@ class ServiceContainer:
         except ImportError:
             GeneratorService = None  # type: ignore[misc]
 
-        # Local shims for legacy deps if not found in application layer
-        try:
-            from .engine_deps import (  # type: ignore[attr-defined]
-                _DepResolver as DepResolver,
-                # GeneratorService imported from services layer above
-            )
-        except ImportError:
-            # Fallback for missing deps
-            class _DepResolver:
-                def __init__(self, **kwargs):  # type: ignore[no-untyped-def]
-                    pass
-
-            DepResolver = _DepResolver
-            # CBRegistry is wired separately via try/except below; not needed here
-
         # Defaults
         if cache is None:
             from ..infrastructure.cache import DiskCache
@@ -905,8 +890,8 @@ class ServiceContainer:
         if telemetry_store is None:
             telemetry_store = TelemetryStore()
 
-        # Dependency resolver
-        dep_resolver = DepResolver(context_truncation_limit=8192)
+        # No dependency resolver: ProjectPlanner falls back to its own ordering.
+        dep_resolver = None
 
         # New Domain Services (Phase 3 refactor: Planning and Execution)
         from .project_planner import ProjectPlanner

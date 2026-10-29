@@ -73,7 +73,10 @@ class TestFilterValidators:
         )
 
     def test_python_task_preserves_validators(self, validator):
+        # The quality filter (the one the engine runs) needs a Python signal:
+        # a .py target, "python" in the prompt, or a def in the output.
         task = self.make_task()
+        task.target_path = "main.py"
         result = validator.filter_validators_for_task(task, "import os\\nprint('hi')")
         assert "python_syntax" in result
 

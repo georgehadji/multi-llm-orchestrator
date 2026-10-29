@@ -1343,12 +1343,6 @@ class Orchestrator:
         """
         return self._project_planner.get_execution_levels(tasks)
 
-    def _filter_validators_for_task(self, task: Task, output: str) -> list[str]:
-        """PHASE-4: Delegates to orchestrator.validators.filter_validators_for_task."""
-        from .validators import filter_validators_for_task
-
-        return filter_validators_for_task(task, output)
-
     # (P3-1: _gather_dependency_context was confirmed dead code — never called —
     # and removed in this refactoring. Context injection is handled elsewhere.)
 
