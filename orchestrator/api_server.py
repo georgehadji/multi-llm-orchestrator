@@ -266,7 +266,11 @@ class APIServer:
 
         async def cors_middleware(app, handler):
             async def middleware_handler(request):
-                response = await handler(request)
+                # Preflight has no route and carries no credentials: answer it here.
+                if request.method == "OPTIONS":
+                    response = web.Response(status=204)
+                else:
+                    response = await handler(request)
 
                 # Check origin against allowlist
                 origin = request.headers.get("Origin", "")
