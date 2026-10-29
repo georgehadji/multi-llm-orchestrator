@@ -119,6 +119,7 @@ def test_unused_selector_helpers_are_deleted() -> None:
     [
         ("orchestrator.preflight", "orchestrator.quality.preflight", "PreflightValidator"),
         ("orchestrator.streaming", "orchestrator.infrastructure.streaming", "ProjectEventBus"),
+        ("orchestrator.reranker", "orchestrator.infrastructure.reranker", "LLMReranker"),
     ],
 )
 def test_root_twin_is_a_shim(root, canonical, name) -> None:

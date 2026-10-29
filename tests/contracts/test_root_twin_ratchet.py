@@ -72,7 +72,6 @@ ALLOWLIST: frozenset[str] = frozenset(
         "quality_control.py",
         "rate_limiter.py",
         "reference_monitor.py",
-        "reranker.py",
         "secrets_generator.py",
         "session_lifecycle.py",
         "session_watcher.py",
