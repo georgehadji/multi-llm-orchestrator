@@ -92,7 +92,11 @@ def test_a5_invalid_code_placeholder_uses_failed_name(tmp_path, monkeypatch) -> 
         success_criteria="c",
         budget=Budget(max_usd=1.0),
         tasks={"t1": task},
-        results={"t1": TaskResult(task_id="t1", output="def f(:", score=0.1, model_used=Model.GPT_4O_MINI)},
+        results={
+            "t1": TaskResult(
+                task_id="t1", output="def f(:", score=0.1, model_used=Model.GPT_4O_MINI
+            )
+        },
         execution_order=["t1"],
     )
 
@@ -118,19 +122,37 @@ async def test_a6_pipeline_runner_passes_execution_order_by_name(tmp_path) -> No
     calls: list[tuple] = []
 
     # Same parameter order as Orchestrator._make_state.
-    def make_state(desc, criteria, tasks, status=ProjectStatus.PARTIAL_SUCCESS,
-                   execution_order=None, results=None):
+    def make_state(
+        desc,
+        criteria,
+        tasks,
+        status=ProjectStatus.PARTIAL_SUCCESS,
+        execution_order=None,
+        results=None,
+    ):
         calls.append((status, execution_order))
-        return ProjectState(project_description=desc, success_criteria=criteria,
-                            budget=Budget(max_usd=1.0), tasks=tasks, results=results or {})
+        return ProjectState(
+            project_description=desc,
+            success_criteria=criteria,
+            budget=Budget(max_usd=1.0),
+            tasks=tasks,
+            results=results or {},
+        )
 
     async def run_task(task):
         return TaskResult(task_id=task.id, output="x", score=1.0, model_used=Model.GPT_4O_MINI)
 
     tasks = {"t1": Task(id="t1", type=TaskType.CODE_GEN, prompt="p")}
     runner = PipelineRunner(pipeline=None, planner=ProjectPlanner(), max_parallel_tasks=1)
-    await runner.execute_all(tasks, ["t1"], "d", "c", output_dir=tmp_path,
-                             execute_task_fn=run_task, make_state_fn=make_state)
+    await runner.execute_all(
+        tasks,
+        ["t1"],
+        "d",
+        "c",
+        output_dir=tmp_path,
+        execute_task_fn=run_task,
+        make_state_fn=make_state,
+    )
 
     assert calls, "make_state_fn was never called"
     for status, order in calls:
