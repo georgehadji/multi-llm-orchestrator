@@ -489,27 +489,8 @@ class UnifiedClient:
                 "Falling back to OpenRouter."
             )
 
-        # XAI-specific client with fallback
-        if provider == "xai":
-            xai_api_key = os.environ.get("XAI_API_KEY")
-            if xai_api_key:
-                logger.info("Using XAI API client for model %s", model.value)
-                import instructor
-
-                client = instructor.from_openai(
-                    AsyncOpenAI(
-                        base_url="https://api.xai.com/v1/",
-                        api_key=xai_api_key,
-                    ),
-                    mode=self._instructor_mode(),
-                )
-                self._clients[model] = client
-                return client
-            else:
-                logger.warning(
-                    "XAI model specified, but no XAI_API_KEY found. " "Falling back to OpenRouter."
-                )
-
+        # Grok (x-ai/*) models go through OpenRouter like the rest. A direct xAI
+        # client needs api.x.ai plus xAI-native model ids; add it with that mapping.
         # Default to OpenRouter client
         return await self._get_openrouter_client()
 
