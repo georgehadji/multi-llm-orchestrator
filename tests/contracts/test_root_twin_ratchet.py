@@ -76,7 +76,6 @@ ALLOWLIST: frozenset[str] = frozenset(
         "secrets_generator.py",
         "session_lifecycle.py",
         "session_watcher.py",
-        "streaming.py",
         "swiftstack_integration.py",
         "tdd_config.py",
         "tenancy.py",
