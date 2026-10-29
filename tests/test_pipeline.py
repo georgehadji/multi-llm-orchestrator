@@ -136,6 +136,7 @@ class TestTaskPipeline:
         )
         mock_budget = MagicMock()
         mock_budget.charge = AsyncMock()  # Budget.charge is async
+        mock_budget.remaining_usd = 1.0
         mock_selector = MagicMock()
         mock_selector.select = MagicMock(return_value=Model.GPT_4O_MINI)
 
