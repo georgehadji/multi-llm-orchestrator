@@ -5,7 +5,7 @@ Config <-> Model-enum drift checker for the Multi-LLM Orchestrator.
 WHY THIS EXISTS
 ---------------
 orchestrator/models.py builds ROUTING_TABLE / COST_TABLE / FALLBACK_CHAIN from
-orchestrator/config/{routing,costs,fallbacks}.json with guards like:
+orchestrator/config/{routing,fallbacks}.json with guards like:
 
     {Model(k): v for k, v in data.items() if k in Model._value2member_map_}
 
@@ -17,13 +17,11 @@ fires. This has bitten the repo repeatedly (2026-06-23 fixes, ab17b5f4).
 WHAT IT CHECKS
 --------------
 Direction A (HARD DRIFT -> exit 1):
-  - costs.json keys not in Model enum values
   - routing.json keys not in TaskType enum values
   - routing.json list entries not in Model enum values
   - fallbacks.json keys OR values not in Model enum values
 
 Direction B (informational, printed but non-fatal by default):
-  - Model enum values with no costs.json entry (model exists but is uncosted)
   - TaskType enum values with no routing.json entry
 
 Pass --strict to also fail on Direction B.
@@ -82,7 +80,7 @@ def main() -> int:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="Also fail on enum values missing from costs.json / routing.json (Direction B).",
+        help="Also fail on TaskType values missing from routing.json (Direction B).",
     )
     args = parser.parse_args()
 
@@ -97,17 +95,12 @@ def main() -> int:
         print("ERROR: could not extract Model/TaskType enum values via AST", file=sys.stderr)
         return 2
 
-    costs = load_json("costs.json")
     routing = load_json("routing.json")
     fallbacks = load_json("fallbacks.json")
 
     hard_drift: list[str] = []
 
     # -- Direction A: config entries that models.py will silently drop --------
-    for k in costs:
-        if k not in model_values:
-            hard_drift.append(f"costs.json key not a Model value (SILENTLY DROPPED): {k!r}")
-
     for k, v in routing.items():
         if k not in tasktype_values:
             hard_drift.append(f"routing.json key not a TaskType value (SILENTLY DROPPED): {k!r}")
@@ -126,11 +119,10 @@ def main() -> int:
             )
 
     # -- Direction B: enum entries with no config coverage --------------------
-    uncosted = sorted(model_values - set(costs))
     unrouted_tasks = sorted(tasktype_values - set(routing))
 
     print(
-        f"Checked {len(costs)} cost keys, {len(routing)} routing keys, "
+        f"Checked {len(routing)} routing keys, "
         f"{len(fallbacks)} fallback pairs against {len(model_values)} Model values "
         f"and {len(tasktype_values)} TaskType values."
     )
@@ -143,10 +135,6 @@ def main() -> int:
     else:
         print("\nOK: every config key/value maps to an enum member (no silent drops).")
 
-    if uncosted:
-        print(f"\nINFO: {len(uncosted)} Model value(s) have no costs.json entry:")
-        for m in uncosted:
-            print(f"  {m}")
     if unrouted_tasks:
         print(f"\nINFO: {len(unrouted_tasks)} TaskType value(s) have no routing.json entry:")
         for t in unrouted_tasks:
@@ -154,7 +142,7 @@ def main() -> int:
 
     if hard_drift:
         return 1
-    if args.strict and (uncosted or unrouted_tasks):
+    if args.strict and unrouted_tasks:
         return 1
     return 0
 

@@ -75,3 +75,28 @@ class TestPerCallReservation:
         import orchestrator.engine_core.stages.generate as generate
 
         assert "shortcut:" not in inspect.getsource(generate)
+
+
+# ── B7: COST_TABLE is the only price table ──────────────────────────────────
+
+
+class TestOnePriceTable:
+    def test_costs_json_is_gone(self) -> None:
+        from pathlib import Path
+
+        import orchestrator
+
+        assert not (Path(orchestrator.__file__).parent / "config" / "costs.json").exists()
+
+    def test_config_port_has_no_get_costs(self) -> None:
+        from orchestrator.domain.ports import ConfigPort, NullConfig
+        from orchestrator.infrastructure.adapters.config_adapter import JsonConfigAdapter
+
+        for cls in (ConfigPort, NullConfig, JsonConfigAdapter):
+            assert not hasattr(cls, "get_costs"), cls
+
+    def test_no_lazy_cost_table_builder(self) -> None:
+        import orchestrator.models as models
+
+        assert not hasattr(models, "_build_cost_table")
+        assert "COST_TABLE" not in models._LAZY_TABLES

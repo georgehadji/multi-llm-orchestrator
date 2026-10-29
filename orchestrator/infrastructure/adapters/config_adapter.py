@@ -43,9 +43,6 @@ class JsonConfigAdapter:
             logger.error(f"Failed to load config {file_path}: {e}")
             return {}
 
-    def get_costs(self) -> dict[str, dict[str, float]]:
-        return self._load_json("costs.json")
-
     def get_routing(self) -> dict[str, list[str]]:
         return self._load_json("routing.json")
 
