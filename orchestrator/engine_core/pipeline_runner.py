@@ -89,7 +89,7 @@ class PipelineRunner:
                 from ..progress_writer import ProgressWriter
 
                 partial_state = make_state_fn(
-                    project_desc, success_criteria, tasks, execution_order
+                    project_desc, success_criteria, tasks, execution_order=execution_order
                 )
                 partial_state.results = results
                 progress_writer = ProgressWriter(output_dir, partial_state)
@@ -121,7 +121,7 @@ class PipelineRunner:
                         async with results_lock:
                             results[tid] = res
                             if progress_writer:
-                                await progress_writer.write_update()
+                                await progress_writer.task_completed(tid, res, task)
                         return res
                 return None
 
@@ -143,6 +143,10 @@ class PipelineRunner:
 
         if make_state_fn:
             return make_state_fn(
-                project_desc, success_criteria, tasks, execution_order, results=results
+                project_desc,
+                success_criteria,
+                tasks,
+                execution_order=execution_order,
+                results=results,
             )
         return results  # type: ignore

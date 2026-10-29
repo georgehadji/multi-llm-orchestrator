@@ -10,6 +10,9 @@ A4: StateManager.close() kept the closed connection on success, so the next call
     "Connection closed" and CLI --file runs silently wrote no output.
 A5: output_writer recorded FAILED_<name> for code that failed validation but wrote the
     placeholder to the plain name, so the README pointed at a missing file.
+A6: PipelineRunner passed execution_order to make_state_fn by position, where the 4th
+    parameter of Orchestrator._make_state is status. The same block called
+    ProgressWriter.write_update(), which does not exist, so no progress was written.
 """
 
 from __future__ import annotations
@@ -97,3 +100,40 @@ def test_a5_invalid_code_placeholder_uses_failed_name(tmp_path, monkeypatch) -> 
 
     assert (tmp_path / "FAILED_t1_code_generation.py").exists()
     assert not (tmp_path / "t1_code_generation.py").exists()
+
+
+async def test_a6_pipeline_runner_passes_execution_order_by_name(tmp_path) -> None:
+    from orchestrator.budget import Budget
+    from orchestrator.engine_core.pipeline_runner import PipelineRunner
+    from orchestrator.engine_core.project_planner import ProjectPlanner
+    from orchestrator.models import (
+        Model,
+        ProjectState,
+        ProjectStatus,
+        Task,
+        TaskResult,
+        TaskType,
+    )
+
+    calls: list[tuple] = []
+
+    # Same parameter order as Orchestrator._make_state.
+    def make_state(desc, criteria, tasks, status=ProjectStatus.PARTIAL_SUCCESS,
+                   execution_order=None, results=None):
+        calls.append((status, execution_order))
+        return ProjectState(project_description=desc, success_criteria=criteria,
+                            budget=Budget(max_usd=1.0), tasks=tasks, results=results or {})
+
+    async def run_task(task):
+        return TaskResult(task_id=task.id, output="x", score=1.0, model_used=Model.GPT_4O_MINI)
+
+    tasks = {"t1": Task(id="t1", type=TaskType.CODE_GEN, prompt="p")}
+    runner = PipelineRunner(pipeline=None, planner=ProjectPlanner(), max_parallel_tasks=1)
+    await runner.execute_all(tasks, ["t1"], "d", "c", output_dir=tmp_path,
+                             execute_task_fn=run_task, make_state_fn=make_state)
+
+    assert calls, "make_state_fn was never called"
+    for status, order in calls:
+        assert isinstance(status, ProjectStatus), status
+        assert order == ["t1"]
+    assert (tmp_path / "PROGRESS.jsonl").exists()
