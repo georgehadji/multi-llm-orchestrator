@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from orchestrator.infrastructure.sandboxes import SubprocessSandbox
+from orchestrator.infrastructure.test_runners import build_suite_tools
 from orchestrator.testing.first_generator import TestFirstGenerator, TestingFramework
 
 
@@ -37,7 +38,9 @@ class TestRepairLoop:
     @pytest.mark.asyncio
     async def test_plateau_escalates_once_then_fails(self) -> None:
         client = _StubbornClient()
-        gen = TestFirstGenerator(client=client, sandbox=SubprocessSandbox())
+        gen = TestFirstGenerator(
+            client=client, sandbox=SubprocessSandbox(), suite_tools=build_suite_tools()
+        )
         gen._suite_timeout_s = 60
 
         tests = "from main import add\ndef test_add():\n    assert add(1, 2) == 3\n"
@@ -90,7 +93,9 @@ class TestRepairLoop:
                 )
 
         client = _CollectionBreakingClient()
-        gen = TestFirstGenerator(client=client, sandbox=SubprocessSandbox())
+        gen = TestFirstGenerator(
+            client=client, sandbox=SubprocessSandbox(), suite_tools=build_suite_tools()
+        )
         gen._suite_timeout_s = 60
 
         tests = "from main import add\ndef test_add():\n    assert add(1, 2) == 3\n"

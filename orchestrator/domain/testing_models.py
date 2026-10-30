@@ -96,10 +96,29 @@ class TestSelection:
     reason: str = "full"
 
 
+@dataclass(frozen=True)
+class SuiteTools:
+    """Test-execution collaborators, injected by the composition root.
+
+    Lets code outside ``infrastructure`` run a suite without importing the
+    adapters: ``runner_factory(framework)`` returns a TestExecutorPort,
+    ``materializer`` builds Workspaces, and
+    ``mutation_sampler_factory(max_mutations)`` returns a mutation sampler.
+    """
+
+    runner_factory: Any
+    materializer: Any
+    mutation_sampler_factory: Any = None
+    suite_timeout_s: float = 120.0
+    mutation_sample_size: int = 12
+    mutation_timeout_s: float = 60.0
+
+
 __all__ = [
     "CheckScope",
     "IsolationLevel",
     "SuiteReport",
+    "SuiteTools",
     "TestOutcome",
     "TestSelection",
     "TestStatus",

@@ -30,6 +30,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 import subprocess
 import tempfile
@@ -211,6 +212,28 @@ def get_framework_config(framework: TestingFramework) -> dict:
 # ═══════════════════════════════════════════════════════
 
 
+# TestingFramework -> runner registry id (infrastructure/test_runners).
+_RUNNER_FRAMEWORKS: dict[TestingFramework, str] = {
+    TestingFramework.PYTEST: "pytest",
+    TestingFramework.UNITTEST: "pytest",  # pytest collects unittest suites
+    TestingFramework.JEST: "jest",
+    TestingFramework.GO_TEST: "go",
+    TestingFramework.CARGO_TEST: "cargo",
+}
+
+
+def _failure_detail(message: str) -> str:
+    """Short, path-free failure detail: pytest's ``E`` lines, else the last line.
+
+    Kept free of temp-workspace paths so repeated identical failures produce
+    identical signatures for plateau detection (E-3).
+    """
+    lines = [ln.strip() for ln in (message or "").splitlines() if ln.strip()]
+    e_lines = [ln[1:].strip() for ln in lines if ln.startswith("E ")]
+    detail = "; ".join(e_lines[:3]) if e_lines else (lines[-1] if lines else "")
+    return detail[:500]
+
+
 def _strip_code_fences(text: str) -> str:
     """Remove leading/trailing markdown code fences from LLM output."""
     import re
@@ -267,6 +290,7 @@ class TestExecutionResult:
     errors: list[str] = field(default_factory=list)
     coverage_percent: float = 0.0
     output: str = ""
+    mutation_score: float | None = None  # E-4: killed/total, when scored
 
 
 @dataclass
@@ -317,6 +341,7 @@ class TestFirstGenerator:
         model_config: TDDModelConfig | None = None,
         quality_tier: str = "balanced",
         language: str | None = None,
+        suite_tools=None,  # domain.testing_models.SuiteTools
     ):
         """
         Initialize TDD generator.
@@ -328,6 +353,10 @@ class TestFirstGenerator:
             model_config: TDD model configuration (optional, uses default if None)
             quality_tier: Quality tier (budget, balanced, premium)
             language: Language-specific optimizations (python, javascript, etc.)
+            suite_tools: Runner factory, workspace materializer and mutation
+                sampler, injected by the composition root (built with
+                ``infrastructure.test_runners.build_suite_tools``). Required
+                for sandboxed test execution.
         """
         from ..cost_optimization import get_tdd_profile
 
@@ -349,6 +378,12 @@ class TestFirstGenerator:
 
         # Track if sandbox warning has been shown (deduplicate logs)
         self._sandbox_warning_shown = False
+
+        # Injected test-execution tools, and the RED-gate mode ladder:
+        # off | warn (default) | enforce (E-2).
+        self._suite_tools = suite_tools
+        self._suite_timeout_s = suite_tools.suite_timeout_s if suite_tools else 120.0
+        self._red_gate_mode = os.environ.get("ORCH_RED_GATE", "warn").strip().lower()
 
     def _get_model_for_phase(self, phase: str) -> Model:
         """
@@ -757,15 +792,10 @@ class TestFirstGenerator:
             logger.error(f"Implementation generation failed: {e}")
             return ""
 
-    def _check_pytest_available(self) -> bool:
+    async def _check_pytest_available(self) -> bool:
         """Check if pytest is installed and available."""
         try:
-            result = subprocess.run(
-                ["python", "-m", "pytest", "--version"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
+            result = await self._exec_async(["python", "-m", "pytest", "--version"], timeout=10)
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return False
@@ -883,7 +913,7 @@ class TestFirstGenerator:
 
         # Check framework availability
         if framework == TestingFramework.PYTEST:
-            if not self._check_pytest_available():
+            if not await self._check_pytest_available():
                 return TestExecutionResult(
                     passed=False,
                     tests_run=0,
@@ -893,7 +923,7 @@ class TestFirstGenerator:
                     output="pytest not available",
                 )
         elif framework in [TestingFramework.JEST, TestingFramework.VITEST, TestingFramework.MOCHA]:
-            if not self._check_npm_available():
+            if not await self._check_npm_available():
                 return TestExecutionResult(
                     passed=False,
                     tests_run=0,
@@ -1073,15 +1103,10 @@ class TestFirstGenerator:
                 errors=[str(e)],
             )
 
-    def _check_npm_available(self) -> bool:
+    async def _check_npm_available(self) -> bool:
         """Check if npm is installed and available."""
         try:
-            result = subprocess.run(
-                ["npm", "--version"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
+            result = await self._exec_async(["npm", "--version"], timeout=10)
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return False
@@ -1460,6 +1485,7 @@ edition = "2021"
         implementation_code: str,
         task_type: TaskType,
         framework: TestingFramework = TestingFramework.PYTEST,
+        score_mutation: bool = False,
     ) -> TestExecutionResult:
         """
         Phase 3: Run tests against implementation.
@@ -1469,6 +1495,8 @@ edition = "2021"
             implementation_code: Implementation to test
             task_type: Type of task
             framework: Testing framework to use
+            score_mutation: Also measure the suite's mutation score (E-4) when
+                the suite passes, unless ``ORCH_MUTATION=off``.
 
         Returns:
             TestExecutionResult with pass/fail info
@@ -1482,64 +1510,154 @@ edition = "2021"
                 tests_failed=0,
             )
 
-        # Try sandbox first if available, otherwise use local test runner
-        if self.sandbox is not None:
-            # Use sandbox for test execution
-            code_files = {
-                "main.py": implementation_code,
-                "test_main.py": test_code,
-            }
-
-            # Run pytest
-            command = "python -m pytest test_main.py -v --tb=short"
-
-            try:
-                result = await self.sandbox.execute(
-                    code_files=code_files,
-                    command=command,
-                    timeout=60,
-                )
-
-                # Parse pytest output
-                passed = result.return_code == 0
-                output = result.output + result.error
-
-                # Extract test counts from pytest output
-                tests_run, tests_passed = self._parse_pytest_output(output)
-                tests_failed = tests_run - tests_passed
-
-                # Calculate test quality score (simplified - would need coverage.py for real metrics)
-                quality_score = self._calculate_test_quality(
-                    implementation_code, test_code, tests_passed, tests_run
-                )
-
-                # Extract errors
-                errors = []
-                if not passed:
-                    errors = self._extract_test_errors(output)
-
-                return TestExecutionResult(
-                    passed=passed,
-                    tests_run=tests_run,
-                    tests_passed=tests_passed,
-                    tests_failed=tests_failed,
-                    errors=errors,
-                    coverage_percent=quality_score,
-                    output=output,
-                )
-
-            except Exception as e:
-                logger.error(f"Test execution failed: {e}")
-                return TestExecutionResult(
-                    passed=False,
-                    tests_run=0,
-                    tests_passed=0,
-                    tests_failed=0,
-                    errors=[str(e)],
-                )
-        else:
+        if self.sandbox is None:
             # No sandbox available - run tests locally
             return await self._run_tests_locally(test_code, implementation_code, framework)
+
+        if self._suite_tools is None:
+            # F-3: never fall back to unisolated local execution when a
+            # sandbox was configured; the composition root must inject tools.
+            return TestExecutionResult(
+                passed=False,
+                tests_run=0,
+                tests_passed=0,
+                tests_failed=0,
+                errors=["No suite_tools injected; cannot run tests in the sandbox"],
+            )
+
+        runner_framework = _RUNNER_FRAMEWORKS.get(framework)
+        if runner_framework is None:
+            return TestExecutionResult(
+                passed=False,
+                tests_run=0,
+                tests_passed=0,
+                tests_failed=0,
+                errors=[f"No sandboxed test runner for framework {framework.value}"],
+            )
+
+        try:
+            report = await self._run_suite_in_sandbox(
+                implementation_code, test_code, runner_framework
+            )
+        except Exception as e:
+            logger.error(f"Test execution failed: {e}")
+            return TestExecutionResult(
+                passed=False,
+                tests_run=0,
+                tests_passed=0,
+                tests_failed=0,
+                errors=[str(e)],
+            )
+
+        result = self._report_to_result(report, implementation_code, test_code)
+        if (
+            score_mutation
+            and result.passed
+            and runner_framework == "pytest"
+            and os.environ.get("ORCH_MUTATION", "report").strip().lower() != "off"
+        ):
+            result.mutation_score = await self._score_mutation(
+                implementation_code, test_code, runner_framework
+            )
+        return result
+
+    async def _run_suite_in_sandbox(self, implementation_code: str, test_code: str, framework: str):
+        """Materialize a workspace and run the suite through the runner port."""
+        tools = self._suite_tools
+        workspace = await tools.materializer.materialize(
+            artifact=implementation_code, test_code=test_code, framework=framework
+        )
+        try:
+            runner = tools.runner_factory(framework)
+            return await runner.run(workspace, timeout_s=self._suite_timeout_s)
+        finally:
+            await tools.materializer.cleanup(workspace)
+
+    def _report_to_result(
+        self, report, implementation_code: str, test_code: str
+    ) -> TestExecutionResult:
+        """Map a structured SuiteReport onto the generator's result type."""
+        from ..domain.testing_models import TestStatus
+
+        tests_run = report.executed
+        tests_passed = sum(1 for o in report.outcomes if o.status == TestStatus.PASSED)
+        errors = [
+            f"{o.node_id}: {_failure_detail(o.message)}"
+            for o in report.outcomes
+            if o.status in (TestStatus.FAILED, TestStatus.ERROR)
+        ]
+        errors.extend(f"collection error: {e}" for e in report.collection_errors)
+        return TestExecutionResult(
+            # Zero executed tests is never success (D-7).
+            passed=report.passed and tests_run > 0,
+            tests_run=tests_run,
+            tests_passed=tests_passed,
+            tests_failed=tests_run - tests_passed,
+            errors=errors,
+            coverage_percent=self._calculate_test_quality(
+                implementation_code, test_code, tests_passed, tests_run
+            ),
+            output=report.truncated_output,
+        )
+
+    async def _score_mutation(self, implementation_code: str, test_code: str, framework: str):
+        """Sampled, budget-capped mutation score of the suite (E-4)."""
+        tools = self._suite_tools
+        if tools.mutation_sampler_factory is None:
+            return None
+        sampler = tools.mutation_sampler_factory(tools.mutation_sample_size)
+        score = await sampler.score(
+            implementation_code,
+            test_code,
+            runner=tools.runner_factory(framework),
+            materializer=tools.materializer,
+            framework=framework,
+            max_total_s=tools.mutation_timeout_s,
+        )
+        logger.info("Mutation score: %.2f (%d/%d killed)", score.score, score.killed, score.total)
+        return score.score
+
+    async def _run_red_gate(
+        self,
+        test_code: str,
+        framework: TestingFramework = TestingFramework.PYTEST,
+        *,
+        retry_used: bool = False,
+    ):
+        """RED-gate (E-2): run the suite against a NotImplementedError stub.
+
+        A test that passes against the stub asserts nothing about the
+        implementation. The decision (proceed / regenerate / fail) follows
+        ``self._red_gate_mode``; see ``application.testing.red_gate``.
+        """
+        from ..application.testing.red_gate import RedGateResult, decide_red_gate
+        from ..application.testing.stub_synthesizer import is_vacuous_test, synthesize_stub
+        from ..application.testing.suite_validator import SuiteValidator
+        from ..domain.testing_models import TestStatus
+
+        mode = self._red_gate_mode
+        # The stub synthesizer and assertion floor are Python-AST based.
+        if (
+            mode == "off"
+            or self._suite_tools is None
+            or _RUNNER_FRAMEWORKS.get(framework) != "pytest"
+        ):
+            return RedGateResult(assertion_ok=True, decision="proceed", mode=mode)
+
+        floor = SuiteValidator().validate(test_code, "pytest")
+        report = await self._run_suite_in_sandbox(synthesize_stub(test_code), test_code, "pytest")
+        passed_ids = {o.node_id for o in report.outcomes if o.status == TestStatus.PASSED}
+        result = decide_red_gate(
+            assertion_ok=floor.passed,
+            assertion_errors=tuple(floor.errors),
+            total=report.executed,
+            vacuous_node_ids=tuple(sorted(is_vacuous_test(test_code, passed_ids))),
+            mode=mode,
+            retry_used=retry_used,
+        )
+        if result.diagnosis:
+            logger.info("RED-gate (%s, %s): %s", mode, result.decision, result.diagnosis)
+        return result
 
     async def _repair_to_pass_tests(
         self,
@@ -1563,9 +1681,18 @@ edition = "2021"
 
         Returns:
             Tuple of (fixed code, test result, iterations)
+
+        Bounded (E-3): the suite is hash-locked, a collection error stops the
+        loop, and two identical failures in a row escalate the model once via
+        FALLBACK_CHAIN; a second plateau stops with a diagnostic.
         """
+        from ..application.testing.repair_policy import RepairPolicy
+
         current_code = implementation
         iterations = 1
+        policy = RepairPolicy(max_iterations=self.max_test_iterations)
+        policy.lock_tests(tests)
+        escalated = False
 
         for iteration in range(self.max_test_iterations):
             logger.info(f"  Repair iteration {iteration + 1}/{self.max_test_iterations}")
@@ -1621,7 +1748,8 @@ edition = "2021"
 
                 current_code = _strip_code_fences(response.text.strip())
 
-                # Re-run tests
+                # Re-run tests against the locked oracle
+                policy.assert_tests_locked(tests)
                 test_result = await self._run_tests_and_collect_results(
                     test_code=tests,
                     implementation_code=current_code,
@@ -1636,6 +1764,24 @@ edition = "2021"
                 # Update errors for next iteration
                 errors = test_result.errors
                 iterations = iteration + 1
+
+                if test_result.tests_run == 0:
+                    # An LLM cannot repair a collection/import failure.
+                    test_result.errors.append(
+                        "collection error: no tests ran after repair; stopping repair loop"
+                    )
+                    return current_code, test_result, iterations
+
+                policy.record_failure(errors)
+                if policy.is_plateau():
+                    if escalated:
+                        test_result.errors.append(
+                            "repair plateau after escalation; stopping\n" + policy.diagnostic()
+                        )
+                        return current_code, test_result, iterations
+                    escalated = True
+                    model = policy.escalate(model)
+                    logger.info(f"  Repair plateau: escalating to {model}")
 
             except Exception as e:
                 logger.error(f"Repair iteration failed: {e}")
