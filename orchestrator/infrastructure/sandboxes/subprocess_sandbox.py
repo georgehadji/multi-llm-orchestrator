@@ -103,8 +103,9 @@ class SubprocessSandbox:
         Args:
             argv: Command and arguments (list form — never a shell string).
             cwd: Working directory for the child.
-            env: Optional base environment; defaults to a scrubbed copy of
-                ``os.environ``.
+            env: Optional overrides layered on ``os.environ`` (PATH must
+                survive or POSIX resolves ``python`` to a bare interpreter);
+                the merged result is scrubbed.
             timeout_s: Maximum wall-clock time; on expiry the whole process
                 group is killed.
 
@@ -112,7 +113,7 @@ class SubprocessSandbox:
             Tuple of (exit_code, stdout_str, stderr_str). On timeout the
             exit code is ``-1`` and stderr explains the timeout.
         """
-        base_env = dict(os.environ) if not env else dict(env)
+        base_env = {**os.environ, **(env or {})}
         clean_env = _scrub_env(base_env)
 
         # Temp HOME so model code cannot read/write the real home directory.
