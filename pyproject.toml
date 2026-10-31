@@ -78,6 +78,9 @@ dashboard = [
     "websockets>=11.0,<13.0",
     "httpx>=0.24.0,<1.0",
 ]
+ide = [
+    "fastapi>=0.100.0,<1.0",  # ide_backend/__init__.py imports fastapi at package import
+]
 docs = [
     "mkdocs>=1.5.0,<2.0",
     "mkdocs-material>=9.2.0,<10.0",

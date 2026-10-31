@@ -27,6 +27,10 @@ from pathlib import Path
 
 logger = logging.getLogger("orchestrator.security")
 
+# A Windows drive anchor: "C:" or "C:/...". Letter-colon followed by anything
+# else ("a:notes.txt") is an ordinary POSIX file name.
+_WINDOWS_DRIVE_ANCHOR = re.compile(r"^[A-Za-z]:(/|$)")
+
 
 class SecurityError(Exception):
     """Raised when a security violation is detected."""
@@ -92,12 +96,12 @@ class SecurePath:
         # Replace backslashes with forward slashes for consistent handling
         normalized_input = self.user_input.replace("\\", "/")
 
-        # Check for absolute paths (Unix and Windows)
-        if normalized_input.startswith("/") or (
-            len(normalized_input) > 1 and normalized_input[1] == ":"
-        ):
-            # Absolute path - check if it's within base after resolution
-            pass  # Will be caught by relative_to check
+        # Portability policy, not a traversal fix: on POSIX "C:/x" joins under
+        # base and stays inside it, but the same string names another drive on
+        # Windows. Reject it so one input means one place on every OS. On
+        # Windows relative_to() below already rejects it.
+        if os.name != "nt" and _WINDOWS_DRIVE_ANCHOR.match(normalized_input):
+            raise PathTraversalError(f"Windows drive path rejected: '{self.user_input}'")
 
         # Join and resolve
         try:

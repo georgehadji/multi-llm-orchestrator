@@ -194,9 +194,11 @@ ignore_imports =
     orchestrator.cache_optimizer -> orchestrator.infrastructure.cache_optimizer
     orchestrator.hybrid_search_pipeline -> orchestrator.infrastructure.hybrid_search_pipeline
     orchestrator.monitoring -> orchestrator.infrastructure.monitoring
+    orchestrator.reranker -> orchestrator.infrastructure.reranker
     orchestrator.secure_cache -> orchestrator.infrastructure.secure_cache
     orchestrator.semantic_cache -> orchestrator.infrastructure.semantic_cache
     orchestrator.state -> orchestrator.infrastructure.state
+    orchestrator.streaming -> orchestrator.infrastructure.streaming
     orchestrator.streaming_optimizer -> orchestrator.infrastructure.streaming_optimizer
     orchestrator.streaming_resilient -> orchestrator.infrastructure.streaming_resilient
     orchestrator.telemetry -> orchestrator.infrastructure.telemetry
