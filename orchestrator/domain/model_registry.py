@@ -175,6 +175,28 @@ class ModelRegistry:
     # NOTE: anthropic/claude-{opus,sonnet,haiku}-N-M (hyphen) are intentionally
     # NOT listed — OpenRouter normalizes them server-side (verified live call).
     UNAVAILABLE_MODELS = {
+        # Dead on the live catalogue 2026-10-31 (CI "OpenRouter Model Audit").
+        # Each target is a live id with the same provider and capability tier;
+        # all targets verified live in /api/v1/models the same day. Every entry
+        # is one hop (no target is itself a key). Replacements change the
+        # model that would run, and several are priced differently - see the PR.
+        #   o3-mini / o4-mini -> gpt-5-mini: OpenAI retired the small o-series
+        #     reasoning line; gpt-5-mini is the live small reasoning model.
+        #   qwen3-max / qwen3-max-thinking -> qwen3.7-max: current Qwen flagship.
+        #   poolside/laguna-s-2.1 -> qwen3-coder-next: no poolside/ provider is
+        #     live; this is a coding-agent substitute chosen by a maintainer.
+        "anthropic/claude-opus-4": "anthropic/claude-opus-4.1",
+        "anthropic/claude-sonnet-4": "anthropic/claude-sonnet-4.5",
+        "openai/o1": "openai/o3",
+        "openai/o1-pro": "openai/o3-pro",
+        "openai/o3-mini": "openai/gpt-5-mini",
+        "openai/o4-mini": "openai/gpt-5-mini",
+        "qwen/qwen3-max": "qwen/qwen3.7-max",
+        "qwen/qwen3-max-thinking": "qwen/qwen3.7-max",
+        "qwen/qwen3-235b-a22b": "qwen/qwen3-235b-a22b-2507",
+        "qwen/qwen3-coder-plus": "qwen/qwen3-coder",
+        "qwen/qwen3-next-80b-a3b-thinking": "qwen/qwen3-next-80b-a3b-instruct",
+        "poolside/laguna-s-2.1": "qwen/qwen3-coder-next",
         # Retired 2026-09-05 — dead on the live OpenRouter catalogue (CI
         # "OpenRouter Model Audit", run 33968801103). Each replacement is an id
         # this repo already declares and that the same audit found live.
@@ -202,7 +224,7 @@ class ModelRegistry:
         "qwen/qwen-3-coder": "qwen/qwen3-coder",
         "qwen/qwen-3.5-397b-a17b": "qwen/qwen3.5-397b-a17b",
         "qwen/qwen-3.5-235b-a22b-thinking-2507": "qwen/qwen3-235b-a22b-thinking-2507",
-        "qwen/qwen-3-max-thinking": "qwen/qwen3-max-thinking",
+        "qwen/qwen-3-max-thinking": "qwen/qwen3.7-max",
         "qwen/qwen-3-697b-a17b": "qwen/qwen3.5-397b-a17b",
         # NVIDIA — base alias replaced by the sized id
         "nvidia/nemotron-3-super": "nvidia/nemotron-3-super-120b-a12b",
@@ -210,7 +232,7 @@ class ModelRegistry:
         "aionlabs/aion-2.0": "qwen/qwen3.5-397b-a17b",
         # OpenAI
         "openai/gpt-5.4-codex": "openai/gpt-5.3-codex",
-        "openai/o4": "openai/o4-mini",
+        "openai/o4": "openai/gpt-5-mini",
         # DeepSeek
         "deepseek/deepseek-reasoner": "deepseek/deepseek-v4-pro",
         "deepseek/deepseek-r1": "deepseek/deepseek-v4-pro",
