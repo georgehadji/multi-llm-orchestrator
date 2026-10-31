@@ -210,8 +210,8 @@ class TestRateLimiter:
             await client.close()
 
     @pytest.mark.asyncio
-    async def test_fresh_client_gets_a_full_bucket_on_a_fine_clock(self, monkeypatch) -> None:
-        import orchestrator.api_server as mod
+    async def test_fresh_client_gets_a_full_bucket_on_a_fine_clock(self) -> None:
+        from orchestrator.api_server import TokenBucketRateLimiter
 
         # Every call advances the clock, as a high-resolution clock does on Linux.
         clock = [1000.0]
@@ -220,17 +220,32 @@ class TestRateLimiter:
             clock[0] += 1e-6
             return clock[0]
 
-        monkeypatch.setattr(mod.time, "time", tick)
-        limiter = mod.TokenBucketRateLimiter(rate=1, window_seconds=60)
+        limiter = TokenBucketRateLimiter(rate=1, window_seconds=60, clock=tick)
         assert await limiter.is_allowed("peer") is True
 
     @pytest.mark.asyncio
-    async def test_idle_buckets_are_dropped(self, monkeypatch) -> None:
-        import orchestrator.api_server as mod
+    async def test_new_bucket_is_stamped_with_the_request_time(self) -> None:
+        from orchestrator.api_server import TokenBucketRateLimiter
+
+        readings: list[float] = []
+
+        def tick() -> float:
+            readings.append(1000.0 + len(readings))
+            return readings[-1]
+
+        limiter = TokenBucketRateLimiter(rate=5, window_seconds=60, clock=tick)
+        await limiter.is_allowed("peer")
+        # The request reads the clock once; the bucket carries that same reading.
+        assert limiter._buckets["peer"]["last_update"] == readings[-1]
+        # A new bucket starts full: no refill is credited or debited for its creation.
+        assert limiter._buckets["peer"]["tokens"] == 4
+
+    @pytest.mark.asyncio
+    async def test_idle_buckets_are_dropped(self) -> None:
+        from orchestrator.api_server import TokenBucketRateLimiter
 
         clock = [1000.0]
-        monkeypatch.setattr(mod.time, "time", lambda: clock[0])
-        limiter = mod.TokenBucketRateLimiter(rate=5, window_seconds=60)
+        limiter = TokenBucketRateLimiter(rate=5, window_seconds=60, clock=lambda: clock[0])
         for i in range(50):
             await limiter.is_allowed(f"10.0.0.{i}")
         clock[0] += 61
