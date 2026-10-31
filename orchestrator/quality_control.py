@@ -27,6 +27,7 @@ import asyncio
 import json
 import re
 import time
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -551,6 +552,24 @@ class QualityCheckRunner:
         return results
 
 
+class TestRunner(QualityCheckRunner):
+    """DEPRECATED alias of :class:`QualityCheckRunner` (F-6 shim).
+
+    Unit-test execution lives in ``orchestrator.infrastructure.test_runners``;
+    kept so existing ``from orchestrator.quality_control import TestRunner``
+    importers keep working. Scheduled for removal after one minor release.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        warnings.warn(
+            "TestRunner is deprecated; use orchestrator.quality_control.QualityCheckRunner "
+            "(unit-test execution lives in orchestrator.infrastructure.test_runners).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
+
+
 class QualityController:
     """
     Main quality control orchestrator.
@@ -869,13 +888,3 @@ def get_quality_controller(storage_path: Path | None = None) -> QualityControlle
     if _quality_controller is None:
         _quality_controller = QualityController(storage_path)
     return _quality_controller
-
-
-def __getattr__(name: str) -> Any:
-    # Deprecated ``TestRunner`` shim lives in ``quality/quality_control.py`` (the
-    # compat twin); resolved lazily to avoid a circular import (F-6).
-    if name == "TestRunner":
-        from .quality.quality_control import TestRunner
-
-        return TestRunner
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

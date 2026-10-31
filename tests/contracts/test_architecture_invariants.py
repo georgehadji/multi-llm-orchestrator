@@ -265,15 +265,14 @@ def test_single_authoritative_test_runner():
     remaining ``class TestRunner`` definitions are deprecation shims:
 
     * ``runtime/sandbox.py`` delegates to ``infrastructure.test_runners``.
-    * ``quality/quality_control.py`` subclasses ``QualityCheckRunner`` (the
-      former root ``TestRunner``, whose unit-test run now delegates to
-      ``infrastructure.test_runners``) and emits ``DeprecationWarning``. The
-      root ``quality_control.py`` defines no ``TestRunner``; it re-exports the
-      shim lazily via module ``__getattr__``.
+    * ``quality_control.py`` (root) subclasses ``QualityCheckRunner`` (the
+      former ``TestRunner``, whose unit-test run now delegates to
+      ``infrastructure.test_runners``) and emits ``DeprecationWarning``.
+      ``quality/quality_control.py`` is a pure re-export and defines no class.
     """
     shims = {
         "orchestrator/runtime/sandbox.py",
-        "orchestrator/quality/quality_control.py",
+        "orchestrator/quality_control.py",
     }
     non_shim: list[str] = []
     for f in sorted(ORCHESTRATOR.rglob("*.py")):
