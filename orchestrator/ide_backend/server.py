@@ -172,14 +172,14 @@ def run_ide_server(
     both ``ORCHESTRATOR_IDE_ALLOW_REMOTE=true`` and authentication; anything
     else raises `InsecureBindError` before the socket is opened (SEC-001).
     """
-    import uvicorn
-
     validate_bind_target(
         host,
         allow_remote=remote_allowed(),
         # The flag the routes enforce, so there is one source of truth.
         auth_required=auth.auth_required(),
     )
+
+    import uvicorn
 
     app = create_app(orchestrator=orchestrator, frontend_path=frontend_path)
 

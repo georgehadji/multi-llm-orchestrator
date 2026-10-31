@@ -175,6 +175,8 @@ class TestIdeBindUsesEnvAuth:
 
         monkeypatch.setenv("ORCHESTRATOR_IDE_ALLOW_REMOTE", "true")
         monkeypatch.delenv(ide_auth.AUTH_REQUIRED_ENV, raising=False)
+        # The bind check must run before uvicorn is even imported.
+        monkeypatch.setitem(__import__("sys").modules, "uvicorn", None)
         # No caller flag can claim auth that the routes do not enforce.
         assert "auth_required" not in inspect.signature(run_ide_server).parameters
         with pytest.raises(InsecureBindError):
@@ -206,6 +208,21 @@ class TestRateLimiter:
             assert 429 in statuses[1:]
         finally:
             await client.close()
+
+    @pytest.mark.asyncio
+    async def test_fresh_client_gets_a_full_bucket_on_a_fine_clock(self, monkeypatch) -> None:
+        import orchestrator.api_server as mod
+
+        # Every call advances the clock, as a high-resolution clock does on Linux.
+        clock = [1000.0]
+
+        def tick() -> float:
+            clock[0] += 1e-6
+            return clock[0]
+
+        monkeypatch.setattr(mod.time, "time", tick)
+        limiter = mod.TokenBucketRateLimiter(rate=1, window_seconds=60)
+        assert await limiter.is_allowed("peer") is True
 
     @pytest.mark.asyncio
     async def test_idle_buckets_are_dropped(self, monkeypatch) -> None:

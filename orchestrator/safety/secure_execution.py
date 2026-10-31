@@ -92,12 +92,11 @@ class SecurePath:
         # Replace backslashes with forward slashes for consistent handling
         normalized_input = self.user_input.replace("\\", "/")
 
-        # Check for absolute paths (Unix and Windows)
-        if normalized_input.startswith("/") or (
-            len(normalized_input) > 1 and normalized_input[1] == ":"
-        ):
-            # Absolute path - check if it's within base after resolution
-            pass  # Will be caught by relative_to check
+        # On POSIX a drive path ("C:/...") is relative and joins under base, so
+        # relative_to() never sees the escape. On Windows it is absolute and
+        # relative_to() below checks it like any other absolute path.
+        if os.name != "nt" and len(normalized_input) > 1 and normalized_input[1] == ":":
+            raise PathTraversalError(f"Drive path rejected on POSIX: '{self.user_input}'")
 
         # Join and resolve
         try:

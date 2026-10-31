@@ -102,7 +102,9 @@ class TokenBucketRateLimiter:
             bucket = self._buckets[client_id]
 
             # Refill tokens
-            elapsed = now - bucket["last_update"]
+            # A new bucket stamps time.time() after `now` was read; on a fine
+            # clock that makes elapsed negative and a fresh client starts < 1 token.
+            elapsed = max(0.0, now - bucket["last_update"])
             tokens_to_add = (elapsed / self.window_seconds) * self.rate
             bucket["tokens"] = min(self.rate, bucket["tokens"] + tokens_to_add)
             bucket["last_update"] = now
