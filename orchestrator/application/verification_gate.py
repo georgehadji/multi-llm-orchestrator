@@ -17,7 +17,7 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, cast
 
 from ..domain.testing_models import CheckScope, Workspace
 from ..domain.verification import CheckOutcome, ExecutionReceipt, VerificationPolicy
@@ -30,13 +30,19 @@ logger = logging.getLogger("orchestrator.application.verification_gate")
 CheckFn = Callable[[str], Awaitable[tuple[bool, str]]]
 """Async function (artifact: str) -> (passed: bool, reason: str)."""
 
+WorkspaceCheckFn = Callable[[str, Workspace], Awaitable[tuple[bool, str]]]
+"""Async function (artifact: str, workspace: Workspace) -> (passed, reason).
+
+Used by WORKSPACE-scoped checks, which need the materialized tree.
+"""
+
 
 @dataclass
 class VerificationCheck:
     """A single named check in the gate."""
 
     name: str
-    run: CheckFn
+    run: CheckFn | WorkspaceCheckFn
     command: str | None = None
     """Optional shell command or label for audit receipts."""
     scope: CheckScope = CheckScope.ARTIFACT
@@ -187,9 +193,9 @@ class VerificationGate:
             duration: float | None = None
             try:
                 if check.scope == CheckScope.WORKSPACE:
-                    ok, reason = await check.run(artifact, workspace)
+                    ok, reason = await cast("WorkspaceCheckFn", check.run)(artifact, workspace)
                 else:
-                    ok, reason = await check.run(artifact)
+                    ok, reason = await cast("CheckFn", check.run)(artifact)
                 duration = (time.monotonic() - start) * 1000
                 passed_map[check.name] = ok
                 if not ok:

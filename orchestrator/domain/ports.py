@@ -26,6 +26,7 @@ from ..models import ProjectState
 if TYPE_CHECKING:
     from ..models import Model, TaskType
     from .readiness import AppArchetype, RequirementOutcome
+    from .refinement import MetricSnapshot
     from .testing_models import IsolationLevel, SuiteReport, TestSelection, Workspace
 
 # NOTE — project-level advisory locking was declared on CachePort and StatePort
@@ -127,9 +128,15 @@ class LLMClient(Protocol):
     Satisfied by: orchestrator.api_clients.UnifiedClient
     """
 
-    async def call(  # type: ignore[no-untyped-def]
-        self, model, prompt, system="", max_tokens=1500, temperature=0.3, timeout=120, **kwargs
-    ): ...
+    async def call(
+        self,
+        model: Any,
+        prompt: str,
+        system: str | None = "",
+        max_tokens: int = 1500,
+        temperature: float = 0.3,
+        **kwargs: Any,
+    ) -> Any: ...
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -183,7 +190,7 @@ class PolicyEnginePort(Protocol):
 class HookRegistryPort(Protocol):
     """Synchronous lifecycle hook dispatch. Satisfied by HookRegistry."""
 
-    def fire(self, event_type: Any, **kwargs: Any) -> None: ...
+    def fire(self, event: Any, **kwargs: Any) -> None: ...
     def add(self, event: Any, callback: Any) -> None: ...
 
 
@@ -369,7 +376,7 @@ class NullState:
 class NullHookRegistry:
     """No-op hook registry. fire() and add() are silent no-ops."""
 
-    def fire(self, event_type: Any, **kwargs: Any) -> None:
+    def fire(self, event: Any, **kwargs: Any) -> None:
         pass
 
     def add(self, event: Any, callback: Any) -> None:

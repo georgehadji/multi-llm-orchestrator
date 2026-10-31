@@ -51,7 +51,8 @@ class CostService:
         # use; costs.json had drifted from it, so billing read wrong prices.
         from ...models import COST_TABLE
 
-        return dict(COST_TABLE.get(model, {"input": 0.0, "output": 0.0}))
+        cost = COST_TABLE.get(model, {"input": 0.0, "output": 0.0})
+        return {"input": cost["input"], "output": cost["output"]}
 
 
 class ConfigurationService:
