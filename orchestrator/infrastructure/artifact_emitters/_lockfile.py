@@ -10,14 +10,10 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib  # stdlib tomllib is 3.11+; requires-python allows 3.10
+from ...crosscutting.toml_compat import tomllib
 
 _REQUIREMENTS_LINE_RE = re.compile(r"^([A-Za-z0-9_.\-]+)==([^\s;\\]+)")
 

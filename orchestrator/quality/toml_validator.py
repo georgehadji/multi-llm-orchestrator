@@ -10,10 +10,7 @@ import re
 import sys
 from pathlib import Path
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib  # ponytail: stdlib tomllib is 3.11+; requires-python allows 3.10
+from ..crosscutting.toml_compat import tomllib
 
 
 def validate_toml(file_path: Path) -> tuple[bool, str]:
