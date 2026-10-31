@@ -55,7 +55,7 @@ jobs:
       - name: Check test marker coverage
         run: python scripts/check_test_markers.py
       - name: Check config drift (routing + fallbacks)
-        run: python scripts/check_config_drift.py
+        run: python .claude/skills/orchestrator-diagnostics-and-tooling/scripts/check_config_drift.py
         # P1: routing.json reverse mappings use valid TaskType values.
         # P2: fallbacks.json has complete coverage, no orphan targets.
   typecheck:
@@ -107,11 +107,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install dependencies
-        # fastapi is installed loose, not via the [dashboard] extra: that extra pins
+        # fastapi comes from the [ide] extra, not [dashboard]: that extra pins
         # websockets<13.0 while google-genai needs >=13.0, making "[dev,dashboard]"
         # ResolutionImpossible. It is required because ide_backend/__init__.py imports
         # fastapi at package import, and a collection error there aborts the whole run.
-        run: pip install -e ".[dev]" "fastapi>=0.100.0,<1.0" || pip install -e "." pytest pytest-asyncio pytest-cov structlog
+        run: pip install -e ".[dev,ide]" || pip install -e "." pytest pytest-asyncio pytest-cov structlog
       - name: Run unit + integration tests
         run: |
           pytest -m "not slow and not requires_api and not stress and not e2e" \
@@ -165,6 +165,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # gitleaks scans the event's commit range and needs its parent commits; a depth-1 clone has none
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -190,8 +192,8 @@ jobs:
         run: pip-audit --progress-spinner off --strict
 
       # ── Secret scanning ───────────────────────────────────────────────
-      # Full history, not just the diff: a key committed and later deleted is
-      # still a leaked key.
+      # Scans every commit in the push or PR, not just the final tree: a key
+      # added and then deleted inside the range is still caught.
       - name: Scan for committed secrets
         uses: gitleaks/gitleaks-action@v2
         env:
@@ -201,6 +203,7 @@ jobs:
       # The guards for SEC-001…006: no pickle deserialization, no wildcard
       # CORS, no host shell, no unguarded outbound fetch, ownership enforced.
       - name: Install project
-        run: pip install -e ".[dev]"
+        # [ide] brings fastapi for the ide_backend tests.
+        run: pip install -e ".[dev,ide]"
       - name: Run security regression tests
         run: pytest tests/unit/security/ -q --no-cov

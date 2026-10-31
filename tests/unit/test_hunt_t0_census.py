@@ -20,6 +20,7 @@ C2 — orchestrator/quality/toml_validator.py did `import tomllib`
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
 import tempfile
@@ -30,6 +31,8 @@ import pytest
 pytestmark = pytest.mark.unit
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+TOML_COMPAT = REPO_ROOT / "orchestrator" / "crosscutting" / "toml_compat.py"
+_TOML_MODULES = {"tomllib", "tomli"}
 
 
 # --- C1 -----------------------------------------------------------------
@@ -55,15 +58,58 @@ def test_c1_stress_test_py_still_does_not_exist():
 
 
 @pytest.mark.unit
-def test_c2_toml_validator_has_version_gated_tomllib_import():
+def test_c2_toml_compat_has_version_gated_tomllib_import():
     """No-regression guard: the unconditional `import tomllib` must not come back."""
-    src = (REPO_ROOT / "orchestrator" / "quality" / "toml_validator.py").read_text(encoding="utf-8")
+    src = TOML_COMPAT.read_text(encoding="utf-8")
     assert re.search(r"^import tomllib\s*$", src, re.MULTILINE) is None, (
         "unconditional `import tomllib` regressed — this breaks on Python 3.10, "
         "which pyproject.toml's requires-python still declares as supported"
     )
     assert "sys.version_info >= (3, 11)" in src
     assert "import tomli as tomllib" in src
+
+
+def _imports_toml(tree: ast.AST) -> bool:
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import) and any(a.name in _TOML_MODULES for a in node.names):
+            return True
+        if isinstance(node, ast.ImportFrom) and node.module in _TOML_MODULES:
+            return True
+    return False
+
+
+@pytest.mark.unit
+def test_c2_only_toml_compat_imports_tomllib_or_tomli():
+    """The 3.10 break recurred in four copies of the guard; keep one source.
+
+    Parsed, not grepped: `from tomllib import x`, `import tomllib as t`, trailing
+    comments and function-local imports all count.
+    """
+    offenders = [
+        str(p.relative_to(REPO_ROOT))
+        for p in (REPO_ROOT / "orchestrator").rglob("*.py")
+        if p != TOML_COMPAT and _imports_toml(ast.parse(p.read_text(encoding="utf-8")))
+    ]
+    assert offenders == [], f"import tomllib via crosscutting.toml_compat instead: {offenders}"
+
+
+@pytest.mark.unit
+def test_c2_ast_check_catches_every_import_form():
+    for src in (
+        "import tomllib",
+        "import tomli as t",
+        "from tomllib import loads",
+        "def f():\n    import tomllib",
+    ):
+        assert _imports_toml(ast.parse(src)), src
+    assert not _imports_toml(ast.parse("from orchestrator.crosscutting.toml_compat import tomllib"))
+
+
+@pytest.mark.unit
+def test_c2_toml_compat_parses_toml():
+    from orchestrator.crosscutting.toml_compat import tomllib
+
+    assert tomllib.loads("a = 1") == {"a": 1}
 
 
 @pytest.mark.unit
@@ -79,7 +125,7 @@ def test_c2_pyproject_declares_tomli_for_pre_311():
 @pytest.mark.skipif(
     sys.version_info < (3, 11),
     reason="exercises the stdlib tomllib codepath, which only exists on 3.11+; "
-    "the <3.11 tomli fallback path is covered by test_c2_toml_validator_has_version_gated_tomllib_import",
+    "the <3.11 tomli fallback path is covered by test_c2_toml_compat_has_version_gated_tomllib_import",
 )
 def test_c2_module_still_imports_and_validates_on_current_interpreter():
     """Boundary: on the interpreter actually running this suite (3.11+), the

@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import json
 import re
-import tomllib
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+from ...crosscutting.toml_compat import tomllib
 
 
 def read_text(path: Path) -> tuple[str | None, str | None]:
