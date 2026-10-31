@@ -261,14 +261,18 @@ def test_no_fix_named_modules():
 def test_single_authoritative_test_runner():
     """F-6: exactly one non-shim ``class TestRunner`` exists in the tree.
 
-    The four historical runner implementations (runtime/sandbox.py,
-    quality/quality_control.py, testing/first_generator.py, quality/run_tests.py)
-    were consolidated into ``infrastructure/test_runners/``. Any remaining
-    ``class TestRunner`` must be a deprecation shim that delegates.
+    Test execution lives in ``infrastructure/test_runners/``. The only
+    remaining ``class TestRunner`` definitions are deprecation shims:
+
+    * ``runtime/sandbox.py`` delegates to ``infrastructure.test_runners``.
+    * ``quality_control.py`` (root) subclasses ``QualityCheckRunner`` (the
+      former ``TestRunner``, whose unit-test run now delegates to
+      ``infrastructure.test_runners``) and emits ``DeprecationWarning``.
+      ``quality/quality_control.py`` is a pure re-export and defines no class.
     """
     shims = {
         "orchestrator/runtime/sandbox.py",
-        "orchestrator/quality/quality_control.py",
+        "orchestrator/quality_control.py",
     }
     non_shim: list[str] = []
     for f in sorted(ORCHESTRATOR.rglob("*.py")):

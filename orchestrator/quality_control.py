@@ -27,12 +27,15 @@ import asyncio
 import json
 import re
 import time
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from .domain.ports import TestExecutorPort
+from .domain.testing_models import TestSelection, TestStatus, Workspace
 from .log_config import get_logger
 from .monitoring import metrics, monitor_endpoint
 from .performance import cached
@@ -362,8 +365,27 @@ class StaticAnalyzer:
         return self.issues
 
 
-class TestRunner:
-    """Test execution engine."""
+class QualityCheckRunner:
+    """Quality-gating checks: level dispatch, performance and security scans.
+
+    Running the unit-test suite is delegated to the authoritative runner behind
+    ``TestExecutorPort`` (``orchestrator.infrastructure.test_runners``, F-6).
+    Root modules may not import infrastructure, so the executor is injected, or
+    resolved lazily through ``orchestrator.quality.run_tests`` when omitted.
+    """
+
+    #: Wall-clock cap for the delegated unit-test run.
+    pytest_timeout_s = 300.0
+
+    def __init__(self, test_executor: TestExecutorPort | None = None) -> None:
+        self._test_executor = test_executor
+
+    def _resolve_executor(self) -> TestExecutorPort:
+        if self._test_executor is None:
+            from .quality.run_tests import resolve_test_executor
+
+            self._test_executor = resolve_test_executor("pytest")
+        return self._test_executor
 
     async def run_tests(
         self,
@@ -383,73 +405,52 @@ class TestRunner:
         return results
 
     async def _run_pytest(self, project_path: Path) -> list[TestResult]:
-        """Run pytest and collect results."""
-        results = []
+        """Run the project's unit tests via the authoritative runner."""
+        from .quality.run_tests import TestRunnerUnavailableError
 
         try:
-            # Run pytest with coverage
-            proc = await asyncio.create_subprocess_exec(
-                "python",
-                "-m",
-                "pytest",
-                str(project_path / "tests"),
-                "--json-report",
-                "--json-report-file=-",  # Output to stdout
-                "--cov=.",
-                "--cov-report=term-missing",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-
-            stdout, stderr = await proc.communicate()
-
-            # Parse results
-            try:
-                report = json.loads(stdout.decode())
-
-                for test in report.get("tests", []):
-                    results.append(
-                        TestResult(
-                            name=test.get("nodeid", "unknown"),
-                            level=TestLevel.UNIT,
-                            passed=test.get("outcome") == "passed",
-                            duration_ms=test.get("duration", 0) * 1000,
-                            message=test.get("call", {}).get("longrepr", ""),
-                        )
-                    )
-
-                # Extract coverage from stderr (simple parsing)
-                coverage_match = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", stderr.decode())
-                coverage = float(coverage_match.group(1)) if coverage_match else None
-
-                if results and coverage is not None:
-                    results[0].coverage_percent = coverage
-
-            except json.JSONDecodeError:
-                # Fallback if JSON report not available
-                passed = proc.returncode == 0
-                results.append(
-                    TestResult(
-                        name="pytest_suite",
-                        level=TestLevel.UNIT,
-                        passed=passed,
-                        duration_ms=0,
-                        message=stdout.decode()[:500],
-                        stderr=stderr.decode()[:500],
-                    )
-                )
-
-        except FileNotFoundError:
-            results.append(
+            executor = self._resolve_executor()
+        except TestRunnerUnavailableError as exc:
+            return [
                 TestResult(
                     name="pytest",
                     level=TestLevel.UNIT,
                     passed=False,
                     duration_ms=0,
-                    message="pytest not found",
+                    message=str(exc),
+                )
+            ]
+
+        report = await executor.run(
+            Workspace(root=project_path, framework="pytest"),
+            TestSelection(node_ids=("tests",), reason="quality gate"),
+            timeout_s=self.pytest_timeout_s,
+        )
+
+        results = [
+            TestResult(
+                name=o.node_id,
+                level=TestLevel.UNIT,
+                passed=o.status is TestStatus.PASSED,
+                duration_ms=o.duration_ms,
+                message=o.message,
+            )
+            for o in report.outcomes
+        ]
+        if not results:
+            # Zero executed tests is never green (the runner reports passed=False).
+            message = "; ".join(report.collection_errors) or report.truncated_output[:500]
+            results.append(
+                TestResult(
+                    name="pytest_suite",
+                    level=TestLevel.UNIT,
+                    passed=report.passed,
+                    duration_ms=report.duration_ms,
+                    message=message,
                 )
             )
-
+        if report.line_coverage is not None:
+            results[0].coverage_percent = report.line_coverage
         return results
 
     async def _run_performance_tests(self, project_path: Path) -> list[TestResult]:
@@ -551,6 +552,24 @@ class TestRunner:
         return results
 
 
+class TestRunner(QualityCheckRunner):
+    """DEPRECATED alias of :class:`QualityCheckRunner` (F-6 shim).
+
+    Unit-test execution lives in ``orchestrator.infrastructure.test_runners``;
+    kept so existing ``from orchestrator.quality_control import TestRunner``
+    importers keep working. Scheduled for removal after one minor release.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        warnings.warn(
+            "TestRunner is deprecated; use orchestrator.quality_control.QualityCheckRunner "
+            "(unit-test execution lives in orchestrator.infrastructure.test_runners).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
+
+
 class QualityController:
     """
     Main quality control orchestrator.
@@ -563,12 +582,16 @@ class QualityController:
     - Compliance enforcement
     """
 
-    def __init__(self, storage_path: Path | None = None):
+    def __init__(
+        self,
+        storage_path: Path | None = None,
+        test_executor: TestExecutorPort | None = None,
+    ):
         self.storage_path = storage_path or Path(".quality")
         self.storage_path.mkdir(exist_ok=True)
 
         self._analyzer = StaticAnalyzer()
-        self._test_runner = TestRunner()
+        self._test_runner = QualityCheckRunner(test_executor)
         self._baseline: QualityReport | None = None
 
         self._load_baseline()
