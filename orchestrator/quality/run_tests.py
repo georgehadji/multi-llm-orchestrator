@@ -21,6 +21,32 @@ class TestRunnerUnavailableError(RuntimeError):
     """Raised when no test runner can be resolved for a project."""
 
 
+def resolve_test_executor(framework: str = "pytest", sandbox: Any = None) -> Any:
+    """Resolve the authoritative runner (``TestExecutorPort``) for *framework*.
+
+    The single place the quality tier reaches ``infrastructure.test_runners``,
+    so root modules such as ``quality_control`` can run tests without importing
+    infrastructure themselves.
+
+    Raises:
+        TestRunnerUnavailableError: If infrastructure or the framework runner is missing.
+    """
+    try:
+        from orchestrator.infrastructure.test_runners import get_runner
+    except ImportError:
+        logger.error(
+            "Test runner infrastructure not available. " "Install orchestrator with dev extras."
+        )
+        raise TestRunnerUnavailableError("Test runner infrastructure not available") from None
+
+    try:
+        return get_runner(framework, sandbox=sandbox)
+    except KeyError:
+        raise TestRunnerUnavailableError(
+            f"No runner registered for framework: {framework}"
+        ) from None
+
+
 def run_project_tests(
     project_dir: str,
     *,
@@ -42,20 +68,7 @@ def run_project_tests(
     Raises:
         TestRunnerUnavailableError: If no runner can resolve for the framework.
     """
-    try:
-        from orchestrator.infrastructure.test_runners import get_runner
-    except ImportError:
-        logger.error(
-            "Test runner infrastructure not available. " "Install orchestrator with dev extras."
-        )
-        raise TestRunnerUnavailableError("Test runner infrastructure not available") from None
-
-    try:
-        runner = get_runner(framework)
-    except KeyError:
-        raise TestRunnerUnavailableError(
-            f"No runner registered for framework: {framework}"
-        ) from None
+    runner = resolve_test_executor(framework)
 
     root = Path(project_dir).resolve()
 
