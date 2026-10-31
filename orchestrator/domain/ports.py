@@ -17,6 +17,9 @@ NullAdapters for testing:
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import AsyncIterator
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
@@ -29,19 +32,15 @@ if TYPE_CHECKING:
     from .refinement import MetricSnapshot
     from .testing_models import IsolationLevel, SuiteReport, TestSelection, Workspace
 
-# NOTE — project-level advisory locking was declared on CachePort and StatePort
-# by d89b7ff (2026-07-28) as `acquire_project_lock` / `release_project_lock`.
-# It was removed on 2026-09-05: in five weeks nothing in the repo ever called
-# it and no adapter ever implemented it, while its presence made every
-# implementation fail `isinstance(x, CachePort/StatePort)` — these are
-# @runtime_checkable protocols, so a declared member must exist on the instance.
-# That broke ~15 conformance tests across tests/test_phase7_ports.py,
-# tests/test_ports_conformance.py, tests/contracts/ and tests/test_phase8_mvos.py.
-# CachePort's version also carried a default body of `return True`, so the first
-# caller to rely on it would have been told it held a lock it never acquired.
-# If multi-instance locking is wanted, reintroduce it WITH adapter
-# implementations and a test that exercises contention — not as a bare
-# declaration.
+# NOTE — project-level locking history. d89b7ff (2026-07-28) declared
+# `acquire_project_lock` / `release_project_lock` on CachePort and StatePort; they
+# were removed on 2026-09-05 because nothing called them and no adapter
+# implemented them, while @runtime_checkable made every implementation fail
+# `isinstance(x, CachePort/StatePort)`. The lock is back on StatePort only, as
+# `project_lease`, because the engine now calls it for every run
+# (Orchestrator._project_lock) — and with the adapter implementations
+# (StateManager, NullState) and contention tests in tests/contracts/test_state_port.py
+# that the removal note asked for.
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -92,6 +91,10 @@ class StatePort(Protocol):
     async def save_circuit_breaker_state(self, model_name: str, failure_count: int) -> None: ...
     async def load_circuit_breaker_state(self) -> dict[str, int]: ...
     async def close(self) -> None: ...
+
+    def project_lease(self, project_id: str) -> AbstractAsyncContextManager[bool]:
+        """Hold the project lock for the block; yields False if another run holds it."""
+        ...
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -353,6 +356,19 @@ class NullState:
     def __init__(self) -> None:
         self._store: dict[str, ProjectState] = {}
         self._checkpoints: dict[str, ProjectState] = {}
+        self._leased: set[str] = set()
+
+    @contextlib.asynccontextmanager
+    async def project_lease(self, project_id: str) -> AsyncIterator[bool]:
+        """In-process exclusive lease; there is no other process to contend with."""
+        if project_id in self._leased:
+            yield False
+            return
+        self._leased.add(project_id)
+        try:
+            yield True
+        finally:
+            self._leased.discard(project_id)
 
     async def save_project(self, project_id: str, state: ProjectState) -> None:
         self._store[project_id] = state
