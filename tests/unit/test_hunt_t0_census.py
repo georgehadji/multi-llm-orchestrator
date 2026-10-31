@@ -67,6 +67,17 @@ def test_c2_toml_validator_has_version_gated_tomllib_import():
 
 
 @pytest.mark.unit
+def test_c2_no_unconditional_tomllib_import_anywhere_in_package():
+    """The same 3.10 break recurred in other modules; guard the whole package."""
+    offenders = [
+        str(p.relative_to(REPO_ROOT))
+        for p in (REPO_ROOT / "orchestrator").rglob("*.py")
+        if re.search(r"^import tomllib\s*$", p.read_text(encoding="utf-8"), re.MULTILINE)
+    ]
+    assert offenders == [], f"unconditional `import tomllib` breaks Python 3.10: {offenders}"
+
+
+@pytest.mark.unit
 def test_c2_pyproject_declares_tomli_for_pre_311():
     src = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert re.search(r'"tomli[^"]*python_version\s*<\s*[\'"]3\.11[\'"]', src), (

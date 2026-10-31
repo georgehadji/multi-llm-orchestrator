@@ -14,7 +14,7 @@ tag), and a ``--cov-fail-under`` inherited from the target project's own
 from __future__ import annotations
 
 import asyncio
-import tomllib
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +22,11 @@ from ...domain.readiness import AppArchetype
 from ...domain.testing_models import Workspace
 from ...generators.cicd_generator import CICDPipelineBuilder
 from ._action_pins import resolve_action_sha
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib  # stdlib tomllib is 3.11+; requires-python allows 3.10
 
 _ACTIONS: tuple[tuple[str, str], ...] = (
     ("actions/checkout", "v4"),
