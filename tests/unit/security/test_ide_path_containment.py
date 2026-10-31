@@ -70,6 +70,13 @@ class TestSecurePathContainment:
         with pytest.raises(PathTraversalError):
             SecurePath(tmp_path, candidate)
 
+    @pytest.mark.skipif(os.name == "nt", reason="'C:' is a drive on Windows")
+    def test_drive_relative_name_is_a_posix_file_name(self, tmp_path: Path) -> None:
+        # Documented limit: "C:foo" cannot be told apart from "a:notes.txt", so POSIX
+        # accepts it. Containment still holds, which is the security property.
+        resolved = SecurePath(tmp_path, "C:foo").resolved
+        assert resolved == tmp_path.resolve() / "C:foo"
+
     @pytest.mark.parametrize("candidate", ["C:", "C:/", "c:/etc/passwd", "Z:/x"])
     def test_drive_anchor_spec_matches_drive_paths(self, candidate: str) -> None:
         assert _WINDOWS_DRIVE_ANCHOR.match(candidate)
