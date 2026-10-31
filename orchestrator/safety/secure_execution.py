@@ -100,6 +100,9 @@ class SecurePath:
         # base and stays inside it, but the same string names another drive on
         # Windows. Reject it so one input means one place on every OS. On
         # Windows relative_to() below already rejects it.
+        # shortcut: drive-relative "C:foo" is not matched; it is indistinguishable
+        # from the legitimate POSIX name "a:notes.txt", and on Windows relative_to()
+        # still contains or rejects it. Upgrade only if names with ":" must be refused.
         if os.name != "nt" and _WINDOWS_DRIVE_ANCHOR.match(normalized_input):
             raise PathTraversalError(f"Windows drive path rejected: '{self.user_input}'")
 

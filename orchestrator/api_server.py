@@ -100,13 +100,12 @@ class TokenBucketRateLimiter:
                     if now - b["last_update"] >= self.window_seconds
                 ]:
                     del self._buckets[key]
-            # Stamped with this request's `now`, so elapsed below is never negative.
-            bucket = self._buckets.setdefault(client_id, {"tokens": self.rate, "last_update": now})
+            bucket = self._buckets.get(client_id)
+            if bucket is None:
+                # Stamped with this request's `now`, so elapsed is never negative.
+                bucket = self._buckets[client_id] = {"tokens": self.rate, "last_update": now}
 
-            # Refill tokens
-            elapsed = now - bucket["last_update"]
-            tokens_to_add = (elapsed / self.window_seconds) * self.rate
-            bucket["tokens"] = min(self.rate, bucket["tokens"] + tokens_to_add)
+            bucket["tokens"] = self._tokens_at(bucket, now)
             bucket["last_update"] = now
 
             # Check if allowed
@@ -116,17 +115,22 @@ class TokenBucketRateLimiter:
             else:
                 return False
 
+    def _tokens_at(self, bucket: dict[str, Any], now: float) -> float:
+        """Tokens the bucket holds at `now`: its stored count plus the refill since."""
+        refill = (now - bucket["last_update"]) / self.window_seconds * self.rate
+        return min(self.rate, bucket["tokens"] + refill)
+
     def get_retry_after(self, client_id: str) -> float:
         """Get seconds until next request is allowed."""
         bucket = self._buckets.get(client_id)
         if not bucket:
             return 0.0
 
-        if bucket["tokens"] >= 1:
+        tokens = self._tokens_at(bucket, self._clock())
+        if tokens >= 1:
             return 0.0
 
-        tokens_needed = 1 - bucket["tokens"]
-        return (tokens_needed / self.rate) * self.window_seconds
+        return ((1 - tokens) / self.rate) * self.window_seconds
 
 
 # ─────────────────────────────────────────────

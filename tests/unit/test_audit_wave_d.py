@@ -242,6 +242,30 @@ class TestRateLimiter:
         assert limiter._buckets["peer"]["tokens"] == 4
 
     @pytest.mark.asyncio
+    async def test_retry_after_counts_tokens_refilled_since_the_last_request(self) -> None:
+        from orchestrator.api_server import TokenBucketRateLimiter
+
+        clock = [1000.0]
+        limiter = TokenBucketRateLimiter(rate=2, window_seconds=60, clock=lambda: clock[0])
+        assert await limiter.is_allowed("peer") is True
+        assert await limiter.is_allowed("peer") is True
+        assert await limiter.is_allowed("peer") is False
+        # Drained: one token (rate=2 per 60 s) takes 30 s to come back.
+        assert limiter.get_retry_after("peer") == pytest.approx(30.0)
+
+        # Nothing has called is_allowed since, but 20 s of refill is 2/3 of a token.
+        clock[0] = 1020.0
+        assert limiter.get_retry_after("peer") == pytest.approx(10.0)
+
+        clock[0] = 1030.0
+        assert limiter.get_retry_after("peer") == 0.0
+
+    def test_retry_after_for_an_unknown_client_is_zero(self) -> None:
+        from orchestrator.api_server import TokenBucketRateLimiter
+
+        assert TokenBucketRateLimiter(rate=1, window_seconds=60).get_retry_after("nobody") == 0.0
+
+    @pytest.mark.asyncio
     async def test_idle_buckets_are_dropped(self) -> None:
         from orchestrator.api_server import TokenBucketRateLimiter
 
