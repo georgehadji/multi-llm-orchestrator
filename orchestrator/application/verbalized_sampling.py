@@ -116,7 +116,7 @@ class VerbalizedSampler:
         system = self._build_system(cfg, system_extra)
 
         try:
-            resp = await self._client.call(  # type: ignore[no-untyped-call]
+            resp = await self._client.call(
                 model=model,
                 prompt=prompt,
                 system=system,

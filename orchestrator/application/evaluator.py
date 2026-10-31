@@ -30,6 +30,7 @@ from ..models import Model, Task, TaskType
 from ..resilience import ResiliencePolicy as _ResiliencePolicy
 
 if TYPE_CHECKING:
+    from ..domain.testing_models import Workspace
     from .verification_gate import VerificationGate
 
 logger = logging.getLogger("orchestrator.services.evaluator")
@@ -88,7 +89,7 @@ class EvaluatorService:
         task: Task,
         output: str,
         policy: _ResiliencePolicy | None = None,
-        workspace=None,
+        workspace: Workspace | None = None,
     ) -> CritiqueReport:
         """
         Score output against task using self-consistency evaluation.
@@ -119,7 +120,7 @@ class EvaluatorService:
         task: Task,
         output: str,
         policy: _ResiliencePolicy | None = None,
-        workspace=None,
+        workspace: Workspace | None = None,
     ) -> CritiqueReport:
         # Deterministic gate runs first — hard veto before any LLM opinion.
         gate_result = None
@@ -185,7 +186,7 @@ class EvaluatorService:
                 logger.debug(
                     "  %s: eval run %d/%d starting…", task.id, run + 1, self._consistency_runs
                 )
-                response = await self._client.call(  # type: ignore[no-untyped-call]
+                response = await self._client.call(
                     eval_model,
                     eval_prompt,
                     system=self._SYSTEM_PROMPT,

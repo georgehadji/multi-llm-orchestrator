@@ -289,7 +289,7 @@ class SkillOptimizer:
         except Exception:
             opt_model = Model.GPT_4O_MINI
 
-        response = await self._client.call(  # type: ignore[no-untyped-call]
+        response = await self._client.call(
             model=opt_model,
             prompt=prompt,
             system=self._meta_skill,
@@ -436,7 +436,7 @@ class SkillOptimizer:
         try:
             from ..models import Model
 
-            response = await self._client.call(  # type: ignore[no-untyped-call]
+            response = await self._client.call(
                 model=Model.GPT_4O_MINI,
                 prompt=prompt,
                 max_tokens=256,

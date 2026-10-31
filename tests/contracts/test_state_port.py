@@ -44,6 +44,28 @@ class StatePortContract:
         await state.close()
         await state.close()
 
+    async def test_project_lease_is_exclusive_while_held(self, state):
+        async with state.project_lease("p1") as first:
+            assert first is True
+            async with state.project_lease("p1") as second:
+                assert second is False
+            # A different project is not blocked by the first lease.
+            async with state.project_lease("p2") as other:
+                assert other is True
+
+    async def test_project_lease_is_released_on_exit(self, state):
+        async with state.project_lease("p1") as acquired:
+            assert acquired is True
+        async with state.project_lease("p1") as again:
+            assert again is True
+
+    async def test_project_lease_is_released_on_error(self, state):
+        with pytest.raises(RuntimeError):
+            async with state.project_lease("p1"):
+                raise RuntimeError("run failed")
+        async with state.project_lease("p1") as again:
+            assert again is True
+
     async def test_is_runtime_checkable(self, state):
         from orchestrator.domain.ports import StatePort
 

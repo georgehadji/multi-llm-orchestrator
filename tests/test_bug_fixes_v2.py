@@ -77,9 +77,14 @@ class TestBug001BudgetLockTOCTOU:
 class TestBug002CircuitBreakerProbeRace:
 
     @pytest.mark.asyncio
-    async def test_half_open_blocks_second_probe_before_threshold(self):
-        """With success_threshold=2, a first probe success must still block
-        subsequent callers until threshold is met or the probe fails."""
+    async def test_half_open_allows_one_probe_at_a_time(self):
+        """Only one probe may be in flight; the next is admitted once it reports.
+
+        With success_threshold=2, a successful probe releases the slot so the
+        next probe can run (otherwise the threshold is unreachable and the
+        breaker stays OPEN to callers forever). While a probe is still
+        in flight, every other caller is rejected.
+        """
         cb = CircuitBreaker(
             name="test-probe",
             failure_threshold=1,
@@ -101,19 +106,24 @@ class TestBug002CircuitBreakerProbeRace:
         await cb.check()
         assert cb.state == CircuitState.HALF_OPEN
 
-        # Record success (successes=1 < threshold=2) — with BUG-002,
-        # this would clear probe_in_flight, allowing a second probe.
-        await cb.record_success()
-
-        # Second check — must be blocked (probe still in flight)
         from orchestrator.circuit_breaker import CircuitBreakerOpen
 
+        # Probe in flight: a concurrent caller must be blocked.
+        with pytest.raises(CircuitBreakerOpen):
+            await cb.check()
+
+        # Probe succeeds (successes=1 < threshold=2): slot is released...
+        await cb.record_success()
+        assert cb.state == CircuitState.HALF_OPEN
+
+        # ...so exactly one further probe is admitted, and a third is blocked.
+        await cb.check()
         with pytest.raises(CircuitBreakerOpen):
             await cb.check()
 
     @pytest.mark.asyncio
     async def test_half_open_recovers_after_full_threshold(self):
-        """After success_threshold successes, the breaker should close."""
+        """After success_threshold successful probes, the breaker should close."""
         cb = CircuitBreaker(
             name="test-recover",
             failure_threshold=1,
@@ -129,31 +139,44 @@ class TestBug002CircuitBreakerProbeRace:
         # when the event loop is congested by the rest of the suite.
         await asyncio.sleep(0.1)
 
-        # First probe + success (successes=1)
+        # First probe + success (successes=1): still HALF_OPEN, slot released.
         await cb.check()
         await cb.record_success()
         assert cb.state == CircuitState.HALF_OPEN
-
-        # Second probe — probe_in_flight was still True (BUG-002 fix),
-        # so check() should block additional callers:
-        from orchestrator.circuit_breaker import CircuitBreakerOpen
-
-        with pytest.raises(CircuitBreakerOpen):
-            await cb.check()
-
-        # Simulate probe failure — this clears probe_in_flight
-        # and re-opens the circuit; wait for reset timeout
-        await cb.record_failure(TimeoutError("probe timeout"))
         assert cb._state.probe_in_flight is False
 
-        # Wait for reset timeout so check() can probe again (5x margin).
-        await asyncio.sleep(0.1)
+        # Second probe + success reaches the threshold and closes the breaker.
         await cb.check()
-        assert cb.state == CircuitState.HALF_OPEN
-        await cb.record_success()
         await cb.record_success()
 
         assert cb.state == CircuitState.CLOSED
+
+    @pytest.mark.asyncio
+    async def test_half_open_probe_failure_reopens_and_clears_flag(self):
+        """A failed probe re-opens the circuit and frees the probe slot."""
+        cb = CircuitBreaker(
+            name="test-probe-fail",
+            failure_threshold=1,
+            reset_timeout=0.02,
+            success_threshold=2,
+        )
+
+        with pytest.raises(ConnectionError):
+            async with cb.context():
+                raise ConnectionError("trip")
+
+        await asyncio.sleep(0.1)
+        await cb.check()
+        assert cb.state == CircuitState.HALF_OPEN
+
+        await cb.record_failure(TimeoutError("probe timeout"))
+        assert cb.state == CircuitState.OPEN
+        assert cb._state.probe_in_flight is False
+
+        # After the reset window another probe is admitted.
+        await asyncio.sleep(0.1)
+        await cb.check()
+        assert cb.state == CircuitState.HALF_OPEN
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

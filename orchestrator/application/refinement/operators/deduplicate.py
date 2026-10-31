@@ -13,7 +13,7 @@ import logging
 
 from ....domain.refinement import MetricSnapshot, RefinementCandidate, RefinementTier
 from ....domain.testing_models import Workspace
-from ._finders import find_duplicate_pair
+from ._finders import FunctionLocation, find_duplicate_pair
 from .llm_refactor import LLMRefactorCommand, RefactorClientPort, propose_llm_candidate
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,9 @@ class DeduplicateOperator:
         )
 
     @staticmethod
-    def _find_first_pair(workspace: Workspace):
+    def _find_first_pair(
+        workspace: Workspace,
+    ) -> tuple[str, str, FunctionLocation, FunctionLocation] | None:
         """Scan workspace source files for the first same-file duplicate pair."""
         for py_file in sorted(workspace.root.rglob("*.py")):
             if "__pycache__" in str(py_file):

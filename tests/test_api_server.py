@@ -415,11 +415,8 @@ class TestAuthentication:
     async def test_no_auth_returns_401(self) -> None:
         """Missing auth header should return 401 when auth_required."""
         server = APIServer(port=0, host="127.0.0.1", auth_required=True)
-        # Register a key
-        import hashlib
-
-        hashed = hashlib.sha256(b"valid-key").hexdigest()
-        server.api_keys[hashed] = {"user_id": "test", "permissions": ["execute"]}
+        # A registered key must not help a request that sends no header.
+        server.key_store.issue("test", ["execute"])
 
         request = MagicMock()
         request.json = AsyncMock(return_value={"project_description": "test"})
@@ -441,10 +438,7 @@ class TestAuthentication:
     async def test_valid_auth_passes(self) -> None:
         """Valid Bearer token should pass."""
         server = APIServer(port=0, host="127.0.0.1", auth_required=True)
-        import hashlib
-
-        hashed = hashlib.sha256(b"valid-key").hexdigest()
-        server.api_keys[hashed] = {"user_id": "test", "permissions": ["execute"]}
+        raw_key, _ = server.key_store.issue("test", ["execute"])
 
         request = MagicMock()
         request.json = AsyncMock(
@@ -454,7 +448,7 @@ class TestAuthentication:
                 "budget": 1.0,
             }
         )
-        request.headers = {"Authorization": "Bearer valid-key"}
+        request.headers = {"Authorization": f"Bearer {raw_key}"}
 
         response = await server.execute_project(request)
         # Should pass auth and get to validation (which succeeds)

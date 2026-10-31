@@ -177,7 +177,7 @@ def coefficient_of_variation(values: tuple[float, ...]) -> float:
     if mean <= 0:
         return 0.0
     variance = sum((v - mean) ** 2 for v in values) / len(values)
-    return (variance**0.5) / mean
+    return float(variance**0.5) / mean
 
 
 def no_metric_regressed(

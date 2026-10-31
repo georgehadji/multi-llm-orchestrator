@@ -23,7 +23,7 @@ from ..models import Model, TaskResult, TaskType
 _FAIL_SCORE_FLOOR: float = 0.15
 
 if TYPE_CHECKING:
-    from ..domain.ports import LLMClient
+    from ..domain.ports import LLMClient, SandboxPort
     from ..cache import DiskCache
     from ..cost_optimization import CacheOptimizer, OptimizationConfig  # type: ignore[attr-defined]
     from ..semantic_cache import SemanticCache
@@ -75,7 +75,7 @@ class TaskExecutor:
         fallback_handler: FallbackHandler,
         budget_enforcer: BudgetEnforcer,
         dependency_resolver: DependencyResolver,
-        sandbox=None,
+        sandbox: SandboxPort | None = None,
     ):
         """
         Initialize task executor.
