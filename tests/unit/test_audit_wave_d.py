@@ -168,6 +168,7 @@ class TestIdeHandlerRegistry:
 class TestIdeBindUsesEnvAuth:
     def test_remote_bind_refused_when_env_auth_off(self, monkeypatch) -> None:
         import inspect
+        import sys
 
         from orchestrator.ide_backend import auth as ide_auth
         from orchestrator.ide_backend.security import InsecureBindError
@@ -176,7 +177,7 @@ class TestIdeBindUsesEnvAuth:
         monkeypatch.setenv("ORCHESTRATOR_IDE_ALLOW_REMOTE", "true")
         monkeypatch.delenv(ide_auth.AUTH_REQUIRED_ENV, raising=False)
         # The bind check must run before uvicorn is even imported.
-        monkeypatch.setitem(__import__("sys").modules, "uvicorn", None)
+        monkeypatch.setitem(sys.modules, "uvicorn", None)
         # No caller flag can claim auth that the routes do not enforce.
         assert "auth_required" not in inspect.signature(run_ide_server).parameters
         with pytest.raises(InsecureBindError):
