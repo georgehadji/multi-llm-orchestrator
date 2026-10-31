@@ -203,6 +203,7 @@ jobs:
       # The guards for SEC-001…006: no pickle deserialization, no wildcard
       # CORS, no host shell, no unguarded outbound fetch, ownership enforced.
       - name: Install project
-        run: pip install -e ".[dev]"
+        # fastapi for the ide_backend tests; same pin as the Test job.
+        run: pip install -e ".[dev]" "fastapi>=0.100.0,<1.0"
       - name: Run security regression tests
         run: pytest tests/unit/security/ -q --no-cov
