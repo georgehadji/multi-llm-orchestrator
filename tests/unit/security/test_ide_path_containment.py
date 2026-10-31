@@ -12,11 +12,13 @@ Two layers are covered:
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
 from orchestrator.safety.secure_execution import (
+    _WINDOWS_DRIVE_ANCHOR,
     PathTraversalError,
     SecurePath,
     sanitize_path,
@@ -35,6 +37,10 @@ ESCAPES = [
     "with\x00null.txt",
 ]
 
+# Valid POSIX file names whose second character is a colon. On Windows the
+# same strings name a drive-relative path, so only POSIX accepts them.
+COLON_NAMES = ["a:notes.txt", "1:2.log"]
+
 
 class TestSecurePathContainment:
     """T0 — pin the guard the SEC-005 fix relies on."""
@@ -48,6 +54,29 @@ class TestSecurePathContainment:
     def test_legitimate_paths_resolve_inside_root(self, tmp_path: Path, candidate: str) -> None:
         resolved = SecurePath(tmp_path, candidate).resolved
         assert resolved.is_relative_to(tmp_path.resolve())
+
+    @pytest.mark.skipif(os.name == "nt", reason="'a:' is a drive on Windows")
+    @pytest.mark.parametrize("candidate", COLON_NAMES)
+    def test_colon_in_second_position_is_a_legitimate_posix_name(
+        self, tmp_path: Path, candidate: str
+    ) -> None:
+        resolved = SecurePath(tmp_path, candidate).resolved
+        assert resolved.is_relative_to(tmp_path.resolve())
+
+    # On Windows a bare "C:" joins to base itself (same drive), which is contained.
+    @pytest.mark.skipif(os.name == "nt", reason="Windows resolves bare 'C:' to base")
+    @pytest.mark.parametrize("candidate", ["C:", "C:/", "c:/etc/passwd"])
+    def test_drive_anchor_is_rejected_on_posix(self, tmp_path: Path, candidate: str) -> None:
+        with pytest.raises(PathTraversalError):
+            SecurePath(tmp_path, candidate)
+
+    @pytest.mark.parametrize("candidate", ["C:", "C:/", "c:/etc/passwd", "Z:/x"])
+    def test_drive_anchor_spec_matches_drive_paths(self, candidate: str) -> None:
+        assert _WINDOWS_DRIVE_ANCHOR.match(candidate)
+
+    @pytest.mark.parametrize("candidate", COLON_NAMES + ["notes.txt", "src/a:b.txt", "ab:c"])
+    def test_drive_anchor_spec_ignores_other_names(self, candidate: str) -> None:
+        assert _WINDOWS_DRIVE_ANCHOR.match(candidate) is None
 
     def test_sanitize_path_is_the_same_check(self, tmp_path: Path) -> None:
         assert sanitize_path(tmp_path, "ok.txt").is_relative_to(tmp_path.resolve())
