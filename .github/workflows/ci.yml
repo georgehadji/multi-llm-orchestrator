@@ -55,7 +55,7 @@ jobs:
       - name: Check test marker coverage
         run: python scripts/check_test_markers.py
       - name: Check config drift (routing + fallbacks)
-        run: python scripts/check_config_drift.py
+        run: python .claude/skills/orchestrator-diagnostics-and-tooling/scripts/check_config_drift.py
         # P1: routing.json reverse mappings use valid TaskType values.
         # P2: fallbacks.json has complete coverage, no orphan targets.
   typecheck:
@@ -165,6 +165,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # gitleaks scans the PR commit range; a shallow clone lacks the base
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
