@@ -24,6 +24,7 @@ _FAIL_SCORE_FLOOR: float = 0.15
 
 if TYPE_CHECKING:
     from ..domain.ports import LLMClient, SandboxPort
+    from ..domain.testing_models import SuiteTools
     from ..cache import DiskCache
     from ..cost_optimization import CacheOptimizer, OptimizationConfig  # type: ignore[attr-defined]
     from ..semantic_cache import SemanticCache
@@ -76,6 +77,7 @@ class TaskExecutor:
         budget_enforcer: BudgetEnforcer,
         dependency_resolver: DependencyResolver,
         sandbox: SandboxPort | None = None,
+        suite_tools: SuiteTools | None = None,
     ):
         """
         Initialize task executor.
@@ -93,6 +95,8 @@ class TaskExecutor:
             sandbox: SandboxPort for TDD test execution (F-3). Defaults to
                 the resolved sandbox tier so model code is never executed
                 unisolated even if the caller omits it.
+            suite_tools: domain SuiteTools (runner factory, materializer,
+                mutation sampler) the TDD generator runs suites with.
         """
         self.client = client
         self.cache = cache
@@ -108,6 +112,7 @@ class TaskExecutor:
         # never resolved here — Contract 2 (application must not import
         # infrastructure). None is refused at use, not silently defaulted.
         self._sandbox = sandbox
+        self._suite_tools = suite_tools
 
         # Lazy-loaded components
         self._tdd_generator = None
@@ -294,6 +299,7 @@ class TaskExecutor:
                 self._tdd_generator = TestFirstGenerator(  # type: ignore[assignment]
                     client=self.client,
                     sandbox=self._sandbox,
+                    suite_tools=self._suite_tools,
                     max_test_iterations=5,
                 )
 

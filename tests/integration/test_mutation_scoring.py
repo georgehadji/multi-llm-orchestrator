@@ -69,11 +69,14 @@ async def test_mutation_score_attached_when_requested() -> None:
     import os
 
     from orchestrator.infrastructure.sandboxes import SubprocessSandbox
+    from orchestrator.infrastructure.test_runners import build_suite_tools
     from orchestrator.testing.first_generator import TestFirstGenerator, TestingFramework
     from orchestrator.models import TaskType
 
     os.environ["ORCH_MUTATION"] = "report"
-    gen = TestFirstGenerator(client=None, sandbox=SubprocessSandbox())
+    gen = TestFirstGenerator(
+        client=None, sandbox=SubprocessSandbox(), suite_tools=build_suite_tools()
+    )
     gen._suite_timeout_s = 60
 
     result = await gen._run_tests_and_collect_results(
@@ -94,11 +97,14 @@ async def test_mutation_off_skips_scoring() -> None:
     import os
 
     from orchestrator.infrastructure.sandboxes import SubprocessSandbox
+    from orchestrator.infrastructure.test_runners import build_suite_tools
     from orchestrator.testing.first_generator import TestFirstGenerator, TestingFramework
     from orchestrator.models import TaskType
 
     os.environ["ORCH_MUTATION"] = "off"
-    gen = TestFirstGenerator(client=None, sandbox=SubprocessSandbox())
+    gen = TestFirstGenerator(
+        client=None, sandbox=SubprocessSandbox(), suite_tools=build_suite_tools()
+    )
     gen._suite_timeout_s = 60
     result = await gen._run_tests_and_collect_results(
         test_code="from main import add\ndef test_add():\n    assert add(1, 2) == 3\n",

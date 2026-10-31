@@ -15,9 +15,12 @@ pytestmark = pytest.mark.integration
 async def test_genuine_suite_survives_red_gate() -> None:
     """A suite asserting real implementation behavior is not vacuous."""
     from orchestrator.infrastructure.sandboxes import SubprocessSandbox
+    from orchestrator.infrastructure.test_runners import build_suite_tools
     from orchestrator.testing.first_generator import TestFirstGenerator, TestingFramework
 
-    gen = TestFirstGenerator(client=None, sandbox=SubprocessSandbox())
+    gen = TestFirstGenerator(
+        client=None, sandbox=SubprocessSandbox(), suite_tools=build_suite_tools()
+    )
     gen._suite_timeout_s = 60
     gen._red_gate_mode = "enforce"
 
@@ -32,9 +35,12 @@ async def test_genuine_suite_survives_red_gate() -> None:
 async def test_vacuous_suite_regenerates_in_enforce() -> None:
     """A suite that passes without an implementation is vacuous (E-2)."""
     from orchestrator.infrastructure.sandboxes import SubprocessSandbox
+    from orchestrator.infrastructure.test_runners import build_suite_tools
     from orchestrator.testing.first_generator import TestFirstGenerator, TestingFramework
 
-    gen = TestFirstGenerator(client=None, sandbox=SubprocessSandbox())
+    gen = TestFirstGenerator(
+        client=None, sandbox=SubprocessSandbox(), suite_tools=build_suite_tools()
+    )
     gen._suite_timeout_s = 60
     gen._red_gate_mode = "enforce"
 
@@ -49,9 +55,12 @@ async def test_vacuous_suite_regenerates_in_enforce() -> None:
 async def test_warn_mode_measures_but_never_blocks() -> None:
     """Default mode: vacuity is logged, never acted on."""
     from orchestrator.infrastructure.sandboxes import SubprocessSandbox
+    from orchestrator.infrastructure.test_runners import build_suite_tools
     from orchestrator.testing.first_generator import TestFirstGenerator, TestingFramework
 
-    gen = TestFirstGenerator(client=None, sandbox=SubprocessSandbox())
+    gen = TestFirstGenerator(
+        client=None, sandbox=SubprocessSandbox(), suite_tools=build_suite_tools()
+    )
     gen._suite_timeout_s = 60
     gen._red_gate_mode = "warn"
 

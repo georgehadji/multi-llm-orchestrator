@@ -22,6 +22,7 @@ __all__ = [
     "JestRunner",
     "PytestRunner",
     "TestRunnerBase",
+    "build_suite_tools",
     "get_runner",
     "register_runner",
 ]
@@ -54,6 +55,31 @@ def get_runner(framework: str, sandbox=None) -> TestRunnerBase:
         raise KeyError(f"No test runner registered for framework: {framework}")
     runner_cls = _FRAMEWORK_REGISTRY[framework]
     return runner_cls(sandbox=sandbox)
+
+
+def build_suite_tools(sandbox=None):
+    """Assemble the SuiteTools a composition root injects (runners, workspace, mutation).
+
+    Args:
+        sandbox: SandboxPort every runner executes through.
+
+    Returns:
+        A domain ``SuiteTools`` with limits from ``config/limits.json``.
+    """
+    from ...domain.testing_models import SuiteTools
+    from ..mutation_sampler import MutationSampler
+    from ..testing_config import load_testing_config
+    from ..workspace_materializer import WorkspaceMaterializer
+
+    cfg = load_testing_config()
+    return SuiteTools(
+        runner_factory=lambda framework: get_runner(framework, sandbox=sandbox),
+        materializer=WorkspaceMaterializer(),
+        mutation_sampler_factory=lambda n: MutationSampler(max_mutations=n),
+        suite_timeout_s=cfg.suite_timeout_s,
+        mutation_sample_size=cfg.mutation_sample_size,
+        mutation_timeout_s=cfg.mutation_timeout_s,
+    )
 
 
 def _populate_registry() -> None:

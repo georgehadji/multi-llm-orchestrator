@@ -99,6 +99,30 @@ class TestSubprocessSandboxIsolation:
         assert data["seed"] == "0"
         assert data["tz"] == "UTC"
 
+    def test_env_overlays_os_environ_instead_of_replacing_it(self) -> None:
+        # Runners pass e.g. {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"}; replacing
+        # os.environ dropped PATH, so POSIX resolved "python" to a bare system
+        # interpreter without pytest.
+        async def run() -> dict:
+            sandbox = SubprocessSandbox()
+            code = (
+                "import os, json; print(json.dumps({"
+                "'path': os.environ.get('PATH', ''),"
+                "'extra': os.environ.get('ORCH_OVERLAY_PROBE')}))"
+            )
+            rc, out, err = await sandbox.exec(
+                ["python", "-c", code],
+                cwd=Path("."),
+                env={"ORCH_OVERLAY_PROBE": "1"},
+                timeout_s=20,
+            )
+            assert rc == 0, err
+            return json.loads(out.strip())
+
+        data = asyncio.run(run())
+        assert data["extra"] == "1"
+        assert data["path"], "PATH dropped from sandbox env"
+
     def test_timeout_kills_and_returns_minus_one(self) -> None:
         async def run() -> tuple[int, str]:
             sandbox = SubprocessSandbox()
