@@ -168,11 +168,13 @@ class _NormalizingTransformer(ast.NodeTransformer):
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:
         node.name = "f"
-        return self.generic_visit(node)
+        self.generic_visit(node)
+        return node
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> ast.AsyncFunctionDef:
         node.name = "f"
-        return self.generic_visit(node)
+        self.generic_visit(node)
+        return node
 
 
 def _normalized_hash(node: _FuncNode) -> str:

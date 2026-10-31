@@ -14,10 +14,10 @@ tag), and a ``--cov-fail-under`` inherited from the target project's own
 from __future__ import annotations
 
 import asyncio
-import tomllib
 from pathlib import Path
 from typing import Any
 
+from ...crosscutting.toml_compat import tomllib
 from ...domain.readiness import AppArchetype
 from ...domain.testing_models import Workspace
 from ...generators.cicd_generator import CICDPipelineBuilder

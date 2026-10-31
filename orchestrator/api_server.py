@@ -31,7 +31,7 @@ import hashlib
 import json
 import logging
 import time
-from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -68,14 +68,15 @@ class TokenBucketRateLimiter:
         self,
         rate: int = 100,  # requests per window
         window_seconds: int = 60,
+        clock: Callable[[], float] = time.monotonic,
     ):
         self.rate = rate
         self.window_seconds = window_seconds
-        self._buckets: dict[str, dict[str, Any]] = defaultdict(
-            lambda: {"tokens": rate, "last_update": time.time()}
-        )
+        # Monotonic so a wall-clock step cannot stall refill; injectable for tests.
+        self._clock = clock
+        self._buckets: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
-        self._last_sweep = time.time()
+        self._last_sweep = clock()
 
     async def is_allowed(self, client_id: str) -> bool:
         """
@@ -88,7 +89,7 @@ class TokenBucketRateLimiter:
             True if allowed
         """
         async with self._lock:
-            now = time.time()
+            now = self._clock()
             # A bucket idle a whole window is full again, so dropping it loses
             # nothing; this keeps one-shot client ids from growing the map.
             if now - self._last_sweep >= self.window_seconds:
@@ -99,7 +100,8 @@ class TokenBucketRateLimiter:
                     if now - b["last_update"] >= self.window_seconds
                 ]:
                     del self._buckets[key]
-            bucket = self._buckets[client_id]
+            # Stamped with this request's `now`, so elapsed below is never negative.
+            bucket = self._buckets.setdefault(client_id, {"tokens": self.rate, "last_update": now})
 
             # Refill tokens
             elapsed = now - bucket["last_update"]

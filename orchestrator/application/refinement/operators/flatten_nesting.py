@@ -13,7 +13,7 @@ import logging
 
 from ....domain.refinement import MetricSnapshot, RefinementCandidate, RefinementTier
 from ....domain.testing_models import Workspace
-from ._finders import find_deepest_nesting_function
+from ._finders import FunctionLocation, find_deepest_nesting_function
 from .llm_refactor import LLMRefactorCommand, RefactorClientPort, propose_llm_candidate
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,7 @@ class FlattenNestingOperator:
         )
 
     @staticmethod
-    def _find_worst(workspace: Workspace):
+    def _find_worst(workspace: Workspace) -> tuple[str, str, FunctionLocation] | None:
         """Scan workspace source files for the single most-nested function."""
         best = None
         for py_file in sorted(workspace.root.rglob("*.py")):

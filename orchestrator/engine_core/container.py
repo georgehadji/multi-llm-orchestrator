@@ -685,7 +685,7 @@ class ServiceContainer:
             telemetry=telemetry,
         )
         evaluator = EvaluatorService(
-            client=client,  # type: ignore[arg-type]
+            client=client,
             budget=budget,
             get_models_fn=get_available_models,
             telemetry=telemetry,
@@ -719,6 +719,8 @@ class ServiceContainer:
             logger.debug("LspValidator not available: %s", exc)
 
         # Unified Event System integration
+        hook_registry: HookRegistryPort
+        event_bus: EventPort
         try:
             from ..unified_events.core import UnifiedEventBus
 
@@ -795,7 +797,7 @@ class ServiceContainer:
         try:
             from ..application.verbalized_sampling import VerbalizedSampler
 
-            vs_sampler = VerbalizedSampler(client=client, budget=budget)  # type: ignore[arg-type]
+            vs_sampler = VerbalizedSampler(client=client, budget=budget)
         except ImportError:
             logger.debug("VerbalizedSampler not available — VS features disabled")
 
@@ -823,13 +825,15 @@ class ServiceContainer:
             ]
         else:
             stages = [
-                GenerateStage(client=client, budget=budget, selector=selector, vs_sampler=vs_sampler),  # type: ignore[arg-type]
+                GenerateStage(
+                    client=client, budget=budget, selector=selector, vs_sampler=vs_sampler
+                ),
                 CritiqueStage(
                     client=client,
                     budget=budget,
                     lsp_validator=lsp_validator,
                     vs_sampler=vs_sampler,
-                ),  # type: ignore[arg-type]
+                ),
                 EvaluateStage(evaluator=evaluator),
                 ValidateStage(),
                 PersuasionDefenseStage(ara_integration=ara),
