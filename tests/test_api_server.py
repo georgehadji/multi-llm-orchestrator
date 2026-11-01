@@ -29,6 +29,27 @@ if TYPE_CHECKING:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+@pytest.fixture(autouse=True)
+async def _stop_servers(monkeypatch: pytest.MonkeyPatch):
+    """Stop every APIServer a test built, so its background projects are cancelled and awaited.
+
+    execute_* endpoints start a real run_project task and return 202 at once. If the test ends
+    first, the task is abandoned mid-run with an open aiosqlite connection; that connection's
+    worker thread is non-daemon and blocked interpreter exit after the whole suite had passed.
+    """
+    servers: list[APIServer] = []
+    real_init = APIServer.__init__
+
+    def recording_init(self: APIServer, *args, **kwargs) -> None:
+        real_init(self, *args, **kwargs)
+        servers.append(self)
+
+    monkeypatch.setattr(APIServer, "__init__", recording_init)
+    yield
+    for server in servers:
+        await server.stop()
+
+
 @pytest.fixture
 def app() -> web.Application:
     """Create an APIServer with auth disabled for testing."""
@@ -507,3 +528,26 @@ class TestLegacyExecute:
 
         response = await server.execute_task(request)
         assert response.status == 400
+
+
+class TestStopAwaitsBackgroundProjects:
+    """stop() must let cancelled projects run their cleanup, not merely request cancellation."""
+
+    async def test_stop_waits_for_cancelled_project_to_release_its_orchestrator(self) -> None:
+        server = APIServer(port=0, host="127.0.0.1", auth_required=False)
+        orch = MagicMock()
+        orch.state_mgr.close = AsyncMock()
+        started = asyncio.Event()
+
+        async def run_forever() -> None:
+            started.set()
+            await asyncio.sleep(60)
+
+        await server._launch_background_project("proj-1", orch, run_forever)
+        await started.wait()
+
+        await server.stop()
+
+        # A bare task.cancel() returns before the task's finally block has run, which leaves
+        # the per-request orchestrator's state DB connection (and its worker thread) open.
+        orch.state_mgr.close.assert_awaited_once()
