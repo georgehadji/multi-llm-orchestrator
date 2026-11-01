@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import sqlite3
+import threading
+import time
+
+import aiosqlite
 import pytest
 
 pytestmark = pytest.mark.unit
@@ -105,3 +111,80 @@ class TestCheckpointPruning:
         ) as cursor:
             row = await cursor.fetchone()
         assert row[0] == 0
+
+
+def _worker_threads() -> set[threading.Thread]:
+    return {t for t in threading.enumerate() if "_connection_worker_thread" in t.name}
+
+
+async def _leaked_workers(before: set[threading.Thread]) -> set[threading.Thread]:
+    """aiosqlite worker threads started since *before* that are still alive after a grace period."""
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        leaked = {t for t in _worker_threads() - before if t.is_alive()}
+        if not leaked:
+            break
+        await asyncio.sleep(0.05)
+    return {t for t in _worker_threads() - before if t.is_alive()}
+
+
+@pytest.fixture
+def held_connections(monkeypatch):
+    """Keep every aiosqlite.Connection alive, so garbage collection cannot mask a missing close.
+
+    In CI the abandoned connection was still reachable (frames kept alive by the cancelled task's
+    traceback) when the interpreter began to exit, so Connection.__del__ never stopped its thread.
+    """
+    held: list[aiosqlite.Connection] = []
+    real_connect = aiosqlite.connect
+
+    def connect(*args, **kwargs):
+        conn = real_connect(*args, **kwargs)
+        held.append(conn)
+        return conn
+
+    monkeypatch.setattr(aiosqlite, "connect", connect)
+    return held
+
+
+class TestConnectionInitDoesNotLeakWorkerThread:
+    """aiosqlite worker threads are non-daemon: a leaked one blocks interpreter exit forever."""
+
+    async def test_cancel_during_schema_init_closes_connection(
+        self, tmp_path, monkeypatch, held_connections
+    ):
+        entered = asyncio.Event()
+
+        async def hang(self, *args, **kwargs):
+            entered.set()
+            await asyncio.sleep(60)
+
+        monkeypatch.setattr(aiosqlite.Connection, "executescript", hang)
+        before = _worker_threads()
+        sm = StateManager(db_path=tmp_path / "state.db")
+        task = asyncio.create_task(sm._get_conn())
+        await entered.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+        assert sm._conn is None
+        assert await _leaked_workers(before) == set()
+
+    async def test_timeout_during_connect_closes_connection(
+        self, tmp_path, monkeypatch, held_connections
+    ):
+        real_connect = sqlite3.connect
+
+        def slow_connect(*args, **kwargs):
+            time.sleep(0.5)
+            return real_connect(*args, **kwargs)
+
+        monkeypatch.setattr(sqlite3, "connect", slow_connect)
+        monkeypatch.setattr(StateManager, "_CONN_TIMEOUT", 0.05)
+        before = _worker_threads()
+        sm = StateManager(db_path=tmp_path / "state.db")
+        with pytest.raises(asyncio.TimeoutError):
+            await sm._get_conn()
+
+        assert await _leaked_workers(before) == set()

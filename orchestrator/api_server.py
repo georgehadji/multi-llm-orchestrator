@@ -1680,9 +1680,15 @@ class APIServer:
     async def stop(self):
         """Stop the API server and cancel active projects."""
         # Cancel all active projects
-        for pid, task in list(self._active_projects.items()):
+        tasks = list(self._active_projects.items())
+        for pid, task in tasks:
             task.cancel()
             logger.info("Cancelled project %s", pid)
+        # Wait for the cancellations to land: each task's finally block closes the
+        # orchestrator built for it, including its state DB connection. cancel() alone
+        # returns before that runs, and aiosqlite's non-daemon worker thread then
+        # outlives the event loop and blocks interpreter exit.
+        await asyncio.gather(*(task for _, task in tasks), return_exceptions=True)
         self._active_projects.clear()
 
         if self.site:

@@ -329,6 +329,14 @@ class StateManager:
                         await conn.commit()
                         # Migration complete — only now expose the connection.
                         self._conn = conn
+                    except asyncio.CancelledError:
+                        # CancelledError is not an Exception, so none of the handlers below see
+                        # it. Without this the half-initialised connection keeps its non-daemon
+                        # worker thread, and the interpreter cannot exit. stop() is synchronous,
+                        # so a second cancellation cannot interrupt the cleanup.
+                        if conn is not None:
+                            conn.stop()
+                        raise
                     except asyncio.TimeoutError:
                         logger.error("State DB connection timed out after %ds", self._CONN_TIMEOUT)
                         if conn is not None:
