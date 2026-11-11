@@ -131,6 +131,11 @@ class CircuitBreaker:
     async def record_success(self) -> None:
         async with self._lock:
             self.total_successes += 1
+            if self._state.state == CircuitState.OPEN:
+                # Probes only run in HALF_OPEN (check() moves OPEN there), so
+                # this is a call that started before the trip. It says nothing
+                # about the provider now and must not skip reset_timeout.
+                return
             self._state.successes += 1
             self._state.failures = 0
             if self._state.state == CircuitState.HALF_OPEN:
@@ -146,9 +151,6 @@ class CircuitBreaker:
                     # probe at a time is still guaranteed, because check() sets
                     # the flag and only record_success/record_failure clear it.
                     self._state.probe_in_flight = False
-            elif self._state.state == CircuitState.OPEN:
-                # Shouldn't happen; close anyway
-                self._close()
 
     async def record_failure(self, exc: Exception | None = None) -> None:
         async with self._lock:

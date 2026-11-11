@@ -128,3 +128,59 @@ class TestCircuitBreakerEdgeCases:
         assert cb._state.failures == 1
         await cb.record_success()
         assert cb._state.failures == 0
+
+
+class TestStaleSuccessWhileOpen:
+    """A call started before the trip can finish OK after it.
+
+    That success says nothing about the provider now; it must not skip the
+    reset timeout. Probes only run in HALF_OPEN (check() moves OPEN to
+    HALF_OPEN), so any success seen while OPEN is from such a call.
+    """
+
+    @staticmethod
+    async def _tripped() -> CircuitBreaker:
+        cb = CircuitBreaker("stale", failure_threshold=1, reset_timeout=60.0)
+        await cb.record_failure(ConnectionError("down"))
+        assert cb.state == CircuitState.OPEN
+        return cb
+
+    @pytest.mark.asyncio
+    async def test_success_while_open_keeps_it_open(self):
+        cb = await self._tripped()
+
+        await cb.record_success()
+
+        assert cb.state == CircuitState.OPEN
+        with pytest.raises(CircuitBreakerOpen):
+            await cb.check()
+
+    @pytest.mark.asyncio
+    async def test_success_while_open_is_still_counted(self):
+        cb = await self._tripped()
+
+        await cb.record_success()
+
+        assert cb.total_successes == 1
+        assert cb.stats()["successes_consecutive"] == 0
+
+    @pytest.mark.asyncio
+    async def test_in_flight_call_finishing_after_the_trip(self):
+        """The real sequence: call A starts, call B trips the breaker, A succeeds."""
+        cb = CircuitBreaker("race", failure_threshold=1, reset_timeout=60.0)
+        a_started, a_may_finish = asyncio.Event(), asyncio.Event()
+
+        async def call_a():
+            async with cb.context():
+                a_started.set()
+                await a_may_finish.wait()
+
+        task = asyncio.create_task(call_a())
+        await a_started.wait()
+        with pytest.raises(ConnectionError):
+            async with cb.context():
+                raise ConnectionError("down")
+        a_may_finish.set()
+        await task
+
+        assert cb.state == CircuitState.OPEN
