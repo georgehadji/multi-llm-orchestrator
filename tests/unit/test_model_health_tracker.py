@@ -106,6 +106,80 @@ async def test_record_success_calls_adaptive_router():
     adaptive_router.record_latency.assert_awaited_once_with(model, 50.0)
 
 
+async def test_record_success_clears_the_persisted_count():
+    """The saved count must go back to 0, or the next start re-opens the breaker."""
+    tracker, _, _, state_mgr = _make_tracker(threshold=3)
+    model = Model.GPT_4O_MINI
+    await tracker.record_failure(model, error=Exception("transient"))
+    state_mgr.save_circuit_breaker_state.reset_mock()
+
+    await tracker.record_success(model, _make_response())
+
+    state_mgr.save_circuit_breaker_state.assert_awaited_once_with(model.value, 0)
+
+
+async def test_record_success_does_not_write_when_nothing_to_clear():
+    tracker, _, _, state_mgr = _make_tracker()
+
+    await tracker.record_success(Model.GPT_4O_MINI, _make_response())
+
+    state_mgr.save_circuit_breaker_state.assert_not_awaited()
+
+
+async def test_record_success_closes_a_tripped_breaker():
+    tracker, _, _, _ = _make_tracker(threshold=3)
+    model = Model.GPT_4O_MINI
+    for _ in range(3):
+        await tracker.record_failure(model, error=Exception("transient"))
+    assert tracker.api_health[model] is False
+
+    await tracker.record_success(model, _make_response())
+
+    assert tracker.api_health[model] is True
+
+
+async def test_failures_split_by_a_success_do_not_trip():
+    """'Consecutive' means consecutive: fail, fail, ok, fail, fail stays closed."""
+    tracker, _, _, _ = _make_tracker(threshold=3)
+    model = Model.GPT_4O_MINI
+    for _ in range(2):
+        await tracker.record_failure(model, error=Exception("transient"))
+    await tracker.record_success(model, _make_response())
+    for _ in range(2):
+        await tracker.record_failure(model, error=Exception("transient"))
+
+    assert tracker.api_health.get(model, True) is True
+
+
+async def test_load_state_only_asks_for_recent_trips():
+    tracker, _, _, state_mgr = _make_tracker(threshold=3)
+    state_mgr.load_circuit_breaker_state = AsyncMock(return_value={})
+
+    await tracker.load_state()
+
+    state_mgr.load_circuit_breaker_state.assert_awaited_once_with(
+        max_age_seconds=tracker.TRIP_TTL_SECONDS
+    )
+
+
+async def test_state_manager_drops_stale_circuit_breaker_rows(tmp_path, monkeypatch):
+    """A trip from a long-finished outage must not exclude the model forever."""
+    from orchestrator.infrastructure import state as state_module
+    from orchestrator.infrastructure.state import StateManager
+
+    sm = StateManager(db_path=tmp_path / "s.db")
+    try:
+        await sm.save_circuit_breaker_state("old-model", 5)
+        saved_at = state_module.time.time()
+        monkeypatch.setattr(state_module.time, "time", lambda: saved_at + 7200)
+        await sm.save_circuit_breaker_state("new-model", 4)
+
+        assert await sm.load_circuit_breaker_state() == {"old-model": 5, "new-model": 4}
+        assert await sm.load_circuit_breaker_state(max_age_seconds=1800) == {"new-model": 4}
+    finally:
+        await sm.close()
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # record_failure tests
 # ─────────────────────────────────────────────────────────────────────────────

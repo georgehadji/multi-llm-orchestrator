@@ -61,6 +61,9 @@ def _budget_to_dict(b: Budget) -> dict:
         "start_time": b.start_time,
         # FIX-RESUME-001: Include original_start_time for elapsed time calculation when resuming
         "original_start_time": b.original_start_time,
+        # Active run time so far. Wall-clock starts alone count the idle gap
+        # before a resume as spent time.
+        "elapsed_seconds": b.elapsed_seconds,
         "phase_spent": b.phase_spent,
     }
 
@@ -74,6 +77,10 @@ def _budget_from_dict(d: dict) -> Budget:
     )
     # FIX-RESUME-001: Restore original_start_time for elapsed time calculation
     b.original_start_time = d.get("original_start_time", d["start_time"])
+    if "elapsed_seconds" in d:
+        # Shift the start so elapsed_seconds resumes from the saved active time.
+        # Older saves lack the field and keep the wall-clock behaviour.
+        b.original_start_time = time.time() - d["elapsed_seconds"]
     b.phase_spent = d.get("phase_spent", b.phase_spent)
     return b
 
@@ -461,15 +468,23 @@ class StateManager:
         )
         await db.commit()
 
-    async def load_circuit_breaker_state(self) -> dict[str, int]:
-        """Load all persisted circuit breaker failure counts.
+    async def load_circuit_breaker_state(
+        self, max_age_seconds: float | None = None
+    ) -> dict[str, int]:
+        """Load persisted circuit breaker failure counts.
+
+        Args:
+            max_age_seconds: Skip rows last updated longer ago than this.
+                None loads every row.
 
         Returns:
             Mapping of model_name → failure_count.
         """
+        cutoff = 0.0 if max_age_seconds is None else time.time() - max_age_seconds
         db = await self._get_conn()
         async with db.execute(
-            "SELECT model_name, failure_count FROM circuit_breaker_state"
+            "SELECT model_name, failure_count FROM circuit_breaker_state WHERE updated_at >= ?",
+            (cutoff,),
         ) as cursor:
             rows = await cursor.fetchall()
         return {row[0]: row[1] for row in rows}

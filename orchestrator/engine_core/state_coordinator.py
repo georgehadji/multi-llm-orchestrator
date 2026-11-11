@@ -26,13 +26,16 @@ class StateCoordinator:
 
     def determine_final_status(self, state: ProjectState) -> ProjectStatus:
         """Determine terminal project status based on results and budget."""
-        budget_exhausted = state.budget.remaining_usd <= 0
-        time_ok = state.budget.time_remaining()
+        all_tasks_executed = len(state.results) == len(state.tasks)
 
-        if budget_exhausted:
-            return ProjectStatus.BUDGET_EXHAUSTED
-        if not time_ok:
-            return ProjectStatus.TIMEOUT
+        # A limit only explains the outcome when it left tasks unrun. Both
+        # statuses are resumable, so stamping a finished run with one makes
+        # --resume find nothing to do and stamp it again.
+        if not all_tasks_executed:
+            if state.budget.remaining_usd <= 0:
+                return ProjectStatus.BUDGET_EXHAUSTED
+            if not state.budget.time_remaining():
+                return ProjectStatus.TIMEOUT
 
         if not state.results:
             return ProjectStatus.SYSTEM_FAILURE
@@ -49,7 +52,6 @@ class StateCoordinator:
         )
 
         det_ok = all(r.deterministic_check_passed for r in state.results.values())
-        all_tasks_executed = len(state.results) == len(state.tasks)
 
         if all_tasks_executed and all_passed and det_ok and not degraded_heavy:
             return ProjectStatus.SUCCESS

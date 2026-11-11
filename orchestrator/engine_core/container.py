@@ -460,13 +460,16 @@ class ServiceContainer:
         taste_skill_service: Any = None,
         background_tasks: set[Any] | None = None,
         record_failure_fn: Any = None,
+        record_success_fn: Any = None,
     ) -> None:
         """Late-bind engine-level deps into PipelineExecutor after Orchestrator.__init__."""
         # The authoritative health tracker is built by the engine after the stages.
-        if record_failure_fn is not None and self.pipeline is not None:
+        if self.pipeline is not None:
             for stage in getattr(self.pipeline, "_stages", []):
-                if hasattr(stage, "_record_failure_fn"):
+                if record_failure_fn is not None and hasattr(stage, "_record_failure_fn"):
                     stage._record_failure_fn = record_failure_fn
+                if record_success_fn is not None and hasattr(stage, "_record_success_fn"):
+                    stage._record_success_fn = record_success_fn
         if self.pipeline_executor is not None:
             self.pipeline_executor._skill_manager = skill_manager
             self.pipeline_executor._taste_skill_service = taste_skill_service

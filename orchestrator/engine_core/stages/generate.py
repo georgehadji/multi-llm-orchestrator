@@ -40,6 +40,7 @@ class GenerateStage:
             "selector": deps["selector"],
             "vs_sampler": deps.get("vs_sampler"),
             "record_failure_fn": deps.get("record_failure_fn"),
+            "record_success_fn": deps.get("record_success_fn"),
         }
 
     def __init__(
@@ -52,10 +53,14 @@ class GenerateStage:
         vs_sampler: VSSamplerPort | None = None,
         vs_selector: Any | None = None,
         record_failure_fn: Any | None = None,
+        record_success_fn: Any | None = None,
     ) -> None:
         self._client = client
         # async (model, error) -> None; the engine late-binds its health tracker.
         self._record_failure_fn = record_failure_fn
+        # async (model, response) -> None; resets the failure count. Without it
+        # "consecutive failures" never resets and the breaker latches open.
+        self._record_success_fn = record_success_fn
         self._vs_sampler = vs_sampler
         self._vs_selector = vs_selector
         self._budget = budget
@@ -192,6 +197,7 @@ class GenerateStage:
             if not committed:
                 await self._budget.release_reservation(reserved)
 
+        await self._record_success(ctx.model, response)
         ctx.output = response.text
         ctx.cost_usd += response.cost_usd
         # APIResponse carries the counts itself; it has no `.usage`.
@@ -218,6 +224,14 @@ class GenerateStage:
             await self._record_failure_fn(model, error)
         except Exception as exc:
             logger.debug("Health tracker record_failure failed: %s", exc)
+
+    async def _record_success(self, model: Any, response: Any) -> None:
+        if self._record_success_fn is None:
+            return
+        try:
+            await self._record_success_fn(model, response)
+        except Exception as exc:
+            logger.debug("Health tracker record_success failed: %s", exc)
 
     @staticmethod
     def _abort_provider_error(

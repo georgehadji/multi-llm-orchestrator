@@ -46,10 +46,29 @@ else:
 
 from .crosscutting.config import flags
 from .domain.security import Permission, Principal, parse_permissions
+from .models import ProjectStatus
 from .safety.api_keys import KeyStoreError, get_key_store
 from .safety.secure_execution import PathTraversalError, SecurePath
 
 logger = logging.getLogger("orchestrator.api_server")
+
+# Lifecycle of a project in ``_active_project_state[pid]["status"]``:
+#   "accepted" -> a ProjectStatus value (the run returned)
+#              -> "failed" (the run raised) | "cancelled" (DELETE)
+# "completed" and "error" are legacy spellings that clients may still send in.
+# Everything except "accepted" is final; readers must ask these sets, not
+# compare against their own list of strings.
+_OK_STATUSES: frozenset[str] = frozenset(
+    {
+        "completed",
+        ProjectStatus.SUCCESS.value,
+        ProjectStatus.PARTIAL_SUCCESS.value,
+        ProjectStatus.COMPLETED_DEGRADED.value,
+    }
+)
+_TERMINAL_STATUSES: frozenset[str] = (
+    _OK_STATUSES | {s.value for s in ProjectStatus} | {"failed", "error", "cancelled"}
+)
 
 
 # ─────────────────────────────────────────────
@@ -1078,11 +1097,11 @@ class APIServer:
                     last_task_count = tc
 
                 # Completed or failed — send final event and exit
-                if status in ("completed", "failed", "error", "cancelled"):
+                if status in _TERMINAL_STATUSES:
                     final_data = json.dumps(
                         {
                             "type": (
-                                "PROJECT_COMPLETE" if status == "completed" else "PROJECT_FAILED"
+                                "PROJECT_COMPLETE" if status in _OK_STATUSES else "PROJECT_FAILED"
                             ),
                             "project_id": project_id,
                             "status": status,
@@ -1173,7 +1192,7 @@ class APIServer:
                     if state.get("tasks_total", 0) > 0
                     else 0
                 ),
-                "result_available": state.get("status") in ("completed", "failed"),
+                "result_available": state.get("status") in _TERMINAL_STATUSES,
                 "is_running": is_running,
             }
         )

@@ -593,6 +593,7 @@ class Orchestrator:
             taste_skill_service=self._taste_skill_service,
             background_tasks=self._background_tasks,
             record_failure_fn=self._record_failure,
+            record_success_fn=self._record_success,
         )
 
         logger.info("Orchestrator initialized via ServiceContainer")

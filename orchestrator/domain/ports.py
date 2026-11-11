@@ -89,7 +89,9 @@ class StatePort(Protocol):
     async def load_project(self, project_id: str) -> ProjectState | None: ...
     async def save_checkpoint(self, project_id: str, task_id: str, state: ProjectState) -> None: ...
     async def save_circuit_breaker_state(self, model_name: str, failure_count: int) -> None: ...
-    async def load_circuit_breaker_state(self) -> dict[str, int]: ...
+    async def load_circuit_breaker_state(
+        self, max_age_seconds: float | None = None
+    ) -> dict[str, int]: ...
     async def close(self) -> None: ...
 
     def project_lease(self, project_id: str) -> AbstractAsyncContextManager[bool]:
@@ -382,7 +384,9 @@ class NullState:
     async def save_circuit_breaker_state(self, model_name: str, failure_count: int) -> None:
         pass  # NullState doesn't persist circuit breaker state
 
-    async def load_circuit_breaker_state(self) -> dict[str, int]:
+    async def load_circuit_breaker_state(
+        self, max_age_seconds: float | None = None
+    ) -> dict[str, int]:
         return {}
 
     async def close(self) -> None:

@@ -266,7 +266,7 @@ class TestGenerateTokensAndCritique:
 # ── E2: one fallback hop on a provider error ────────────────────────────────
 
 
-def _generate_stage(call, record_failure_fn=None):
+def _generate_stage(call, record_failure_fn=None, record_success_fn=None):
     from orchestrator.engine_core.stages.generate import GenerateStage
 
     return GenerateStage(
@@ -274,6 +274,7 @@ def _generate_stage(call, record_failure_fn=None):
         budget=Budget(max_usd=10.0),
         selector=MagicMock(),
         record_failure_fn=record_failure_fn,
+        record_success_fn=record_success_fn,
     )
 
 
@@ -336,3 +337,61 @@ class TestGenerateFallback:
         fn = AsyncMock()
         container.wire_pipeline_executor(record_failure_fn=fn)
         assert stage._record_failure_fn is fn
+
+    @pytest.mark.asyncio
+    async def test_success_is_reported_for_the_model_that_answered(self, monkeypatch) -> None:
+        """Without this the failure counter never resets and the breaker latches."""
+        from orchestrator.api_clients import APIResponse
+        from orchestrator.crosscutting.config import flags
+        from orchestrator.engine_core.pipeline import PipelineContext
+        from orchestrator.models import FALLBACK_CHAIN, Task, TaskType
+
+        monkeypatch.setattr(flags, "vs_generate", False, raising=False)
+        fallback = FALLBACK_CHAIN[Model.GPT_4O]
+
+        async def call(*, model, **_):
+            if model == Model.GPT_4O:
+                raise RuntimeError("provider down")
+            return APIResponse(text="from fallback", model=model)
+
+        failed, ok = AsyncMock(), AsyncMock()
+        task = Task(id="t", type=TaskType.CODE_GEN, prompt="p", preferred_model=Model.GPT_4O)
+        await _generate_stage(call, failed, ok).process(
+            PipelineContext(task=task, tokens_used={"input": 0, "output": 0})
+        )
+
+        ok.assert_awaited_once()
+        assert ok.await_args.args[0] == fallback
+        assert ok.await_args.args[1].text == "from fallback"
+
+    @pytest.mark.asyncio
+    async def test_a_broken_success_callback_does_not_fail_the_task(self, monkeypatch) -> None:
+        from orchestrator.api_clients import APIResponse
+        from orchestrator.crosscutting.config import flags
+        from orchestrator.engine_core.pipeline import PipelineContext
+        from orchestrator.models import Task, TaskType
+
+        monkeypatch.setattr(flags, "vs_generate", False, raising=False)
+
+        async def call(*, model, **_):
+            return APIResponse(text="fine", model=model)
+
+        task = Task(id="t", type=TaskType.CODE_GEN, prompt="p", preferred_model=Model.GPT_4O)
+        ctx = await _generate_stage(call, None, AsyncMock(side_effect=RuntimeError("x"))).process(
+            PipelineContext(task=task, tokens_used={"input": 0, "output": 0})
+        )
+
+        assert ctx.output == "fine"
+        assert not ctx.should_abort
+
+    def test_container_late_binds_record_success(self) -> None:
+        from orchestrator.engine_core.container import ServiceContainer
+        from orchestrator.engine_core.pipeline import TaskPipeline
+
+        stage = _generate_stage(lambda **_: None)
+        container = ServiceContainer.__new__(ServiceContainer)
+        container.pipeline_executor = None
+        container.pipeline = TaskPipeline([stage])
+        fn = AsyncMock()
+        container.wire_pipeline_executor(record_success_fn=fn)
+        assert stage._record_success_fn is fn

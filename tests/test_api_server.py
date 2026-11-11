@@ -346,6 +346,72 @@ class TestGetProjectStatus:
         assert body["status"] == "completed"
 
 
+class TestFinishedRunIsTerminal:
+    """A finished run stores a ProjectStatus value ("SUCCESS", ...), not "completed".
+
+    Every reader has to treat those values as the end of the run.
+    """
+
+    @pytest.mark.parametrize(
+        ("status", "event_type"),
+        [
+            ("SUCCESS", "PROJECT_COMPLETE"),
+            ("PARTIAL_SUCCESS", "PROJECT_COMPLETE"),
+            ("COMPLETED_DEGRADED", "PROJECT_COMPLETE"),
+            ("BUDGET_EXHAUSTED", "PROJECT_FAILED"),
+            ("TIMEOUT", "PROJECT_FAILED"),
+            ("SYSTEM_FAILURE", "PROJECT_FAILED"),
+            ("completed", "PROJECT_COMPLETE"),
+            ("failed", "PROJECT_FAILED"),
+            ("cancelled", "PROJECT_FAILED"),
+        ],
+    )
+    async def test_stream_closes_when_run_finished(self, status: str, event_type: str) -> None:
+        from aiohttp.test_utils import TestClient, TestServer
+
+        server = APIServer(port=0, host="127.0.0.1", auth_required=False, cors_origins=["*"])
+        pid = "finished-project"
+        server._active_project_state[pid] = {"project_id": pid, "status": status}
+
+        async with TestClient(TestServer(server.app)) as client:
+            resp = await client.get(f"/projects/{pid}/stream")
+            # Without a terminal event the stream never ends, so bound the read.
+            body = await asyncio.wait_for(resp.text(), timeout=5)
+
+        assert "event: complete" in body
+        assert f'"type": "{event_type}"' in body
+        assert f'"status": "{status}"' in body
+
+    async def test_stream_stays_open_while_accepted(self) -> None:
+        from aiohttp.test_utils import TestClient, TestServer
+
+        server = APIServer(port=0, host="127.0.0.1", auth_required=False, cors_origins=["*"])
+        pid = "queued-project"
+        server._active_project_state[pid] = {"project_id": pid, "status": "accepted"}
+
+        async with TestClient(TestServer(server.app)) as client:
+            resp = await client.get(f"/projects/{pid}/stream")
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(resp.text(), timeout=1.5)
+
+    @pytest.mark.parametrize(
+        ("status", "available"),
+        [("SUCCESS", True), ("TIMEOUT", True), ("failed", True), ("accepted", False)],
+    )
+    async def test_legacy_status_result_available(self, status: str, available: bool) -> None:
+        server = APIServer(port=0, host="127.0.0.1", auth_required=False, cors_origins=["*"])
+        pid = "legacy-project"
+        server._active_project_state[pid] = {"project_id": pid, "status": status}
+        request = MagicMock()
+        request.match_info = {"task_id": pid}
+        request.headers = {}
+
+        response = await server.get_task_status(request)
+        body = json.loads(response.body)
+        assert body["status"] == status
+        assert body["result_available"] is available
+
+
 class TestCancelProject:
     """DELETE /projects/{project_id} endpoint tests."""
 

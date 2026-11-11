@@ -22,7 +22,15 @@ class ModelHealthTracker:
 
     M6 change: dicts are no longer shared by reference with the engine.
     Engine reads back through ``tracker.api_health`` / ``tracker.consecutive_failures``.
+
+    Per-model states: closed (healthy, count < threshold) -> open (count >= threshold,
+    or a 401/404 permanent error) -> closed again on the next success. Open
+    models are skipped by selection, so a success rarely arrives; persisted
+    trips older than ``TRIP_TTL_SECONDS`` are therefore ignored on load.
     """
+
+    # An outage older than this says nothing about the model today.
+    TRIP_TTL_SECONDS: float = 1800.0
 
     def __init__(
         self,
@@ -68,7 +76,9 @@ class ModelHealthTracker:
         ``update_from_persisted_state``.
         """
         try:
-            persisted = await self._state_mgr.load_circuit_breaker_state()
+            persisted = await self._state_mgr.load_circuit_breaker_state(
+                max_age_seconds=self.TRIP_TTL_SECONDS
+            )
         except Exception as exc:
             logger.debug("Could not load circuit breaker state: %s", exc)
             return
@@ -110,8 +120,19 @@ class ModelHealthTracker:
     # ------------------------------------------------------------------ #
 
     async def record_success(self, model: Model, response: Any) -> None:
-        """Record a successful API call; reset the circuit breaker counter."""
+        """Record a successful API call; reset the counter and close the breaker."""
+        had_failures = self._consecutive_failures.get(model, 0) > 0
         self._consecutive_failures[model] = 0
+        if self._api_health.get(model) is False:
+            self._api_health[model] = True
+            logger.info("Circuit breaker closed for %s after a successful call", model.value)
+        if had_failures:
+            try:
+                await self._state_mgr.save_circuit_breaker_state(model.value, 0)
+            except Exception as cb_err:
+                logger.debug(
+                    "Could not persist circuit breaker reset for %s: %s", model.value, cb_err
+                )
 
         if self._adaptive_router is not None:
             await self._adaptive_router.record_success(model)
