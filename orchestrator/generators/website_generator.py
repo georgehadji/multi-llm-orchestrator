@@ -200,6 +200,8 @@ class WebsiteConfig:
     image_quality: str = "balanced"  # "draft", "balanced", "premium"
     # ── Phase 3: URL source extraction ──
     source_url: str = ""  # Live URL to extract design tokens, fonts, and content from
+    # ── Awwwards design reference (set by WebsiteGenerator.generate, already untrusted-wrapped) ──
+    design_reference: str = ""
     # ── Hero video background ──
     hero_video: bool = False  # Generate an MP4 hero background (image used as poster)
     hero_video_model: str = ""  # OpenRouter video model ID; empty = per-tier auto-select
@@ -1026,6 +1028,27 @@ class WebsiteGenerator:
 
         return issues
 
+    async def _design_reference(self, client_info: ClientInfo, config: WebsiteConfig) -> str:
+        """Awwwards design brief for this site, or "" (flag off, no LLM engine, or unavailable).
+
+        Template-only builds make no LLM calls, so they skip it and never spawn npx.
+        """
+        from ..crosscutting.config import flags
+
+        if self._engine is None or not flags.awwwards_enabled:
+            return ""
+        from ..design.awwwards_client import fetch_design_brief
+
+        goal = f"{config.page_type} website"
+        if client_info.name:
+            goal += f" for {client_info.name}"
+        if client_info.industry:
+            goal += f" ({client_info.industry})"
+        description = client_info.description or config.description
+        if description:
+            goal += f": {description}"
+        return await fetch_design_brief(goal, query=client_info.industry or config.page_type)
+
     async def generate(
         self,
         design_system: DesignSystem,
@@ -1067,6 +1090,9 @@ class WebsiteGenerator:
             content_brief = await self._researcher.generate_content_brief(
                 client_info, engine=self._engine, config=config
             )
+
+            # ── Step 1.4: Awwwards design reference (flag-gated, never fatal) ──
+            config.design_reference = await self._design_reference(client_info, config)
 
             # ── Step 1.5: URL source extraction (when source_url is set) ──
             extraction_data: ExtractedSiteData | None = None
@@ -1551,6 +1577,8 @@ SEO Optimized: {'Yes' if config.seo_optimized else 'No'}
 Atelier Theme: {"Yes" if config.atelier_theme else "None"}
 
 {atelier_theme_context}
+
+{config.design_reference}
 
 SOURCE URL EXTRACTION:
 {'YES — This section is a CLONE of the source. Match the extracted values below exactly.' if extraction_data else 'No source URL — generate from description.'}

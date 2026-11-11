@@ -32,12 +32,17 @@ SKILL_FILES: dict[str, str] = {
     "review_animations": "review_animations.SKILL.md",
     "animation_standards": "animation_standards.SKILL.md",
     # ───────────────────────────────────────────────────────────────
+    "senior_frontend": "senior_frontend.SKILL.md",  # claude-code-templates, MIT
 }
 
 # Trim large skill files to keep prompt overhead manageable.
 # The default taste-skill SKILL.md is ~85KB; 6000 chars captures all bans and
 # the brief-inference section without overwhelming the context window.
 _MAX_SKILL_CHARS = 6_000
+
+# senior_frontend is ~9.5KB and its closing sections (verify, red flags) are the
+# point of the skill, so it gets a larger cap instead of being cut mid-file.
+_MAX_CHARS_BY_KEY: dict[str, int] = {"senior_frontend": 12_000}
 
 
 class TasteSkillLoader:
@@ -97,8 +102,9 @@ class TasteSkillLoader:
             logger.warning("taste_skill_loader: could not read %s: %s", path, exc)
             return ""
 
-        if len(content) > self._max_chars:
-            content = content[: self._max_chars] + "\n\n[...truncated for token efficiency]"
+        limit = max(self._max_chars, _MAX_CHARS_BY_KEY.get(variant_key, 0))
+        if len(content) > limit:
+            content = content[:limit] + "\n\n[...truncated for token efficiency]"
 
         return content
 

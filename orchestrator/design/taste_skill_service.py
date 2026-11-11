@@ -49,6 +49,15 @@ _ANIMATION_REVIEW_CUES = frozenset(
 )
 
 
+# The upstream skill points at reference files and a browser script that are not
+# bundled, and it tells an agent with tools to run commands. This model only writes code.
+_SENIOR_FRONTEND_NOTE = (
+    "Note: the references/ files and scripts/ named below are not available here. "
+    "Apply the rules inline. You only write the code; do not claim you ran a browser, "
+    "a build or a checker. Reuse the tokens and components given in the task."
+)
+
+
 def _infer_variant_from_prompt(prompt: str) -> DesignVariant | None:
     """Return REDESIGN or ANIMATION_REVIEW if the prompt contains cues, else None."""
     lower = prompt.lower()
@@ -130,6 +139,14 @@ class TasteSkillService:
         variant = self.resolve_variant(task)
         dials = self._build_dials()
         prefix = self._injector.get_prefix(variant, dials)
+
+        # senior-frontend: states, semantics, keyboard and phone-width rules apply to every UI.
+        senior = self._injector.get_skill_content("senior_frontend")
+        if senior:
+            prefix = (
+                f"{prefix}\n\n<senior_frontend>\n{_SENIOR_FRONTEND_NOTE}\n\n{senior}\n"
+                "</senior_frontend>"
+            )
 
         # ── Auto-inject animation skills based on motion intensity ──
         if dials.motion_intensity >= 4:

@@ -115,6 +115,9 @@ class FeatureFlags(BaseSettings):
     # ── taste-skill design quality gates ──────────────────────────────────
     taste_skill_enabled: bool = True  # Inject taste-skill anti-slop prefix for frontend tasks
     image_reference_pipeline: bool = False  # Pre-generate text visual context before code gen
+    # Award-winning-site design brief (awwwards-mcp via npx) for LLM website builds.
+    # Best effort: no npx, no network or a timeout just skips it. ORCH_AWWWARDS_ENABLED=false turns it off.
+    awwwards_enabled: bool = True
 
     # ── Reranking gates ───────────────────────────────────────────────────
     vs_reranking_enabled: bool = False  # CandidateSelector for VS: score top-k candidates
