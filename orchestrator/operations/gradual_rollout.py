@@ -538,8 +538,9 @@ class GradualRolloutManager:
 
             stage_result = rollout.current_stage_result
 
-            # Check failure threshold
-            if stage_result.failures >= current_stage.max_failures:
+            # Check failure threshold. max_failures=0 means no failure tolerated,
+            # so roll back on the first one; with none, 0 >= 0 must not trigger.
+            if stage_result.failures > 0 and stage_result.failures >= current_stage.max_failures:
                 if self.config.auto_rollback_enabled:
                     return StageDecision(
                         decision="rollback",
