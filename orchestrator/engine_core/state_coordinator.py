@@ -90,9 +90,10 @@ class StateCoordinator:
         logger.info(f"Budget: ${state.budget.spent_usd:.4f} / ${state.budget.max_usd}")
         logger.info(f"Time: {state.budget.elapsed_seconds:.1f}s / {state.budget.max_time_seconds}s")
         for tid, result in state.results.items():
+            stop = result.metadata.get("stop_reason")
             logger.info(
                 f"  {tid}: score={result.score:.3f} status={result.status.value} "
                 f"model={result.model_used.value} iters={result.iterations} "
-                f"cost=${result.cost_usd:.4f}"
+                f"cost=${result.cost_usd:.4f}" + (f" stop={stop}" if stop else "")
             )
         logger.info("=" * 60)

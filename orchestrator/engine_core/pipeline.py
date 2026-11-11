@@ -19,6 +19,11 @@ from ..models import Model, Task, TaskResult, TaskStatus
 
 logger = logging.getLogger("orchestrator.engine_core.pipeline")
 
+# abort_reason values that mean "run the pipeline again", not "stop the task".
+# Any other non-empty reason stops the task and is kept on the TaskResult as
+# metadata["stop_reason"].
+RETRY_REASONS: frozenset[str] = frozenset({"retry_for_quality", "ara_retry", "vs_retry_escape"})
+
 
 @dataclass
 class PipelineContext:

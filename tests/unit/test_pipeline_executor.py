@@ -211,3 +211,114 @@ async def test_to_task_result_has_tokens(executor, sample_task):
     """TaskResult should correctly reflect tokens_used."""
     result = await executor.execute(sample_task)
     assert result.tokens_used == {"input": 100, "output": 50}
+
+
+# ── Stop reason: a stopped task must say why ────────────────────────────────
+
+
+def _stopping_pipeline(reason: str):
+    async def run(ctx):
+        ctx.output = ""
+        ctx.score = 0.0
+        ctx.should_abort = True
+        ctx.abort_reason = reason
+        return ctx
+
+    p = MagicMock()
+    p.run = AsyncMock(side_effect=run)
+    return p
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "reason",
+    ["provider_error", "budget_exhausted", "verification_failed", "constitution: no secrets"],
+)
+async def test_named_abort_is_kept_on_the_result(mock_selector, sample_task, reason):
+    ex = PipelineExecutor(
+        pipeline=_stopping_pipeline(reason), selector=mock_selector, background_tasks=set()
+    )
+    result = await ex.execute(sample_task)
+
+    assert result.status == TaskStatus.FAILED
+    assert result.metadata["stop_reason"] == reason
+
+
+@pytest.mark.unit
+async def test_finished_task_has_no_stop_reason(executor, sample_task):
+    result = await executor.execute(sample_task)
+
+    assert "stop_reason" not in result.metadata
+
+
+@pytest.mark.unit
+async def test_retry_reasons_are_not_reported_as_stop_reasons(mock_selector, sample_task):
+    from orchestrator.engine_core.pipeline import RETRY_REASONS
+
+    calls = 0
+
+    async def retry_once(ctx):
+        nonlocal calls
+        calls += 1
+        ctx.score = 0.9
+        ctx.should_abort = True
+        ctx.abort_reason = "retry_for_quality" if calls == 1 else ""
+        return ctx
+
+    p = MagicMock()
+    p.run = AsyncMock(side_effect=retry_once)
+    result = await PipelineExecutor(
+        pipeline=p, selector=mock_selector, background_tasks=set()
+    ).execute(sample_task)
+
+    assert "retry_for_quality" in RETRY_REASONS
+    assert "stop_reason" not in result.metadata
+
+
+@pytest.mark.unit
+def test_stop_reason_survives_save_and_load():
+    from orchestrator.infrastructure.state import _result_from_dict, _result_to_dict
+    from orchestrator.models import Model
+
+    saved = TaskResult(
+        task_id="t",
+        output="",
+        score=0.0,
+        model_used=Model.GPT_4O_MINI,
+        status=TaskStatus.FAILED,
+        metadata={"stop_reason": "provider_error"},
+    )
+
+    loaded = _result_from_dict(_result_to_dict(saved))
+
+    assert loaded.metadata["stop_reason"] == "provider_error"
+
+
+@pytest.mark.unit
+def test_run_summary_names_the_stop_reason(caplog):
+    import logging
+
+    from orchestrator.budget import Budget
+    from orchestrator.engine_core.state_coordinator import StateCoordinator
+    from orchestrator.models import Model, ProjectState
+
+    state = ProjectState(
+        project_description="d",
+        success_criteria="c",
+        budget=Budget(),
+        results={
+            "t": TaskResult(
+                task_id="t",
+                output="",
+                score=0.0,
+                model_used=Model.GPT_4O_MINI,
+                status=TaskStatus.FAILED,
+                metadata={"stop_reason": "budget_exhausted"},
+            )
+        },
+    )
+
+    with caplog.at_level(logging.INFO, logger="orchestrator.engine_core.state_coordinator"):
+        StateCoordinator().log_summary(state)
+
+    assert "stop=budget_exhausted" in caplog.text

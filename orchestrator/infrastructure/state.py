@@ -176,6 +176,7 @@ def _result_to_dict(r: TaskResult) -> dict:
         "deterministic_check_passed": r.deterministic_check_passed,
         "degraded_fallback_count": r.degraded_fallback_count,
         "attempt_history": [_attempt_to_dict(a) for a in r.attempt_history],
+        "stop_reason": r.metadata.get("stop_reason", ""),
     }
 
 
@@ -210,6 +211,7 @@ def _result_from_dict(d: dict) -> TaskResult:
         deterministic_check_passed=d.get("deterministic_check_passed", True),
         degraded_fallback_count=d.get("degraded_fallback_count", 0),
         attempt_history=[_attempt_from_dict(a) for a in d.get("attempt_history", [])],
+        metadata={"stop_reason": d["stop_reason"]} if d.get("stop_reason") else {},
     )
 
 

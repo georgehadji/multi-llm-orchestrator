@@ -86,7 +86,7 @@ class PipelineExecutor:
         Returns:
             TaskResult with final status and output.
         """
-        from .pipeline import PipelineContext
+        from .pipeline import RETRY_REASONS, PipelineContext
         from ..models import TaskStatus
 
         # Select initial model
@@ -114,7 +114,7 @@ class PipelineExecutor:
             ctx = await self._pipeline.run(ctx)
             if best is None or ctx.score > best[0]:
                 best = (ctx.score, ctx.output, ctx.model, ctx.critique)
-            if ctx.abort_reason not in ("retry_for_quality", "ara_retry", "vs_retry_escape"):
+            if ctx.abort_reason not in RETRY_REASONS:
                 break
             # Reset for next attempt
             ctx.reset_for_retry()
@@ -137,6 +137,9 @@ class PipelineExecutor:
             status = TaskStatus.FAILED
 
         result = ctx.to_task_result(status=status)
+        if ctx.should_abort and ctx.abort_reason:
+            # The only record of why the task stopped; status alone says FAILED.
+            result.metadata["stop_reason"] = ctx.abort_reason
 
         # taste-skill: soft anti-slop check (WARN only, never blocks)
         self._check_anti_slop(task, ctx)
